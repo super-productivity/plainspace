@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.1",
+    "@hono/node-server": "^2.0.8",
     "@plainspace/shared": "*",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.45.2",
