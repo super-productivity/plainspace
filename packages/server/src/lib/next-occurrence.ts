@@ -216,6 +216,77 @@ export function startOfDayInTz(instant: Date, tz: string): Date {
   return wallClockToUtc({ ...wc, hour: 0, minute: 0, second: 0 }, tz);
 }
 
+// The item fields the check-off transition reads. A structural subset so both
+// the drizzle ItemRow (routes/items.ts) and the integration route can pass their
+// existing row without a shared DB type.
+interface CheckTransitionItem {
+  checked: boolean;
+  repeat: RepeatRule | null;
+  remindAt: Date | null;
+}
+
+// The single source of truth for how completing / un-completing a RECURRING task
+// moves its remind_at pointer — shared by the in-app items PATCH and the
+// integration PATCH so the two can't drift. Returns the remind_at/notified_at
+// fields to merge into the item update, or null when nothing changes
+// (non-recurring, no completion flip, a pre-completed future occurrence). Pure:
+// no I/O. Callers must skip it when the same PATCH re-schedules remind_at — that
+// path sets remind_at/notified_at from the payload and owns the pointer.
+//
+// `nextChecked` is the item's completion state AFTER this update (for the in-app
+// route that's `updates.checked ?? existing.checked`, so a plain rename — which
+// doesn't touch checked — is a no-op here).
+export function recurrenceUpdateOnCheck(
+  item: CheckTransitionItem,
+  nextChecked: boolean,
+  now: Date,
+): { remindAt: Date; notifiedAt: Date | null } | null {
+  if (!item.repeat || !item.remindAt) return null;
+
+  // Completing a recurring task whose occurrence DAY has begun advances
+  // remind_at to the next occurrence (so it rests on what's next and the
+  // day-start reopen can't re-uncheck it) and frees notified_at to fire. We step
+  // off max(remindAt, now): `now` skips a missed streak when overdue but can land
+  // back on today's not-yet-reached time-of-day (an overdue daily checked off in
+  // the morning) — so step once more when the result is still today, since
+  // completing means today is done. Skipped when the occurrence is still a future
+  // day (pre-completing leaves it scheduled).
+  if (
+    nextChecked &&
+    !item.checked &&
+    startOfDayInTz(item.remindAt, item.repeat.tz).getTime() <= now.getTime()
+  ) {
+    const after = item.remindAt.getTime() > now.getTime() ? item.remindAt : now;
+    let next = nextOccurrence(item.repeat, after);
+    if (
+      startOfDayInTz(next, item.repeat.tz).getTime() <=
+      startOfDayInTz(now, item.repeat.tz).getTime()
+    ) {
+      next = nextOccurrence(item.repeat, next);
+    }
+    return { remindAt: next, notifiedAt: null };
+  }
+
+  // Restoring (un-checking) inverts that advance: completion stepped remind_at to
+  // the next occurrence, so on un-check we roll it back one occurrence — to the
+  // one immediately before the advanced pointer (today's, for a task completed
+  // earlier today; a multi-day-overdue completion that skipped its missed streak
+  // rolls back to the most recent occurrence, not the stale original).
+  // previousOccurrence returns null when remind_at is still the anchor — i.e. a
+  // pre-completed FUTURE occurrence that was never advanced — so the rollback
+  // only fires when an advance actually happened. notified_at is restored too: a
+  // now-past occurrence is marked notified so it doesn't re-fire a push, while a
+  // still-future one is freed to fire at its time.
+  if (!nextChecked && item.checked) {
+    const restored = previousOccurrence(item.repeat, item.remindAt);
+    if (restored) {
+      return { remindAt: restored, notifiedAt: restored.getTime() <= now.getTime() ? now : null };
+    }
+  }
+
+  return null;
+}
+
 function addDays(wc: WallClock, days: number): { year: number; month: number; day: number } {
   const ms = Date.UTC(wc.year, wc.month - 1, wc.day) + days * 86_400_000;
   const d = new Date(ms);
