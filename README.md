@@ -6,6 +6,8 @@ by link, get things planned together. Live updates arrive over SSE, and
 reminders arrive as web push, so it works like an app without anyone
 installing one (it's an installable PWA if they want to).
 
+![A shared Plainspace with tasks, notes, a poll, and recent activity](docs/assets/plainspace-space.png)
+
 - **Hosted instance:** [plainspace.org](https://plainspace.org)
 - **Self-hosting:** [docs/self-hosting.md](docs/self-hosting.md)
 - **License:** [MIT](LICENSE)
