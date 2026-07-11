@@ -34,7 +34,7 @@ function scrollToTarget(el: Element, expanded: boolean) {
   else el.scrollIntoView(SCROLL);
 }
 
-export function focusAddTask() {
+function focusAddTask() {
   const input = document.querySelector<HTMLInputElement>('[data-testid="add-item-input"]');
   if (!input) return;
   const expanded = expandCard(input);

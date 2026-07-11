@@ -63,6 +63,12 @@
   color: var(--color-toast-text);
 }
 
+.actionButton,
+.dismiss {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
 .progress {
   position: absolute;
   left: 0;

@@ -31,7 +31,7 @@ import {
 import Shell from '../components/layout/Shell';
 import Header from '../components/layout/Header';
 import MobileQuickActions from '../components/layout/MobileQuickActions';
-import FirstSharedWin from '../components/onboarding/FirstSharedWin';
+import FirstShareNudge from '../components/onboarding/FirstShareNudge';
 import ListCard from '../components/lists/ListCard';
 import ScratchpadCard from '../components/scratchpads/ScratchpadCard';
 import PanelColumn from '../components/panels/PanelColumn';
@@ -376,48 +376,49 @@ export default function Project() {
               onMembersOpenChange={handleMembersOpenChange}
             />
 
-            <div class={styles.banners}>
-              <Show when={currentMember() && !currentMember()!.emailVerified}>
-                <Banner
-                  data-testid="email-connection-banner"
-                  icon={
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <rect width="20" height="16" x="2" y="4" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  }
-                  action={
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleConnectEmailClick}
-                      data-testid="email-connection-button"
-                    >
-                      Add your email
-                    </Button>
-                  }
-                >
-                  This browser can open this Space. Add an email to reopen it elsewhere.
-                </Banner>
-              </Show>
+            <FirstShareNudge
+              slug={params.slug}
+              projectName={state.project!.name}
+              sharingMode={state.project!.sharingMode}
+              isCreator={currentMember()?.isCreator ?? false}
+              memberCount={state.members.length}
+              taskCount={sortedItems().length}
+            />
 
-              <FirstSharedWin
-                slug={params.slug}
-                memberCount={state.members.length}
-                taskCount={sortedItems().length}
-              />
-            </div>
+            <Show when={currentMember() && !currentMember()!.emailVerified}>
+              <Banner
+                data-testid="email-connection-banner"
+                icon={
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                }
+                action={
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleConnectEmailClick}
+                    data-testid="email-connection-button"
+                  >
+                    Add your email
+                  </Button>
+                }
+              >
+                This browser can open this Space. Add an email to reopen it elsewhere.
+              </Banner>
+            </Show>
 
             <div class={styles.content}>
               <div class={styles.mainColumn}>
