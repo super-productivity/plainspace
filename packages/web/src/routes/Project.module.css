@@ -31,6 +31,12 @@
   background: transparent;
 }
 
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
 /* Left column: the todo list with recent activity stacked a constant gap
    directly beneath it. The gap is well above the `--panel-gap` card rhythm to
    set recent activity clearly apart from the list. The 1.35 vs 1 flex-grow

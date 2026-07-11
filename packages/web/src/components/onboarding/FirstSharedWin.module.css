@@ -1,0 +1,10 @@
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 600px) {
+  .actions {
+    flex-direction: column;
+  }
+}

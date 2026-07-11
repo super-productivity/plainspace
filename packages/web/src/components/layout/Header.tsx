@@ -1,6 +1,6 @@
 import { For, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import type { Project, Member } from '@plainspace/shared';
-import { addToast } from '../../lib/toast';
+import { copyJoinLink } from '../../lib/join-link';
 import MemberList from '../members/MemberList';
 import { Avatar } from '../ui';
 import styles from './Header.module.css';
@@ -67,14 +67,6 @@ export default function Header(props: HeaderProps) {
     document.documentElement.style.removeProperty('--header-height');
   });
 
-  const copyJoinLink = () => {
-    const link = `${window.location.origin}/${props.slug}/join`;
-    navigator.clipboard
-      .writeText(link)
-      .then(() => addToast('Join link copied. Anyone with this link can join this Space.'))
-      .catch(() => addToast('Could not copy link'));
-  };
-
   return (
     <>
       <header
@@ -134,7 +126,7 @@ export default function Header(props: HeaderProps) {
               <button
                 type="button"
                 class={styles.linkButton}
-                onClick={copyJoinLink}
+                onClick={() => void copyJoinLink(props.slug)}
                 aria-label={linkLabel}
                 data-testid="space-link-button"
               >
