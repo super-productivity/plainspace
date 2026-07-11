@@ -1,3 +1,31 @@
+.transition {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 220ms ease,
+    opacity 160ms ease,
+    margin-top 220ms ease;
+}
+
+.transition[data-visible='false'] {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows 220ms ease,
+    opacity 160ms ease,
+    margin-top 220ms ease,
+    visibility 0s linear 220ms;
+}
+
+.clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .actions {
   display: flex;
   gap: var(--space-sm);
@@ -6,5 +34,12 @@
 @media (max-width: 600px) {
   .actions {
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition,
+  .transition[data-visible='false'] {
+    transition: none;
   }
 }

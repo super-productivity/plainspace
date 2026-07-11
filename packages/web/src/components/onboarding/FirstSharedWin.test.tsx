@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 
 const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
 vi.mock('../../lib/toast', () => ({ addToast }));
@@ -15,15 +16,35 @@ describe('FirstSharedWin', () => {
     const { unmount } = render(() => (
       <FirstSharedWin slug="summer" memberCount={1} taskCount={0} />
     ));
-    expect(screen.getByTestId('first-shared-win')).toBeTruthy();
+    expect(screen.getByTestId('first-shared-win-transition').dataset.visible).toBe('true');
     unmount();
 
     const withTask = render(() => <FirstSharedWin slug="summer" memberCount={1} taskCount={1} />);
-    expect(screen.queryByTestId('first-shared-win')).toBeNull();
+    expect(screen.getByTestId('first-shared-win-transition').dataset.visible).toBe('false');
     withTask.unmount();
 
     render(() => <FirstSharedWin slug="summer" memberCount={2} taskCount={0} />);
-    expect(screen.queryByTestId('first-shared-win')).toBeNull();
+    expect(screen.getByTestId('first-shared-win-transition').dataset.visible).toBe('false');
+  });
+
+  it('keeps the prompt mounted while animating between visible and hidden states', () => {
+    const [taskCount, setTaskCount] = createSignal(0);
+    render(() => <FirstSharedWin slug="summer" memberCount={1} taskCount={taskCount()} />);
+    const prompt = screen.getByTestId('first-shared-win-transition');
+
+    expect(prompt.dataset.visible).toBe('true');
+    expect(prompt.getAttribute('aria-hidden')).toBeNull();
+    expect(prompt.inert).toBe(false);
+
+    setTaskCount(1);
+    expect(prompt.dataset.visible).toBe('false');
+    expect(prompt.getAttribute('aria-hidden')).toBe('true');
+    expect(prompt.inert).toBe(true);
+
+    setTaskCount(0);
+    expect(prompt.dataset.visible).toBe('true');
+    expect(prompt.getAttribute('aria-hidden')).toBeNull();
+    expect(prompt.inert).toBe(false);
   });
 
   it('focuses the existing add-task input', () => {
