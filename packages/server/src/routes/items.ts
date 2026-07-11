@@ -20,7 +20,7 @@ import { authMiddleware, type AuthContext } from '../middleware/auth.js';
 import { uuidParam } from '../middleware/uuid-param.js';
 import type { ProjectContext } from '../middleware/project.js';
 import { serializeItem } from '../lib/serialize.js';
-import { nextOccurrence, previousOccurrence, startOfDayInTz } from '../lib/next-occurrence.js';
+import { recurrenceUpdateOnCheck } from '../lib/next-occurrence.js';
 import { sseManager } from '../services/sse-manager.js';
 import { recordActivity } from '../services/activity.js';
 import { readJson } from '../lib/json.js';
@@ -265,59 +265,18 @@ itemRoutes.patch('/:itemId', authMiddleware, uuidParam('itemId'), async (c) => {
       }
     }
 
-    // Completing a recurring task whose occurrence DAY has begun advances
-    // remind_at to the next occurrence (so it rests on what's next and the
-    // day-start reopen can't re-uncheck it) and frees notified_at to fire. We
-    // step off max(remindAt, now): `now` skips a missed streak when overdue but
-    // can land back on today's not-yet-reached time-of-day (an overdue daily
-    // checked off in the morning) — so step once more when the result is still
-    // today, since completing means today is done. Skipped when the occurrence
-    // is still a future day (pre-completing leaves it scheduled) or the PATCH
-    // itself re-schedules the reminder.
-    const now = new Date();
-    if (
-      updates.checked === true &&
-      !existing.checked &&
-      parsed.data.remindAt === undefined &&
-      existing.repeat &&
-      existing.remindAt &&
-      startOfDayInTz(existing.remindAt, existing.repeat.tz).getTime() <= now.getTime()
-    ) {
-      const after = existing.remindAt.getTime() > now.getTime() ? existing.remindAt : now;
-      let next = nextOccurrence(existing.repeat, after);
-      if (
-        startOfDayInTz(next, existing.repeat.tz).getTime() <=
-        startOfDayInTz(now, existing.repeat.tz).getTime()
-      ) {
-        next = nextOccurrence(existing.repeat, next);
-      }
-      updates.remindAt = next;
-      updates.notifiedAt = null;
-    }
-
-    // Restoring (un-checking) a recurring task inverts that advance: completion
-    // stepped remind_at to the next occurrence, so on un-check we roll it back one
-    // occurrence — to the one immediately before the advanced pointer (today's,
-    // for a task completed earlier today; a multi-day-overdue completion that
-    // skipped its missed streak rolls back to the most recent occurrence, not the
-    // stale original). previousOccurrence returns null when remind_at is still the
-    // anchor — i.e. a pre-completed FUTURE occurrence that was never advanced — so
-    // the rollback only fires when an advance actually happened. notified_at is
-    // restored too: a now-past occurrence is
-    // marked notified so it doesn't re-fire a push, while a still-future one is
-    // freed to fire at its time. Skipped when the PATCH itself re-schedules.
-    if (
-      updates.checked === false &&
-      existing.checked &&
-      parsed.data.remindAt === undefined &&
-      existing.repeat &&
-      existing.remindAt
-    ) {
-      const restored = previousOccurrence(existing.repeat, existing.remindAt);
-      if (restored) {
-        updates.remindAt = restored;
-        updates.notifiedAt = restored.getTime() <= now.getTime() ? now : null;
-      }
+    // Advance / roll back a recurring task's remind_at when this PATCH flips its
+    // completion — the same transition the integration PATCH applies, so the two
+    // routes can't drift (recurrenceUpdateOnCheck is the shared owner of the
+    // rationale). Skipped when the PATCH itself re-schedules: that path already
+    // set remind_at/notified_at from the payload above and owns the pointer.
+    if (parsed.data.remindAt === undefined) {
+      const transition = recurrenceUpdateOnCheck(
+        existing,
+        updates.checked ?? existing.checked,
+        new Date(),
+      );
+      if (transition) Object.assign(updates, transition);
     }
 
     const [updated] = await tx

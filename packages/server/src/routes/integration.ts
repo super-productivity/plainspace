@@ -15,6 +15,7 @@ import { recordActivity } from '../services/activity.js';
 import { serializeItem, serializeProject } from '../lib/serialize.js';
 import { encryptedEmailFields, normalizeEmail } from '../lib/email-crypto.js';
 import { ensureProjectDefaults } from '../services/project-defaults.js';
+import { recurrenceUpdateOnCheck } from '../lib/next-occurrence.js';
 import { checkRateLimit } from '../lib/rate-limit.js';
 import {
   itemUrl,
@@ -415,6 +416,11 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
   }
 
   const action = done ? 'item.checked' : 'item.unchecked';
+  // Same recurring-completion transition the in-app PATCH applies: advance
+  // remind_at to the next occurrence on complete (roll back on un-complete) and
+  // free notified_at, so a recurring task completed from SP isn't reopened by
+  // the day-start sweep on the next tick. null for non-recurring / no-op.
+  const recurrence = recurrenceUpdateOnCheck(item, done, new Date());
   const result = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(items)
@@ -425,6 +431,7 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
         // PATCH (routes/items.ts): checking moves to 'done', unchecking a
         // done item falls back to 'todo'.
         columnId: done ? 'done' : item.columnId === 'done' ? 'todo' : item.columnId,
+        ...(recurrence ?? {}),
       })
       .where(
         and(

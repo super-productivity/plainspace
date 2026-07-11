@@ -713,6 +713,58 @@ describe('PATCH /api/integration/tasks/:taskId — done toggle', () => {
     expect(row.checked).toBe(false);
     expect(row.columnId).toBe('todo');
   });
+
+  // Regression: completing a recurring task via the integration must advance
+  // remind_at to the next occurrence — exactly like the in-app PATCH — or the
+  // reminder sweep's day-start reopen re-unchecks it on the next tick.
+  it('completing a recurring task advances remindAt to the next occurrence and frees notified_at', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    // Reminder earlier today: its occurrence day has begun, so completing it
+    // means "done for today" → rest on the NEXT occurrence.
+    const pastToday = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const anchor = pastToday.toISOString();
+    const item = await addItem(listId, projectId, {
+      assignedTo: memberId,
+      remindAt: pastToday,
+      repeat: { freq: 'daily', interval: 1, tz: 'Europe/Berlin', anchor },
+    });
+    await db.update(items).set({ notifiedAt: pastToday }).where(eq(items.id, item.id));
+
+    const res = await patchDone(item.id, token, true);
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.checked).toBe(true);
+    // Rests on a future occurrence so the day-start reopen can't re-uncheck it,
+    // with notified_at freed and the immutable anchor preserved.
+    expect(row.remindAt!.getTime()).toBeGreaterThan(Date.now());
+    expect(row.notifiedAt).toBeNull();
+    expect(row.repeat?.anchor).toBe(anchor);
+  });
+
+  it('un-completing a recurring task rolls remindAt back one occurrence', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    // The row as a completion would have left it: remind_at advanced two daily
+    // occurrences past the anchor. Un-checking rolls it back exactly one
+    // occurrence (to the anchor + 1 day). Fixed instants so the assertion is
+    // deterministic; June → Berlin is CEST throughout (no DST transition).
+    const anchor = '2026-06-01T09:00:00.000Z'; // 11:00 Europe/Berlin, daily
+    const item = await addItem(listId, projectId, {
+      assignedTo: memberId,
+      columnId: 'done',
+      checked: true,
+      checkedBy: memberId,
+      remindAt: new Date('2026-06-03T09:00:00.000Z'),
+      repeat: { freq: 'daily', interval: 1, tz: 'Europe/Berlin', anchor },
+    });
+
+    const res = await patchDone(item.id, token, false);
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.checked).toBe(false);
+    expect(row.remindAt?.toISOString()).toBe('2026-06-02T09:00:00.000Z');
+  });
 });
 
 describe('auth', () => {
