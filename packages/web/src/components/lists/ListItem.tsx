@@ -143,7 +143,7 @@ export default function ListItem(props: ListItemProps) {
       .updateItem(props.slug, props.item.id, {
         checked,
       })
-      .catch(() => addToast('Could not update the item. Please try again.'));
+      .catch(() => void addToast('Could not update the item. Please try again.'));
     applyResult(result);
   }
 
@@ -163,7 +163,7 @@ export default function ListItem(props: ListItemProps) {
       .updateItem(props.slug, props.item.id, {
         assignedTo: memberId,
       })
-      .catch(() => addToast('Could not change the assignee. Please try again.'));
+      .catch(() => void addToast('Could not change the assignee. Please try again.'));
     applyResult(result);
   }
 
@@ -195,7 +195,7 @@ export default function ListItem(props: ListItemProps) {
     if (trimmed && trimmed !== props.item.text) {
       const result = await api
         .updateItem(props.slug, props.item.id, { text: trimmed })
-        .catch(() => addToast('Could not save the edit. Please try again.'));
+        .catch(() => void addToast('Could not save the edit. Please try again.'));
       applyResult(result);
     }
     setEditing(false);

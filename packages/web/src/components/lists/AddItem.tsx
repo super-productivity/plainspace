@@ -82,6 +82,7 @@ export default function AddItem(props: AddItemProps) {
           ref={inputRef}
           class={styles.input}
           type="text"
+          name="item"
           value={text()}
           onInput={(e) => handleInput(e.currentTarget.value)}
           onKeyDown={handleKeyDown}

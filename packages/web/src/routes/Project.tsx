@@ -31,6 +31,7 @@ import {
 import Shell from '../components/layout/Shell';
 import Header from '../components/layout/Header';
 import MobileQuickActions from '../components/layout/MobileQuickActions';
+import FirstShareNudge from '../components/onboarding/FirstShareNudge';
 import ListCard from '../components/lists/ListCard';
 import ScratchpadCard from '../components/scratchpads/ScratchpadCard';
 import PanelColumn from '../components/panels/PanelColumn';
@@ -373,6 +374,15 @@ export default function Project() {
               showMembers={showMembers()}
               focusEmailVerification={focusEmailVerification()}
               onMembersOpenChange={handleMembersOpenChange}
+            />
+
+            <FirstShareNudge
+              slug={params.slug}
+              projectName={state.project!.name}
+              sharingMode={state.project!.sharingMode}
+              isCreator={currentMember()?.isCreator ?? false}
+              memberCount={state.members.length}
+              taskCount={sortedItems().length}
             />
 
             <Show when={currentMember() && !currentMember()!.emailVerified}>

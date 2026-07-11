@@ -120,14 +120,16 @@ export default function MemberList(props: MemberListProps) {
     setRemoveTarget(null);
     await api
       .removeMember(props.slug, member.id, reason ? { reason } : undefined)
-      .catch(() => addToast(`Could not remove ${member.displayName}. Please try again.`));
+      .catch(() => void addToast(`Could not remove ${member.displayName}. Please try again.`));
   }
 
   async function handleToggleRole(member: Member) {
     const newRole = member.role === 'admin' ? 'member' : 'admin';
     await api
       .updateMemberRole(props.slug, member.id, { role: newRole })
-      .catch(() => addToast(`Could not change ${member.displayName}'s role. Please try again.`));
+      .catch(
+        () => void addToast(`Could not change ${member.displayName}'s role. Please try again.`),
+      );
   }
 
   async function handleExport() {

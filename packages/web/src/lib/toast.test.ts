@@ -7,6 +7,12 @@ beforeEach(() => {
 });
 
 describe('addToast dedupe', () => {
+  it('returns the id needed to dismiss the toast later', () => {
+    const id = addToast('Saved');
+
+    expect(id).toBe(toasts()[0].id);
+  });
+
   it('keeps both "Undo" toasts when two same-named items are deleted', () => {
     // Regression: dedupe used to key on message text alone, so deleting two
     // items called "Buy milk" collapsed into one toast and dropped the second
