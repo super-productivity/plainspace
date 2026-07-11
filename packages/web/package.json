@@ -19,7 +19,7 @@
     "@plainspace/shared": "*",
     "@solidjs/router": "^0.15.3",
     "qrcode": "^1.5.4",
-    "solid-js": "^1.9.5",
+    "solid-js": "^1.9.14",
     "sortablejs": "^1.15.7"
   },
   "devDependencies": {
