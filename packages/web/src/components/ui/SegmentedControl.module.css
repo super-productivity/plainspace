@@ -1,0 +1,30 @@
+.control {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.button {
+  padding: 2px 0;
+  color: inherit;
+  font: inherit;
+}
+
+@media (hover: hover) {
+  .button:hover {
+    color: var(--color-text);
+  }
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.active {
+  color: var(--color-text);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-accent);
+}

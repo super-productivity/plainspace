@@ -1,0 +1,177 @@
+/* Shared chrome + item styles for every panel card (PollCard, TimeSlotCard).
+   Per-type cards add only their unique class (.fill, .itemBest) in their own
+   module. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  /* No flex gap: the header→body spacing lives on the CollapseBody's margin-top
+     so it folds away with the body when the card collapses. */
+  /* Sheet surface to match ListCard/ScratchpadCard. */
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  /* 20px sides match the other sheet cards and give the header's hanging
+     collapse chevron room in the left gutter (it hangs ~14px out of flow). */
+  padding: 14px 20px 16px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.title {
+  width: fit-content;
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Inline rename field: mirror the heading's type so the swap is seamless, with a
+   primary underline (in place of the hand-drawn one) to signal it's editable. */
+.titleInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0 0 2px;
+  border: none;
+  border-bottom: 2px solid var(--color-primary);
+  background: transparent;
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: inherit;
+}
+
+.titleInput:focus {
+  outline: none;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: block;
+}
+
+.item {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  overflow: hidden;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.item:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.item:disabled {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+/* The item the current member selected (a vote, or a slot marked available). */
+.itemActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-softer);
+}
+
+/* Dark mode only: the translucent fill is too faint on the dark card surface to
+   read at a glance, leaving the 1px border to do all the work. A left accent bar
+   carries the voted state instead. Inset shadow (not a border) so it stacks with
+   .itemBest's accent border and .itemBusy's border animation rather than
+   fighting them. Light mode reads fine from the fill, so it's left unchanged. */
+@media (prefers-color-scheme: dark) {
+  .itemActive {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+  }
+}
+
+/* While the member's click is in flight, ease the border between tones so the
+   click feels acknowledged before the SSE echo updates state. */
+.itemBusy {
+  animation: panel-item-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes panel-item-pulse {
+  from {
+    border-color: var(--color-border-strong);
+  }
+  to {
+    border-color: var(--color-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .itemBusy {
+    animation: none;
+    border-color: var(--color-primary);
+  }
+}
+
+.itemContent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.itemText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  line-height: var(--leading-snug);
+}
+
+.itemMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.itemCount {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  min-width: 1.25em;
+  text-align: right;
+}
+
+.itemAvatars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}

@@ -1,0 +1,16 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-member-chip-bg);
+}
+
+.name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  padding-right: 6px;
+}

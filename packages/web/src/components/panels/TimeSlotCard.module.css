@@ -1,0 +1,8 @@
+/* Shared card chrome + item styles live in PanelCard.module.css. TimeSlotCard
+   adds only the best-slot accent ring. */
+
+/* The current best slot(s) -- most available members. A subtle accent ring so
+   it reads as "this is the front-runner" without overpowering my own picks. */
+.itemBest {
+  border-color: var(--color-accent);
+}

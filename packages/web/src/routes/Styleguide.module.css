@@ -1,0 +1,230 @@
+.page {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-md) 64px;
+}
+
+.header {
+  margin-bottom: var(--space-xl);
+}
+
+.eyebrow {
+  margin-bottom: var(--space-xs);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: clamp(3rem, 10vw, 5rem);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+.section {
+  padding: var(--space-lg) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  margin-bottom: var(--space-md);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-sm);
+}
+
+.swatch {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.swatch span {
+  display: block;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.swatch strong {
+  font-size: var(--text-sm);
+}
+
+.swatch code {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.surfaceSwatch {
+  background: var(--color-surface);
+}
+
+.primarySwatch {
+  background: var(--color-primary);
+}
+
+.accentSwatch {
+  background: var(--color-accent);
+}
+
+.successSwatch {
+  background: var(--color-success);
+}
+
+.warningSwatch {
+  background: var(--color-warning);
+}
+
+.dangerSwatch {
+  background: var(--color-danger);
+}
+
+.logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.logo {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.logo figcaption {
+  display: grid;
+  gap: 2px;
+}
+
+.logo figcaption strong {
+  font-size: var(--text-sm);
+}
+
+.logo figcaption code {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.logoFrameBare,
+.logoFrameRounded,
+.logoFrameMaskable {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+}
+
+.logoFrameBare {
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.logoFrameRounded {
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.logoFrameMaskable {
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.logoSafeZone {
+  position: absolute;
+  inset: 10%;
+  border: 1px dashed var(--color-text-secondary);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.formDemo {
+  max-width: 420px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.headerDemo {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.headerDemo > :global(header) {
+  position: static;
+  transform: none;
+  width: 100%;
+  left: auto;
+}
+
+.quickActionsDemo {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-md);
+  display: flex;
+  justify-content: center;
+}
+
+/* The pill is normally fixed/bottom-right and hidden above 760 px;
+   in the styleguide we render it inline at any breakpoint and neutralize
+   the scroll-driven hide so it stays visible while reading docs. */
+.quickActionsDemo > div {
+  position: static;
+  display: inline-flex;
+  animation: none;
+}
+
+.quickActionsDemo > div[data-hidden='true'] {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.helperText {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.toastStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 420px;
+}
+
+.bannerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}

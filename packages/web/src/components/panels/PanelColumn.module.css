@@ -1,0 +1,8 @@
+.column {
+  display: flex;
+  flex-direction: column;
+  /* Inherited from `.content` (Project.module.css) so panels, time slots and
+     the add-panel button share the page's uniform card rhythm. */
+  gap: var(--panel-gap, 16px);
+  min-width: 0;
+}

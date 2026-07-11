@@ -1,0 +1,22 @@
+/* Hand-drawn underline shared by every card heading (poll, timeslot, checklist,
+   scratchpad): ink from --color-primary, wobble from the shared --underline-hand
+   mask. Starts flush with the heading's left edge so it lines up with the card's
+   body content, with a touch of trailing overshoot on the right to read
+   hand-drawn. Apply alongside the heading's own class; the host should be
+   shrink-wrapped (width: fit-content) so the line spans the text, not the row. */
+.line {
+  position: relative;
+}
+
+.line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: -6px;
+  bottom: -6px;
+  height: 7px;
+  background-color: var(--color-primary);
+  -webkit-mask: var(--underline-hand) center / 100% 100% no-repeat;
+  mask: var(--underline-hand) center / 100% 100% no-repeat;
+  pointer-events: none;
+}

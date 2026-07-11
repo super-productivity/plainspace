@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.vite
+coverage
+playwright-report
+test-results
+packages/server/drizzle
+package-lock.json

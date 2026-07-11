@@ -1,0 +1,36 @@
+{
+  "name": "@plainspace/server",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "analytics": "tsx src/scripts/analytics.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "@plainspace/shared": "*",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.25",
+    "nanoid": "^5.1.5",
+    "nodemailer": "^9.0.1",
+    "postgres": "^3.4.7",
+    "tsx": "^4.23.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.0",
+    "@types/web-push": "^3.6.4",
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  }
+}

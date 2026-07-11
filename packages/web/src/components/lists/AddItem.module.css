@@ -1,0 +1,121 @@
+.form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Match a task row's height (ListItem .item min-height) so the add bar
+     reads as the next row in the list. Input/button center within it. */
+  min-height: 46px;
+  padding: 0 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.submitting {
+  cursor: progress;
+}
+
+.error {
+  border-bottom-color: var(--color-danger);
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: none;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  background: transparent;
+  min-height: 32px;
+}
+
+@media (hover: none) {
+  .input {
+    min-height: 40px;
+    /* 16px floor: keeps iOS Safari from zooming on focus. */
+    font-size: 16px;
+  }
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.input:focus {
+  outline: none;
+}
+
+.errorMessage {
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  padding-bottom: 2px;
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
+  line-height: 1;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease,
+    border-color 120ms ease;
+}
+
+@media (hover: none) {
+  .button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.button:hover:not(:disabled) {
+  background: var(--color-accent);
+  color: var(--color-surface);
+  transform: scale(1.05);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.icon {
+  display: block;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

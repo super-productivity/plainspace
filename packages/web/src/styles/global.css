@@ -1,0 +1,277 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --color-bg: #ece5d4;
+  --color-surface: #faf6ef;
+  --color-surface-raised: #fffaf2;
+  --color-surface-translucent: rgba(255, 250, 242, 0.88);
+  --color-soft: #efe9dc;
+  --color-text: #1f1c17;
+  --color-text-secondary: #6d6456;
+  --color-border: #d9d2c4;
+  --color-border-strong: #b3a78f;
+  --color-primary: #b05a3c;
+  --color-primary-hover: #9d4e35;
+  --color-on-primary: #fffaf2;
+  --color-accent: #3f7473;
+  --color-accent-hover: #2f5f5e;
+  --color-on-accent: #fffaf2;
+  --color-danger: #b3402f;
+  --color-success: #59795f;
+  --color-warning: #b7792f;
+  /* Body links need 4.5:1 on the page background; --color-primary only
+     reaches 3.8:1 there, so links get a darker terracotta of their own. */
+  --color-link: #9d4e35;
+  --color-link-hover: #8f4630;
+
+  --color-grid-line: rgba(31, 28, 23, 0.018);
+  --color-grid-line-vertical: rgba(31, 28, 23, 0.014);
+  /* The page ruling, shared by the body and the fixed header so the grid is
+     continuous behind the header. The inner color vars resolve per scheme. */
+  --grid-image:
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line-vertical) 1px, transparent 1px);
+  /* Hand-drawn underline for section headings. Used as a mask so the ink color
+     comes from background-color (themeable); the SVG is only the wobbly shape. */
+  --underline-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 C 40 4 90 8 140 6 C 190 4 240 8 298 5' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+  /* Hand-drawn task-checkbox marks, same mask trick as --underline-hand: the
+     SVGs are only the wobbly shapes, ink comes from the element's
+     background-color (so it stays themeable). --ring-hand is the resting
+     squircle (a hand-drawn rounded square — a paper to-do box); --disc-hand the
+     checked fill (the same squircle, filled); --check-hand the tick. */
+  --ring-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 3.1 C 12 2.8 15.4 2.9 16.6 3.3 C 19.6 4 21.1 5.6 21 9 C 21.2 12 21.1 15.2 20.7 16.4 C 20 19.5 18.3 21.1 15 21 C 12 21.2 8.6 21.1 7.4 20.7 C 4.4 20 2.9 18.4 3 15 C 2.8 12 2.9 8.7 3.3 7.5 C 3.9 4.8 5.6 3.2 9 3.1' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --disc-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 2.6 C 12 2.3 15.6 2.4 16.9 2.9 C 19.9 3.7 21.4 5.3 21.4 8.8 C 21.6 12 21.5 15.6 21 16.9 C 20.2 19.8 18.5 21.4 15 21.4 C 12 21.6 8.4 21.5 7.1 21 C 4.1 20.2 2.6 18.6 2.6 15.1 C 2.4 12 2.5 8.3 3 7.1 C 3.8 4.2 5.5 2.7 9 2.6 Z' fill='black'/%3E%3C/svg%3E");
+  --check-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 12.2 C 6.2 13.6 7.6 15.6 9.2 18.6 C 9.8 19.7 10.8 19.4 11.3 18.1 C 13.1 13.6 16.2 8.4 20.6 4.2' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --color-shell-border: rgba(179, 167, 143, 0.55);
+  --color-hover-soft: rgba(239, 233, 220, 0.58);
+  --color-primary-soft: rgba(176, 90, 60, 0.12);
+  --color-primary-softer: rgba(176, 90, 60, 0.08);
+  --color-accent-soft: rgba(63, 116, 115, 0.12);
+  --color-focus-ring: rgba(63, 116, 115, 0.26);
+  --color-danger-soft: rgba(179, 64, 47, 0.1);
+  --color-overlay: rgba(31, 28, 23, 0.28);
+  --color-overlay-strong: rgba(31, 28, 23, 0.38);
+  --color-avatar-border: rgba(31, 28, 23, 0.08);
+  --color-avatar-inset: rgba(255, 250, 242, 0.36);
+  --color-member-chip-bg: rgba(250, 246, 239, 0.7);
+  --color-toast-bg: #363026;
+  --color-toast-text: #fffaf2;
+  /* Light teal in both schemes: the dark teal accent is illegible on the
+     dark toast surface. */
+  --color-toast-action: #8fc7c2;
+  --color-toast-action-bg: rgba(255, 250, 242, 0.12);
+  --color-toast-action-bg-hover: rgba(255, 250, 242, 0.2);
+  --color-toast-dismiss: rgba(255, 250, 242, 0.75);
+
+  --color-warning-bg: #f1d19c;
+  --color-warning-text: #6d4317;
+  --color-warning-border: #d7a765;
+  --color-token-bg: #fefce8;
+  --color-token-border: #fde047;
+  --color-token-text: #92400e;
+  --color-online-bg: #dfe8d6;
+  --color-online-text: #436044;
+  --color-role-bg: #e8ddc4;
+  --color-role-text: #714f23;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --shadow-sm: 0 1px 2px rgba(31, 28, 23, 0.06);
+  --shadow-md: 0 12px 30px rgba(31, 28, 23, 0.09);
+  --shadow-lg: 0 24px 60px rgba(31, 28, 23, 0.13);
+  /* Resting "sheet of paper" lift: a tight contact shadow + soft ambient.
+     Defines the work sheets' edges without a border. */
+  --shadow-paper: 0 1px 2px rgba(31, 28, 23, 0.05), 0 6px 16px rgba(31, 28, 23, 0.07);
+
+  --font-sans:
+    Seravek, 'Gill Sans Nova', Ubuntu, Calibri, 'DejaVu Sans', source-sans-pro, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Mono', monospace;
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 3rem;
+  --text-display: 3.5rem;
+
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  --tracking-display: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.06em;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  --touch-target: 44px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-bg: #1a1816;
+    --color-surface: #2f2a23;
+    --color-surface-raised: #3a3329;
+    --color-surface-translucent: rgba(58, 51, 41, 0.88);
+    --color-soft: #473f33;
+    --color-text: #f3eee2;
+    --color-text-secondary: #b6ad9c;
+    --color-border: #5a5043;
+    --color-border-strong: #7d7567;
+    --color-primary: #f0a07c;
+    --color-primary-hover: #e0875f;
+    --color-on-primary: #1f1c17;
+    --color-accent: #8fc7c2;
+    --color-accent-hover: #a9d9d5;
+    --color-on-accent: #18221f;
+    --color-danger: #f08f86;
+    --color-success: #8aae82;
+    --color-warning: #e0b977;
+    --color-link: #f0a07c;
+    --color-link-hover: #e0875f;
+
+    --color-grid-line: rgba(243, 238, 226, 0.045);
+    --color-grid-line-vertical: rgba(243, 238, 226, 0.03);
+    --color-shell-border: rgba(125, 117, 103, 0.55);
+    --color-hover-soft: rgba(71, 63, 51, 0.7);
+    --color-primary-soft: rgba(240, 160, 124, 0.16);
+    --color-primary-softer: rgba(240, 160, 124, 0.1);
+    --color-accent-soft: rgba(143, 199, 194, 0.14);
+    --color-focus-ring: rgba(143, 199, 194, 0.28);
+    --color-danger-soft: rgba(240, 143, 134, 0.14);
+    --color-overlay: rgba(10, 9, 8, 0.58);
+    --color-overlay-strong: rgba(10, 9, 8, 0.68);
+    --color-avatar-border: rgba(243, 238, 226, 0.12);
+    --color-avatar-inset: rgba(243, 238, 226, 0.28);
+    --color-member-chip-bg: rgba(47, 42, 35, 0.78);
+    --color-toast-bg: #3a3329;
+    --color-toast-text: #f3eee2;
+    --color-toast-action-bg: rgba(240, 160, 124, 0.14);
+    --color-toast-action-bg-hover: rgba(240, 160, 124, 0.22);
+    --color-toast-dismiss: rgba(243, 238, 226, 0.78);
+
+    --color-warning-bg: #493722;
+    --color-warning-text: #e0b977;
+    --color-warning-border: #755532;
+    --color-token-bg: #473722;
+    --color-token-border: #755532;
+    --color-token-text: #e0b977;
+    --color-online-bg: #273a29;
+    --color-online-text: #9ec293;
+    --color-role-bg: #443724;
+    --color-role-text: #e0b977;
+
+    --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.24);
+    --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.34);
+    --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.45);
+    /* Drop shadows barely read on dark, so the sheet lift comes from a
+       drop shadow plus a subtle lit top edge (inset highlight). */
+    --shadow-paper: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(243, 238, 226, 0.05);
+  }
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Full-bleed surfaces can reach 100vw; `clip` removes scrollbar-width
+     slivers without establishing a scroll container. */
+  overflow-x: clip;
+  /* Disable browser pull-to-refresh and overscroll chaining so the page
+     doesn't rubber-band like a web page. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 720px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--grid-image), var(--color-bg);
+  background-size: 24px 24px;
+  /* Remove the ~300 ms double-tap zoom delay on touch. Pinch-zoom still
+     works (kept for accessibility); double-tap-zoom does not. */
+  touch-action: manipulation;
+}
+
+@media (max-width: 720px) {
+  body {
+    background-size: 20px 20px;
+  }
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  a:hover {
+    color: var(--color-link-hover);
+  }
+}
+
+::selection {
+  background: var(--color-primary-soft);
+}
+
+/* Utility classes */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

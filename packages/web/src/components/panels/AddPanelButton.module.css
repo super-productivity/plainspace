@@ -1,0 +1,144 @@
+/* Dashed outline reads as "a slot where a new sheet goes", giving the
+   tertiary action a visible affordance without competing with content. */
+.trigger {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.dialog {
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.dialogTitle {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+}
+
+/* One card per panel type -- the chooser shown before a type is picked. */
+.chooser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-md);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.typeCard:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-accent);
+}
+
+.typeCard:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.typeCardTitle {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.typeCardDesc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.optionsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.optionsLabel {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.optionInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+.optionInput:focus {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+  border-color: var(--color-accent);
+}
+
+/* 16px floor on mobile: keeps iOS Safari from zooming on focus. */
+@media (max-width: 720px) {
+  .optionInput {
+    font-size: 16px;
+  }
+}
+
+.removeRow {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.removeRow:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* Back on the left, Create on the right. */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}

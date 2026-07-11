@@ -1,0 +1,38 @@
+{
+  "name": "@plainspace/web",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@plainspace/shared": "*",
+    "@solidjs/router": "^0.15.3",
+    "qrcode": "^1.5.4",
+    "solid-js": "^1.9.5",
+    "sortablejs": "^1.15.7"
+  },
+  "devDependencies": {
+    "@solidjs/testing-library": "^0.8.10",
+    "@types/qrcode": "^1.5.6",
+    "@types/sortablejs": "^1.15.9",
+    "esbuild": "^0.28.1",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^8.1.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vite-plugin-solid": "^2.11.6",
+    "vitest": "^4.1.10",
+    "workbox-window": "^7.4.1"
+  }
+}

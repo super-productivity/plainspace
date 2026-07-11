@@ -1,0 +1,97 @@
+.bar {
+  position: fixed;
+  bottom: calc(var(--space-md) + var(--safe-bottom));
+  right: calc(var(--space-md) + var(--safe-right));
+  z-index: 40;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface-translucent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms ease;
+}
+
+@media (max-width: 760px) {
+  .bar {
+    display: inline-flex;
+    animation: pill-slide-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+
+.bar[data-hidden='true'] {
+  transform: translateY(140%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes pill-slide-in {
+  from {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+    transition: opacity 120ms ease;
+  }
+  .bar[data-hidden='true'] {
+    transform: none;
+  }
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.action:not(:disabled):active {
+  transform: scale(0.96);
+  transition-duration: 0.05s;
+}
+
+@media (hover: hover) {
+  .action:hover {
+    background: var(--color-hover-soft);
+  }
+}
+
+.action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.divider {
+  width: 1px;
+  height: 14px;
+  background: var(--color-border);
+}
+
+/* Subtle hierarchy: tint the + icon to mark Task as the more frequent
+   action, without escalating it to a full primary-color CTA. */
+.bar button:first-of-type svg {
+  color: var(--color-accent);
+}

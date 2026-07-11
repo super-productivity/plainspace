@@ -1,0 +1,40 @@
+{
+  "name": "plainspace",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/super-productivity/plainspace.git"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --names server,web --prefix-colors blue,green \"npm run dev --workspace @plainspace/server\" \"npm run dev --workspace @plainspace/web\"",
+    "build": "npm run build --workspace @plainspace/web",
+    "db:generate": "npm run db:generate --workspace @plainspace/server",
+    "db:migrate": "npm run db:migrate --workspace @plainspace/server",
+    "db:up": "npm run db:migrate",
+    "test": "npm test --workspace @plainspace/web && npm test --workspace @plainspace/server",
+    "test:e2e": "npm test --workspace @plainspace/e2e",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "deploy": "./scripts/deploy.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "concurrently": "^9.2.3",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-solid": "^0.14.5",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.21.0"
+  }
+}

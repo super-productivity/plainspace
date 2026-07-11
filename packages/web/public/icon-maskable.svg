@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#ece5d4"/>
+  <mask id="front">
+    <rect width="128" height="128" fill="white"/>
+    <g fill="black" stroke="black" stroke-width="10">
+      <circle cx="84" cy="48" r="16"/>
+      <path d="M60 94 a24 24 0 0 1 48 0 z"/>
+    </g>
+  </mask>
+  <!-- scaled to keep the artwork inside the maskable safe zone (inner 80% circle) -->
+  <g transform="translate(64 64) scale(0.85) translate(-64 -64)">
+    <g mask="url(#front)">
+      <circle cx="44" cy="48" r="16" fill="#a8563d"/>
+      <path d="M20 94 a24 24 0 0 1 48 0 z" fill="#a8563d"/>
+    </g>
+    <circle cx="84" cy="48" r="16" fill="#c87154"/>
+    <path d="M60 94 a24 24 0 0 1 48 0 z" fill="#c87154"/>
+  </g>
+</svg>

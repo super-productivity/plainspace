@@ -1,0 +1,15 @@
+.host {
+  position: fixed;
+  bottom: calc(var(--space-md) + var(--safe-bottom));
+  left: calc(var(--space-md) + var(--safe-left));
+  right: calc(var(--space-md) + var(--safe-right));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.host > * {
+  pointer-events: auto;
+}

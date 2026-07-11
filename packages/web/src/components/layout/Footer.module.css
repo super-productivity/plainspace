@@ -1,0 +1,30 @@
+.footer {
+  width: 100%;
+  padding: var(--space-md) calc(var(--space-md) + var(--safe-right))
+    calc(var(--space-lg) + var(--safe-bottom)) calc(var(--space-md) + var(--safe-left));
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.footer a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .footer a:hover {
+    color: var(--color-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.separator {
+  opacity: 0.5;
+}

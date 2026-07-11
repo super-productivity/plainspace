@@ -1,0 +1,21 @@
+.section {
+  padding: 0;
+}
+
+.heading {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-xs) 0 0;
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  margin: var(--space-xs) 0 0;
+}

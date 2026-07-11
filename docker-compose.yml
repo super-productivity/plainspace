@@ -1,0 +1,109 @@
+name: plainspace
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spaces}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-spaces}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No host port exposed by default — only the app needs to reach it.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-spaces} -d ${POSTGRES_DB:-spaces}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1g
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Minimum caps the official postgres entrypoint needs to chown the data dir
+    # and drop privileges to the postgres user.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    networks:
+      - backend
+    logging: *default-logging
+
+  app:
+    # Production pulls this prebuilt image from GHCR (CI publishes it on every
+    # push to main; see .github/workflows/ci.yml). scripts/deploy.sh pulls the
+    # image for the checked-out commit, retags it to :latest, and runs
+    # `up --no-build` — some hosts can't build images at all
+    # (docs/self-hosting.md §4). The build: block below stays only for
+    # local/dev `docker compose build` and CI's docker-smoke.
+    image: ghcr.io/super-productivity/plainspace-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-spaces}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spaces}
+      APP_URL: ${APP_URL:?set APP_URL in .env (e.g. https://plainspace.example.com)}
+      PLAINSPACE_EMAIL_ENC_KEY: ${PLAINSPACE_EMAIL_ENC_KEY:?set PLAINSPACE_EMAIL_ENC_KEY in .env}
+      PLAINSPACE_EMAIL_INDEX_KEY: ${PLAINSPACE_EMAIL_INDEX_KEY:?set PLAINSPACE_EMAIL_INDEX_KEY in .env}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST in .env}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      FROM_EMAIL: ${FROM_EMAIL:?set FROM_EMAIL in .env (e.g. noreply@plainspace.example.com)}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:?set CONTACT_EMAIL in .env (e.g. hello@plainspace.example.com)}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?set VAPID_PUBLIC_KEY in .env (npx web-push generate-vapid-keys)}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?set VAPID_PRIVATE_KEY in .env}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?set VAPID_SUBJECT in .env (e.g. mailto:contact@plainspace.example.com)}
+    ports:
+      # APP_BIND defaults to 127.0.0.1 (reverse proxy on the same host).
+      # Set APP_BIND=0.0.0.0 (and firewall the port) if the proxy runs on a different host.
+      - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000'
+    mem_limit: 512m
+    cpus: 1.0
+    ulimits:
+      # SSE keeps connections open per online member; raise from the default 1024.
+      nofile:
+        soft: 65535
+        hard: 65535
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - frontend
+      - backend
+    logging: *default-logging
+
+networks:
+  # External-facing — the app uses this for outbound (SMTP, etc.) and is the
+  # only service the host reverse proxy reaches.
+  frontend:
+  # Postgres lives here with no route to the internet, so a DB compromise can't
+  # exfiltrate or pull new packages. WARNING: any service that needs outbound
+  # internet (e.g. a future SMTP relay or webhook worker) MUST also be on the
+  # `frontend` network, or its egress will silently fail.
+  backend:
+    internal: true
+
+volumes:
+  postgres_data:
+    name: plainspace_postgres_data

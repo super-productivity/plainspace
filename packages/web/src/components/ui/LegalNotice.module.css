@@ -1,0 +1,17 @@
+.notice {
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  text-align: center;
+}
+
+.notice a {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notice a:hover {
+  color: var(--color-text);
+}

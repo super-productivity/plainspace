@@ -1,0 +1,75 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.md {
+  min-height: var(--touch-target);
+  padding: 12px var(--space-md);
+  font-size: var(--text-base);
+}
+
+.sm {
+  min-height: 32px;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
+}
+
+/* Keep input text ≥16px on mobile so iOS Safari doesn't zoom on focus. */
+@media (max-width: 720px) {
+  .input.md,
+  .input.sm {
+    font-size: 16px;
+  }
+}
+
+.helper,
+.error {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.helper {
+  color: var(--color-text-secondary);
+}
+
+.error {
+  color: var(--color-danger);
+}

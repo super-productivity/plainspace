@@ -1,0 +1,27 @@
+.section {
+  padding: 0;
+}
+
+.heading {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  margin: 0;
+}

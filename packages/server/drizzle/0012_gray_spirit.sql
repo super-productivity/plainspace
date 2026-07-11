@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_members_project_email_verified" ON "members" USING btree ("project_id",lower("email")) WHERE "members"."email_verified" = true;

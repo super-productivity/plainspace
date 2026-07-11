@@ -1,0 +1,260 @@
+.container {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 72px var(--space-md) var(--space-xl);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.logoMark {
+  display: block;
+  /* The mark occupies ~42% of the SVG viewBox, so render large to get a
+     readable ~44px visual size. */
+  width: 104px;
+  height: 104px;
+  margin: 0 auto calc(-1 * var(--space-sm));
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: 5rem;
+  font-weight: 400;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  color: var(--color-text);
+  margin-bottom: var(--space-sm);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .title {
+    font-size: var(--text-3xl);
+  }
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  margin: 0 auto;
+  max-width: 28rem;
+}
+
+.submit {
+  margin-top: var(--space-sm);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.spaces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.choicePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+/* Cap the onboarding CTAs on desktop so the hero reads as a landing action,
+   not a form-width block; centered. Phones keep full width (unchanged). */
+@media (min-width: 521px) {
+  .choicePanel {
+    max-width: 320px;
+    margin-inline: auto;
+  }
+}
+
+.panelTitle {
+  font-size: var(--text-xl);
+  font-weight: 500;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.spacesHeading {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.spacesList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+}
+
+.spacesList > li {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.spaceLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xs);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+
+.spaceLink:hover,
+.spaceLink:focus-visible {
+  background: var(--color-surface-raised);
+  outline: none;
+}
+
+.spaceName {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  flex: 1;
+}
+
+.avatarRow {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stackAvatar {
+  box-shadow: 0 0 0 2px var(--color-bg);
+}
+
+.stackAvatar + .stackAvatar {
+  margin-left: -6px;
+}
+
+.stackAvatar:nth-child(1) {
+  z-index: 6;
+}
+.stackAvatar:nth-child(2) {
+  z-index: 5;
+}
+.stackAvatar:nth-child(3) {
+  z-index: 4;
+}
+.stackAvatar:nth-child(4) {
+  z-index: 3;
+}
+.stackAvatar:nth-child(5) {
+  z-index: 2;
+}
+.stackAvatar:nth-child(6) {
+  z-index: 1;
+}
+
+/* Gap between the current user (first) and the rest of the stack. */
+.selfAvatar + .stackAvatar {
+  margin-left: 4px;
+}
+
+/* First-visit peek at the paper-panel UI: a faded, non-interactive mini sheet
+   so the landing hints at the product instead of being text on the grid.
+   Only shown when the viewport is tall enough to fit the whole hero + peek;
+   on short viewports it would be clipped, so it's hidden (see @media below). */
+.vignette {
+  margin-top: var(--space-xl);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.miniPanel {
+  width: 264px;
+  padding: 14px 20px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-paper);
+}
+
+.miniPanelTitle {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+.miniList {
+  list-style: none;
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.miniList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.miniCheck {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.miniItemDone {
+  text-decoration: line-through;
+}
+
+.miniItemDone .miniCheck {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+/* Checkmark for the completed row. */
+.miniItemDone .miniCheck::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--color-on-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* The hero + CTAs alone fit comfortably; the peek only fits above ~760px tall.
+   Hiding it on shorter viewports keeps it from being clipped at the fold. */
+@media (max-height: 760px) {
+  .vignette {
+    display: none;
+  }
+}

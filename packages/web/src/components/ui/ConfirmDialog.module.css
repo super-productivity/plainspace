@@ -1,0 +1,23 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 420px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+}
+
+.message {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

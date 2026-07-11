@@ -1,0 +1,26 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: min(1180px, calc(100% - 32px));
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-top: calc(var(--header-height, 168px) + 12px);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding-top: calc(var(--header-height, 148px) + 8px);
+  }
+}
+
+@media (max-width: 600px) {
+  .shell {
+    padding-top: 0;
+    /* Tighter page gutter on phones (8px each side vs 16) to widen task rows. */
+    width: calc(100% - 16px);
+  }
+}

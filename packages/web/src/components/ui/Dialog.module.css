@@ -1,0 +1,125 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-md);
+  animation: dialog-fade-in 180ms ease-out;
+}
+
+.dialog {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  max-width: 480px;
+  width: 100%;
+  max-height: calc(100dvh - 2 * var(--space-md));
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: dialog-pop-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sideOverlay {
+  background: var(--color-overlay);
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+  backdrop-filter: blur(8px);
+}
+
+/* Side-anchored variant. Padding is intentionally only the iOS safe-area
+   insets — children supply their own internal padding so headers/lists
+   can be flush with the dialog edges (see MemberList for the canonical
+   layout). New callers should follow that pattern. */
+.sideDialog {
+  width: var(--dialog-side-width, 320px);
+  max-width: var(--dialog-side-max-width, 90vw);
+  max-height: none;
+  height: 100%;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) 0;
+  animation: dialog-slide-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialog-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Bottom-sheet style on mobile: full-width, anchored to the bottom edge,
+   slides up. Reads as an app modal instead of a centered web modal. */
+@media (max-width: 600px) {
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog {
+    max-width: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: none;
+    padding: var(--space-md) var(--space-md) calc(var(--space-md) + var(--safe-bottom));
+    max-height: 85dvh;
+    animation: dialog-slide-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .sideOverlay {
+    align-items: stretch;
+  }
+
+  .sideDialog {
+    border-radius: 0;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) 0;
+    max-height: none;
+    animation: dialog-slide-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @keyframes dialog-slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog,
+  .sideDialog {
+    animation: none;
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["tests", "helpers", "capture", "playwright.config.ts", "screenshots.config.ts"]
+}

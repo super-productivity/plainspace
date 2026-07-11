@@ -1,0 +1,147 @@
+.card {
+  position: relative;
+  /* Same sheet of paper as ListCard: no outline, gently rounded, defined by
+     the color step off the parchment plus a soft resting shadow. */
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-paper);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  /* No flex gap: the header→body spacing lives on the CollapseBody's margin-top
+     so it folds away with the body (a flex gap would leave dead space under the
+     header when the content collapses). */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px;
+  gap: var(--space-sm);
+}
+
+.title {
+  width: fit-content;
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  margin: 0;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.savingBadge {
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  font-style: italic;
+}
+
+.savedBadge {
+  font-size: var(--text-xs);
+  color: var(--color-success);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: fadeIn 160ms ease-out;
+}
+
+.savedBadge::before {
+  content: '\2713';
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content {
+  border-radius: var(--radius-md);
+  min-height: 220px;
+  overflow: hidden;
+}
+
+.display {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 4px 2px;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  border: none;
+  min-height: 220px;
+  background: transparent;
+  color: inherit;
+  transition: color 0.15s;
+}
+
+.display.placeholder:hover {
+  color: var(--color-text);
+}
+
+.placeholder {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  padding: 4px 2px;
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  line-height: var(--leading-relaxed);
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  field-sizing: content;
+}
+
+.textarea:focus {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 14px 16px 16px;
+  }
+  .title {
+    /* Between --text-lg and --text-xl: keep the heading distinct from body
+       text on the smaller mobile root. */
+    font-size: 1.25rem;
+  }
+  .display,
+  .textarea {
+    /* 16px floor: keeps iOS Safari from zooming on focus. */
+    font-size: 16px;
+    padding: 4px 2px;
+    min-height: 180px;
+  }
+  .content {
+    min-height: 180px;
+  }
+}

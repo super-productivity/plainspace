@@ -1,0 +1,26 @@
+.uploadButton {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  position: relative;
+}
+
+.uploadButton:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.uploadButton:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.hiddenInput {
+  display: none;
+}

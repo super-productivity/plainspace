@@ -1,0 +1,90 @@
+/* One-tap collapse on the whole title row. Unstyled button so the heading still
+   reads as the heading; a gutter chevron turns + fades in only when folded (see
+   .chevron below) as a "tap to expand" cue, alongside an optional "· N" count. */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* The chevron is hidden on an expanded card, so the button itself must carry the
+   keyboard focus cue. Custom ring to match .item:focus-visible across the app. */
+.toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* A quiet "tap to expand" cue shown only when the card is collapsed. It stays in
+   the DOM (hung out of flow in the left gutter, so the heading stays flush with
+   the body content in both states) but sits at opacity 0 when expanded — so
+   collapsing/expanding animates it turning + fading rather than popping in and
+   out. top/margin-top center the 8px box so the rotate is unobstructed. */
+.chevron {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  margin-top: -4px;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
+}
+
+/* Collapsed: turn to a right-pointing › and fade in. Expanding reverses it. */
+.toggle[aria-expanded='false'] .chevron {
+  opacity: 0.45;
+  transform: rotate(-90deg);
+}
+
+.toggle[aria-expanded='false']:hover .chevron,
+.toggle[aria-expanded='false']:focus-visible .chevron {
+  opacity: 1;
+}
+
+.count {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+/* Animated fold. The outer grid animates its single row 1fr→0fr; the inner
+   wrapper clips overflow and min-height:0 lets it shrink below content height,
+   so the body slides closed. The margin owns the header→body spacing (cards drop
+   their flex gap) so it folds away too — no dead space under a folded header. */
+.body {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  transition:
+    grid-template-rows 220ms ease,
+    margin-top 220ms ease;
+}
+
+.collapsed {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+}
+
+.inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body,
+  .chevron {
+    transition: none;
+  }
+}

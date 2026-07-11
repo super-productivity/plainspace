@@ -1,0 +1,9 @@
+/* Shared card chrome + item styles live in PanelCard.module.css. PollCard adds
+   only the vote-share bar behind the option content. */
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-primary-soft);
+  pointer-events: none;
+  transition: width 0.25s ease-out;
+}

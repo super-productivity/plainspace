@@ -1,0 +1,201 @@
+.loading,
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+  padding: var(--space-lg);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  /* Two side-by-side columns that each hug their own content from the top.
+     Flex with `flex-start` (not grid) is deliberate: there are no shared rows
+     to stretch and no free space to distribute, so neither column can drift or
+     center vertically no matter how tall the other one gets. */
+  display: flex;
+  align-items: flex-start;
+  /* One uniform vertical rhythm for every stacked card (scratchpad, tasks,
+     polls, time slots) and the add-panel button. Inherited by `.column` in
+     PanelColumn.module.css -- change it here to move all of them at once. */
+  --panel-gap: 16px;
+  column-gap: 48px;
+  padding: 34px 0 36px;
+  background: transparent;
+}
+
+/* Left column: the todo list with recent activity stacked a constant gap
+   directly beneath it. The gap is well above the `--panel-gap` card rhythm to
+   set recent activity clearly apart from the list. The 1.35 vs 1 flex-grow
+   keeps the old 1.35fr / 1fr width split. */
+.mainColumn {
+  flex: 1.35 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.lists {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  min-width: 0;
+}
+
+.scratchpads {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+}
+
+.activityPanel {
+  min-width: 0;
+}
+
+.reconnecting {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  text-align: center;
+  padding: 6px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-bottom: 1px solid var(--color-warning-border);
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+}
+
+.toasts {
+  position: fixed;
+  bottom: calc(var(--space-md) + var(--safe-bottom));
+  left: calc(var(--space-md) + var(--safe-left));
+  right: calc(var(--space-md) + var(--safe-right));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  /* Above the Dialog overlay (z-index 1000) so error toasts fired from
+     inside the People panel stay visible. */
+  z-index: 1100;
+  pointer-events: none;
+}
+
+.toasts > * {
+  pointer-events: auto;
+}
+
+.termsGate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-lg);
+}
+
+.termsDialog h2 {
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+}
+
+.termsDialog p {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.termsDialog a {
+  color: var(--color-accent);
+}
+
+.termsError {
+  color: var(--color-danger) !important;
+}
+
+.termsActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+:global(.highlight) {
+  animation: highlight-pulse 2s ease-out;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: var(--color-primary-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@media (max-width: 1020px) {
+  .content {
+    flex-direction: column;
+    gap: var(--panel-gap);
+    padding: 24px 0 32px;
+  }
+
+  /* Single column: flatten the left column so the list and activity become
+     direct flex items, then `order` restores the intended sequence
+     (lists -> scratchpads -> activity) the wrapper would otherwise break. */
+  .mainColumn {
+    display: contents;
+  }
+
+  /* Stack at content height -- the desktop grow ratios would stretch these
+     vertically once the main axis is the column. */
+  .scratchpads {
+    flex: initial;
+  }
+
+  .lists {
+    order: 1;
+  }
+
+  .scratchpads {
+    order: 2;
+  }
+
+  /* Extra top margin (stacks on the column gap) sets recent activity apart
+     from the section above it, mirroring the desktop list gap. */
+  .activityPanel {
+    order: 3;
+    margin-top: var(--space-md);
+  }
+}
+
+@media (max-width: 760px) {
+  .content {
+    padding: var(--space-md) 0;
+    padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
+  }
+
+  .lists,
+  .scratchpads,
+  .activityPanel {
+    width: 100%;
+  }
+
+  /* Keep toasts visible above the floating MobileQuickActions pill. The
+     pill is ~48 px tall + safe-bottom; add ~8 px breathing room. */
+  .toasts {
+    bottom: calc(var(--space-md) + var(--safe-bottom) + 56px);
+  }
+}

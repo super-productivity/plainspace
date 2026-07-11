@@ -1,0 +1,436 @@
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 13px 0 9px var(--space-sm);
+  min-height: 46px;
+  border-bottom: 1px solid var(--color-border);
+  transition:
+    background 0.2s,
+    color 0.2s,
+    opacity 0.2s;
+}
+
+@media (hover: hover) {
+  .item:hover {
+    background: var(--color-hover-soft);
+  }
+}
+
+.checked .text {
+  color: var(--color-text-secondary);
+}
+
+/* A completed recurring task rests in place at the bottom of the open list
+   (it has a permanent home) instead of dropping into Done. Its reminder badge
+   reports the *next* due time, so render it as calm info — secondary color
+   rather than an active accent reminder. (It's a .hasReminder button, so it's
+   already exempt from the hover-dim rule above and stays fully visible.) */
+.resting .reminderButton.hasReminder {
+  color: var(--color-text-secondary);
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  margin-top: -1px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Invisible touch-target extension to --touch-target (44px) without moving
+   the 22px visual box. Where it overlaps the adjacent text button, the text
+   button (later in DOM order) still wins, so edit taps are unaffected. */
+.checkbox::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  transform: translate(-50%, -50%);
+}
+
+/* Resting box: a hand-drawn squircle (masked --ring-hand), inked from
+   --color-text-secondary so it stays themeable — a paper to-do box, not a
+   geometric CSS shape. (Pen-ink weight: --color-border-strong sat at 2.2:1
+   in light mode, below the 3:1 non-text minimum.) */
+.unchecked {
+  width: 20px;
+  height: 20px;
+  display: block;
+  background-color: var(--color-text-secondary);
+  -webkit-mask: var(--ring-hand) center / contain no-repeat;
+  mask: var(--ring-hand) center / contain no-repeat;
+  transition: background-color 0.15s;
+}
+
+/* Checked: a hand-drawn terracotta squircle (masked --disc-hand) with the hand
+   check inked on top. Both are absolutely-positioned pseudos so they scale
+   together under checkPop. */
+.checkedIcon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.checkedIcon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-primary);
+  -webkit-mask: var(--disc-hand) center / contain no-repeat;
+  mask: var(--disc-hand) center / contain no-repeat;
+}
+
+/* Same SVG-mask trick as the heading underline: ink from a themeable
+   background-color (--color-on-primary), shape from the --check-hand mask. */
+.checkedIcon::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background-color: var(--color-on-primary);
+  -webkit-mask: var(--check-hand) center / contain no-repeat;
+  mask: var(--check-hand) center / contain no-repeat;
+}
+
+/* Mark-down animations. The [data-just-toggled] attribute is set by the
+   parent ListCard for the duration of the outro window so these survive
+   the <For> remount that fires when the SSE update gives the item a new
+   object reference. Direction-keyed ("check" vs "uncheck"). */
+.item[data-just-toggled='check'] .checkedIcon {
+  animation: checkPop 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.item[data-just-toggled='uncheck'] .unchecked {
+  animation: uncheckSettle 80ms ease-out;
+}
+
+/* Strike sweep / retract must be keyframe animations, not transitions:
+   the row remounts when the item ref flips, so a fresh element starts at
+   the final scaleX and a transition would never fire. Animations play on
+   element mount whenever the selector matches at insertion time. */
+.item[data-just-toggled='check'].checked .textContent::after {
+  animation: strikeSweep 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.item[data-just-toggled='uncheck']:not(.checked) .textContent::after {
+  animation: strikeRetract 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes uncheckSettle {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes strikeSweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes strikeRetract {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item[data-just-toggled] .checkedIcon,
+  .item[data-just-toggled] .unchecked,
+  .item[data-just-toggled] .textContent::after {
+    animation: none;
+  }
+}
+
+.text {
+  position: relative;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  margin: -13px -4px -9px -2px;
+  padding: 0 4px 0 2px;
+  box-sizing: border-box;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  text-align: left;
+  word-break: break-word;
+  cursor: text;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  transition:
+    background 120ms ease,
+    color 220ms ease;
+}
+
+/* Animated strikethrough: a pseudo line on the text-only inner span that
+   sweeps across (scaleX 0 → 1) on check and retracts on uncheck. Replaces
+   text-decoration: line-through, which can't be animated. Lives on
+   .textContent (not .text) so the line is sized to the glyphs, not the
+   flex-stretched row width. */
+.textContent {
+  position: relative;
+  display: inline-block;
+}
+
+.textContent::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.checked .textContent::after {
+  transform: scaleX(1);
+}
+
+.editHint {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+@media (hover: hover) {
+  .text:hover {
+    background: var(--color-hover-soft);
+  }
+
+  .text:hover .editHint {
+    opacity: 0.7;
+  }
+}
+
+@media (hover: none) {
+  .editHint {
+    display: none;
+  }
+}
+
+.editInput {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  margin-top: -13px;
+  margin-bottom: -9px;
+  padding: 11px 0;
+  box-sizing: border-box;
+  font-size: var(--text-base);
+  font-family: inherit;
+  line-height: var(--leading-snug);
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: 0 1px 0 var(--color-accent);
+}
+
+/* 16px floor on mobile: keeps iOS Safari from zooming on focus. */
+@media (max-width: 720px) {
+  .editInput {
+    font-size: 16px;
+  }
+}
+
+/* Same 46 px-tall slot pattern as .text: stretch to the row's full vertical
+   extent via negative margins that cancel the row's padding, then center
+   content. Keeps icon buttons aligned with the first line of text regardless
+   of button size (30 px desktop / 38 px touch). */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 46px;
+  margin-top: -13px;
+  margin-bottom: -9px;
+}
+
+/* On desktop, hide action buttons until row hover/focus — except an assigned
+   badge or active reminder, which stay fully visible because they communicate
+   state. focus-within keeps them keyboard-reachable (tabbing into the row
+   reveals them). Opacity (not display/visibility) so the buttons stay in
+   layout, hit-testable, and focusable. Applied per-button (not on .actions) so
+   the badge isn't multiplied by an ancestor's faded opacity. */
+@media (hover: hover) {
+  .assignButton:not(.hasAssignee),
+  .reminderButton:not(.hasReminder),
+  .deleteButton {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .item:hover .assignButton,
+  .item:hover .reminderButton,
+  .item:hover .deleteButton,
+  .item:focus-within .assignButton,
+  .item:focus-within .reminderButton,
+  .item:focus-within .deleteButton {
+    opacity: 1;
+  }
+}
+
+.assignButton,
+.reminderButton,
+.deleteButton {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+/* Assigned state: suppress the empty hover halo (hover lives on the
+   avatar badge). */
+.assignButton.hasAssignee {
+  background: transparent;
+}
+
+@media (hover: none) {
+  .assignButton,
+  .reminderButton,
+  .deleteButton {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (hover: hover) {
+  .assignButton:hover:not(.hasAssignee),
+  .reminderButton:hover:not(.hasReminder) {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+
+  .deleteButton:hover {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  .assignButton.hasAssignee:hover .assigneeBadge {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+  }
+}
+
+.assignButton.hasAssignee:focus-visible .assigneeBadge {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.reminderButton.hasReminder {
+  color: var(--color-accent);
+  gap: 4px;
+  width: auto;
+  padding: 0 8px;
+}
+
+/* Overdue: a recurring occurrence that has passed without being checked off.
+   Amber (not destructive red — that's the delete affordance) signals "late,
+   still do it" and overrides the accent the .hasReminder rule sets. */
+.reminderButton.overdue.hasReminder {
+  /* -text variant: base --color-warning is 3.4:1 on the light card surface. */
+  color: var(--color-warning-text);
+}
+
+.reminderLabel {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ↻ glyph marking a recurring reminder, shown before the time label. */
+.repeatGlyph {
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+/* Mobile: stack the time under the clock icon so the reminder badge stays
+   roughly icon-width instead of icon+label, leaving the task title more room. */
+@media (max-width: 720px) {
+  .reminderButton.hasReminder {
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+
+  .reminderLabel {
+    font-size: 11px;
+  }
+}
+
+.assignWrapper,
+.reminderWrapper {
+  position: relative;
+}
+
+/* Avatar centered inside the button. Clicks on the avatar bubble up to
+   the button so the picker still opens. The class lives on the Avatar
+   span itself (no extra wrapper) so the 22x22 dimensions are exact and
+   the hover ring renders as a true circle. */
+.assigneeBadge {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.attachments {
+  padding: 0 14px 10px 47px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.attachmentError {
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  margin: 0;
+}

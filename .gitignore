@@ -1,0 +1,25 @@
+node_modules/
+node_modules
+dist/
+.env
+*.local
+*.pem
+*.key
+# Per-host compose overlay (dev-only port mappings, etc.). Auto-loaded by
+# `docker compose`; not committed so production deploys can't accidentally
+# pick up dev port exposures.
+docker-compose.override.yml
+.DS_Store
+/test-results/
+packages/e2e/test-results/
+packages/e2e/screenshots/
+/playwright-report/
+.playwright-cli/
+.worktrees/
+uploads/
+.claude/settings.local.json
+.claude/agents
+.claude/commands
+.claude/skills
+.idea
+.vscode

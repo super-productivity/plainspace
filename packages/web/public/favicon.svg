@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Plainspace logo">
+  <title>Plainspace</title>
+  <!-- The front figure knocks a transparent gap out of the back figure so the
+       pair stays readable in monochrome contexts too. -->
+  <mask id="front">
+    <rect width="128" height="128" fill="white"/>
+    <g fill="black" stroke="black" stroke-width="10">
+      <circle cx="84" cy="48" r="16"/>
+      <path d="M60 94 a24 24 0 0 1 48 0 z"/>
+    </g>
+  </mask>
+  <g mask="url(#front)">
+    <circle cx="44" cy="48" r="16" fill="#a8563d"/>
+    <path d="M20 94 a24 24 0 0 1 48 0 z" fill="#a8563d"/>
+  </g>
+  <circle cx="84" cy="48" r="16" fill="#c87154"/>
+  <path d="M60 94 a24 24 0 0 1 48 0 z" fill="#c87154"/>
+</svg>

@@ -1,0 +1,102 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    opacity 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
+
+.button:disabled {
+  /* Desaturate so a disabled primary reads as "unavailable", not as a
+     muted-but-tappable terracotta. */
+  opacity: 0.5;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
+}
+
+/* Native-feeling press-down on touch and click. Skipped on hover-capable
+   devices when the button is being hovered, so the lift translateY wins. */
+.button:not(:disabled):active {
+  transform: scale(0.97);
+  transition-duration: 0.05s;
+}
+
+.md {
+  min-height: var(--touch-target);
+  padding: 10px var(--space-lg);
+  font-size: var(--text-base);
+}
+
+.sm {
+  min-height: 32px;
+  padding: 4px var(--space-sm);
+  font-size: var(--text-xs);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.secondary {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.danger {
+  background: transparent;
+  color: var(--color-danger);
+}
+
+/* Hover affordances only on devices that can actually hover. On touch
+   the styles would stick after a tap and read as a stuck web button. */
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    transform: translateY(-1px);
+  }
+
+  .secondary:hover:not(:disabled) {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  .ghost:hover:not(:disabled) {
+    background: var(--color-soft);
+    color: var(--color-text);
+  }
+
+  .danger:hover:not(:disabled) {
+    background: var(--color-danger-soft);
+  }
+}

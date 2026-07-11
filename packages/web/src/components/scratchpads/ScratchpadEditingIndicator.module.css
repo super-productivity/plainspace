@@ -1,0 +1,26 @@
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.avatars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.stackAvatar {
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+.stackAvatar + .stackAvatar {
+  margin-left: -6px;
+}
+
+.text {
+  font-style: italic;
+}

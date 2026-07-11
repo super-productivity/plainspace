@@ -1,0 +1,88 @@
+.trigger {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    background 0.15s,
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.trigger:hover {
+  background: var(--color-soft);
+  color: var(--color-text);
+  opacity: 1;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Touch devices have no hover to reveal the control, so keep it clearly visible
+   and give it a larger tap target. */
+@media (hover: none) {
+  .trigger {
+    width: 36px;
+    height: 36px;
+    opacity: 0.9;
+  }
+}
+
+.menu {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 168px;
+  padding: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* Comfortable tap targets for a touch-first audience. */
+  min-height: 40px;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+@media (hover: none) {
+  .item {
+    min-height: 44px;
+  }
+}
+
+.item:hover {
+  background: var(--color-soft);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.danger {
+  color: var(--color-danger);
+}
+
+.danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}

@@ -1,0 +1,90 @@
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-toast-bg);
+  color: var(--color-toast-text);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+  animation: slideUp 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+.message {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.actionButton {
+  padding: 4px var(--space-sm);
+  color: var(--color-toast-action);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  background: var(--color-toast-action-bg);
+  border-radius: var(--radius-sm);
+}
+
+.actionButton:hover {
+  background: var(--color-toast-action-bg-hover);
+}
+
+.dismiss {
+  padding: 4px;
+  color: var(--color-toast-dismiss);
+  font-size: var(--text-xs);
+}
+
+.dismiss:hover {
+  color: var(--color-toast-text);
+}
+
+.progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--color-toast-action);
+  transform-origin: left center;
+  animation-name: shrinkProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.progressPaused {
+  animation-play-state: paused;
+}
+
+@keyframes shrinkProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

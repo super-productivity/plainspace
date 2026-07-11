@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Audit high-severity dependency advisories
+        run: npm audit --audit-level=high
+      - run: npm run check
+
+  unit-test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: spaces
+          POSTGRES_PASSWORD: spaces
+          POSTGRES_DB: spaces_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U spaces -d spaces_test"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://spaces:spaces@localhost:5434/spaces_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Run web unit tests
+        run: npm test --workspace @plainspace/web
+      - name: Run drizzle migrations
+        run: npm run db:migrate
+      - name: Run server unit tests
+        run: npm test --workspace @plainspace/server
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: spaces
+          POSTGRES_PASSWORD: spaces
+          POSTGRES_DB: spaces_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U spaces -d spaces_test"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://spaces:spaces@localhost:5434/spaces_test
+      APP_URL: http://localhost:5173
+      PORT: '3000'
+      # NODE_ENV=development so the server logs emails to stdout instead of
+      # requiring SMTP_HOST, and email-crypto + VAPID fall back to ephemeral
+      # / no-op behavior — see packages/server/src/services/email.ts,
+      # lib/email-crypto.ts, services/reminder-sweep.ts.
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Run drizzle migrations
+        run: npm run db:migrate
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        run: npm exec --workspace @plainspace/e2e -- playwright install --with-deps chromium
+      - name: Run e2e tests
+        run: npm run test:e2e
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/e2e/playwright-report
+          retention-days: 7
+
+  # Nothing else in CI exercises the production image path: the Dockerfile
+  # build, entrypoint.sh (migrate-then-serve), and app.ts's NODE_ENV=production
+  # branch (static SPA serving + SPA fallback) were previously untested until a
+  # real deploy. Build the image, boot it against Postgres, and smoke /health
+  # and the SPA shell.
+  docker-smoke:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: spaces
+          POSTGRES_PASSWORD: spaces
+          POSTGRES_DB: spaces_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U spaces -d spaces_test"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build -t plainspace-app:ci .
+      # Throwaway per-run values (CI-local Postgres, container destroyed at
+      # job end). Passed via env, not ${{ }}-inlined into run scripts, so the
+      # pattern stays safe to copy for real secrets.
+      - name: Boot the image (entrypoint runs migrations, then serves)
+        run: |
+          ENC_KEY="$(openssl rand -base64 32)"
+          IDX_KEY="$(openssl rand -base64 32)"
+          npx --yes web-push generate-vapid-keys --json > vapid.json
+          docker run -d --name app --network host \
+            -e DATABASE_URL=postgres://spaces:spaces@127.0.0.1:5434/spaces_test \
+            -e APP_URL=http://127.0.0.1:3000 \
+            -e SMTP_HOST=smtp.invalid \
+            -e PLAINSPACE_EMAIL_ENC_KEY="$ENC_KEY" \
+            -e PLAINSPACE_EMAIL_INDEX_KEY="$IDX_KEY" \
+            -e VAPID_PUBLIC_KEY="$(jq -r .publicKey vapid.json)" \
+            -e VAPID_PRIVATE_KEY="$(jq -r .privateKey vapid.json)" \
+            -e VAPID_SUBJECT=mailto:ci@plainspace.org \
+            plainspace-app:ci
+      - name: Smoke-check /health and the SPA shell
+        run: |
+          curl -fsS --retry 30 --retry-delay 2 --retry-all-errors --retry-connrefused \
+            http://127.0.0.1:3000/health >/dev/null
+          curl -fsS http://127.0.0.1:3000/ | grep -q 'id="root"' \
+            || { echo "::error::SPA shell not served"; exit 1; }
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs app || true
+
+  # Build the production image once and push it to GHCR — deploy hosts pull
+  # the prebuilt image instead of building (docs/self-hosting.md §4). Only
+  # publishes after every other job is green, and only on main — PRs never push.
+  publish:
+    needs: [check, unit-test, e2e, docker-smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Owner-relative so the same workflow publishes to whichever
+          # user/org hosts the repo.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/plainspace-app:latest
+            ghcr.io/${{ github.repository_owner }}/plainspace-app:${{ github.sha }}
+          # Links the GHCR package to this repo so it inherits repo visibility
+          # and GITHUB_TOKEN can push without a separate PAT.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
