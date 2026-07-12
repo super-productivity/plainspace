@@ -126,6 +126,8 @@ test('delete an item shows undo toast', async ({ page }) => {
 
   await page.getByTestId('delete-item-button').click();
 
-  await expect(page.getByTestId('toast')).toBeVisible();
+  // A fresh Space also shows the "first share" nudge toast, so target the
+  // delete toast specifically rather than any toast.
+  await expect(page.getByTestId('toast').filter({ hasText: 'deleted' })).toBeVisible();
   await expect(page.getByTestId('list-item')).not.toBeVisible();
 });
