@@ -13,9 +13,12 @@ test('undo restores a deleted item', async ({ page }) => {
   await page.getByTestId('delete-item-button').click();
 
   await expect(page.getByTestId('list-item')).not.toBeVisible();
-  await expect(page.getByTestId('toast')).toBeVisible();
+  // A fresh Space also shows the "first share" nudge toast, so target the
+  // delete toast specifically rather than any toast.
+  const undoToast = page.getByTestId('toast').filter({ hasText: 'deleted' });
+  await expect(undoToast).toBeVisible();
 
-  await page.getByTestId('toast-action').click();
+  await undoToast.getByTestId('toast-action').click();
 
   await expect(page.getByTestId('item-text')).toHaveText('Undo me', { timeout: 5000 });
 });
