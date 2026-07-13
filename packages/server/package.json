@@ -19,7 +19,7 @@
     "@plainspace/shared": "*",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.25",
+    "hono": "^4.12.30",
     "nanoid": "^5.1.5",
     "nodemailer": "^9.0.1",
     "postgres": "^3.4.7",
