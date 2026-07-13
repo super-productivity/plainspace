@@ -22,7 +22,7 @@ async function assignItemViaApi(slug: string, token: string, itemId: string, mem
 
 const ITEMS = [
   'Reserve the mountain hut (2 nights)',
-  'Split the grocery list — who brings what',
+  'Split the grocery list: who brings what',
   'Check the weather forecast for Friday',
   'Print the trail map for Saturday',
   'Confirm carpool: 4 seats, leave 7am',
@@ -54,8 +54,8 @@ export async function seedDemoSpace() {
   await assignItemViaApi(slug, token, itemIds[2], members[1].member.id); // weather → Noah
 
   await createPollViaApi(slug, token, 'Which trail on Saturday?', [
-    'Lake loop — easy, 8km',
-    'Summit ridge — hard, 14km',
+    'Lake loop (easy, 8km)',
+    'Summit ridge (hard, 14km)',
   ]);
   return { slug, identity: { token, memberId: member.id } };
 }
