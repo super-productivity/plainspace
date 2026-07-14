@@ -101,6 +101,14 @@ describe('ListItem checkbox', () => {
 });
 
 describe('ListItem inline edit', () => {
+  it('exposes the full title in the native hover tooltip', () => {
+    const title =
+      'A task title long enough to wrap across several lines while keeping the complete text available';
+    renderItem({ text: title });
+
+    expect(screen.getByTestId('item-text').getAttribute('title')).toBe(title);
+  });
+
   it('saves a changed title on Enter', async () => {
     renderItem({ text: 'Buy milk' });
     fireEvent.click(screen.getByTestId('item-text'));

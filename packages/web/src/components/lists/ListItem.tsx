@@ -243,7 +243,7 @@ export default function ListItem(props: ListItemProps) {
             data-testid="item-text"
             onClick={startEdit}
             aria-label={`Edit item: ${props.item.text}`}
-            title="Click to edit"
+            title={props.item.text}
           >
             <span class={styles.textContent}>{props.item.text}</span>
             <svg

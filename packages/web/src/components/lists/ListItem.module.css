@@ -109,18 +109,6 @@
   animation: uncheckSettle 80ms ease-out;
 }
 
-/* Strike sweep / retract must be keyframe animations, not transitions:
-   the row remounts when the item ref flips, so a fresh element starts at
-   the final scaleX and a transition would never fire. Animations play on
-   element mount whenever the selector matches at insertion time. */
-.item[data-just-toggled='check'].checked .textContent::after {
-  animation: strikeSweep 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.item[data-just-toggled='uncheck']:not(.checked) .textContent::after {
-  animation: strikeRetract 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 @keyframes checkPop {
   0% {
     transform: scale(0.2);
@@ -147,28 +135,9 @@
   }
 }
 
-@keyframes strikeSweep {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes strikeRetract {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .item[data-just-toggled] .checkedIcon,
-  .item[data-just-toggled] .unchecked,
-  .item[data-just-toggled] .textContent::after {
+  .item[data-just-toggled] .unchecked {
     animation: none;
   }
 }
@@ -176,12 +145,13 @@
 .text {
   position: relative;
   flex: 1;
+  min-width: 0;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  height: 46px;
+  min-height: 46px;
   margin: -13px -4px -9px -2px;
-  padding: 0 4px 0 2px;
+  padding: 13px 4px 9px 2px;
   box-sizing: border-box;
   font-size: var(--text-base);
   line-height: var(--leading-snug);
@@ -197,36 +167,24 @@
     color 220ms ease;
 }
 
-/* Animated strikethrough: a pseudo line on the text-only inner span that
-   sweeps across (scaleX 0 → 1) on check and retracts on uncheck. Replaces
-   text-decoration: line-through, which can't be animated. Lives on
-   .textContent (not .text) so the line is sized to the glyphs, not the
-   flex-stretched row width. */
 .textContent {
   position: relative;
-  display: inline-block;
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
-.textContent::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1.5px;
-  background: currentColor;
-  border-radius: 1px;
-  transform: scaleX(0);
-  transform-origin: left center;
-  pointer-events: none;
-}
-
-.checked .textContent::after {
-  transform: scaleX(1);
+.checked .textContent {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1.5px;
 }
 
 .editHint {
   flex-shrink: 0;
+  margin-top: 4px;
   color: var(--color-text-secondary);
   opacity: 0;
   transition: opacity 120ms ease;
