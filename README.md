@@ -1,19 +1,42 @@
-# Plainspace
+<p align="center">
+  <img src="packages/web/public/icon.svg" width="88" alt="Plainspace logo">
+</p>
 
-Plainspace is a small shared workspace for tasks, notes, polls, and
-planning — built for casual, touch-first use: create a Space, invite people
-by link, get things planned together. Live updates arrive over SSE, and
-reminders arrive as web push, so it works like an app without anyone
-installing one (it's an installable PWA if they want to).
+<h1 align="center">Plainspace</h1>
+
+<p align="center">
+  <strong>Shared plans without the project-management overhead.</strong><br>
+  Tasks, notes, polls, and reminders in one simple Space.
+</p>
+
+<p align="center">
+  <a href="https://plainspace.org"><strong>Try Plainspace →</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/self-hosting.md">Self-host</a>
+  &nbsp;·&nbsp;
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/super-productivity/plainspace/actions/workflows/ci.yml"><img src="https://github.com/super-productivity/plainspace/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3f7777.svg" alt="MIT license"></a>
+</p>
 
 ![A shared Plainspace with tasks, notes, a poll, and recent activity](docs/assets/plainspace-space.png)
 
-- **Hosted instance:** [plainspace.org](https://plainspace.org)
-- **Self-hosting:** [docs/self-hosting.md](docs/self-hosting.md)
-- **License:** [MIT](LICENSE)
+<p align="center"><em>One shared page for a weekend trip, household, club, or small team.</em></p>
 
-Technically it is an npm-workspaces TypeScript application with a SolidJS
-PWA, a Hono API, and PostgreSQL via Drizzle ORM.
+## Lightweight coordination for real life
+
+- **Share one link** — people can participate in any browser, without an app or account.
+- **Keep everything together** — tasks, notes, checklists, polls, and availability.
+- **Stay in sync** — live updates and optional push reminders keep the plan moving.
+- **Choose how to run it** — use the hosted version or self-host with Docker.
+
+## Choose your path
+
+- **Use the hosted app:** [create a Space on plainspace.org →](https://plainspace.org)
+- **Run it yourself:** [read the complete self-hosting guide →](docs/self-hosting.md)
 
 ## Self-host quick start
 
@@ -30,6 +53,9 @@ nginx/Caddy configs, email, backups, upgrades — is in
 yourself, replace the legal pages with your own (see the guide's §9).
 
 ## Development
+
+Plainspace is an npm-workspaces TypeScript application with a SolidJS PWA,
+a Hono API, and PostgreSQL via Drizzle ORM.
 
 1. Install Node.js 22 and Docker.
 2. Install dependencies with `npm ci`.
