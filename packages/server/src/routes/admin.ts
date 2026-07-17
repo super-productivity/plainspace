@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
+import { UpdateProjectSettingsSchema } from '@plainspace/shared';
 import { db } from '../db/connection.js';
 import { members, projects } from '../db/schema.js';
 import { decryptStoredEmail } from '../lib/email-crypto.js';
@@ -32,20 +33,28 @@ adminRoutes.patch('/settings', authMiddleware, requireAdmin, async (c) => {
   if (body === null) {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
-  const sharingMode = (body as { sharingMode?: string })?.sharingMode;
+  const parsed = UpdateProjectSettingsSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
+  }
+  const { name, purpose, sharingMode } = parsed.data;
 
-  if (sharingMode && !['open', 'private'].includes(sharingMode)) {
-    return c.json({ error: 'Invalid sharing mode' }, 422);
+  if (sharingMode === 'private' && !member.emailVerified) {
+    return c.json({ error: 'Add an email to this Space before turning link joining off' }, 400);
   }
 
-  if (sharingMode) {
-    if (sharingMode === 'private' && !member.emailVerified) {
-      return c.json({ error: 'Add an email to this Space before turning link joining off' }, 400);
-    }
+  // Only the keys the caller actually sent, so a name-only patch can't reset
+  // purpose (or vice versa) to a default.
+  const changes = {
+    ...(name !== undefined && { name }),
+    ...(purpose !== undefined && { purpose }),
+    ...(sharingMode !== undefined && { sharingMode }),
+  };
 
+  if (Object.keys(changes).length > 0) {
     await db
       .update(projects)
-      .set({ sharingMode, updatedAt: new Date() })
+      .set({ ...changes, updatedAt: new Date() })
       .where(eq(projects.id, project.id));
   }
 

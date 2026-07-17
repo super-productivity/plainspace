@@ -32,6 +32,18 @@ export const CreateProjectSchema = z.object({
   proofToken: z.string().min(1).max(200).optional(),
 });
 
+// Update a Space's own settings (PATCH /api/projects/:slug/auth/settings, admin
+// only). Every field is optional so a caller can patch one without restating the
+// others; an empty body is a no-op that just re-reads the project.
+export const UpdateProjectSettingsSchema = z
+  .object({
+    name: z.string().trim().min(1).max(MAX_PROJECT_NAME_LENGTH).optional(),
+    purpose: z.string().trim().max(MAX_PURPOSE_LENGTH).optional(),
+    sharingMode: z.enum(['open', 'private']).optional(),
+  })
+  .strict();
+export type UpdateProjectSettingsInput = z.infer<typeof UpdateProjectSettingsSchema>;
+
 // Create a Space from an integration PAT (POST /api/integration/spaces). No
 // email/code fields: the PAT already proves email ownership. displayName is
 // optional and defaults to the email local-part server-side when omitted.

@@ -444,7 +444,10 @@ export const api = {
     ),
 
   // Project settings
-  updateSettings: (slug: string, data: { sharingMode?: Project['sharingMode'] }) =>
+  updateSettings: (
+    slug: string,
+    data: { sharingMode?: Project['sharingMode']; name?: string; purpose?: string },
+  ) =>
     request<ProjectResponse>(
       `/projects/${slug}/auth/settings`,
       { method: 'PATCH', body: JSON.stringify(data) },

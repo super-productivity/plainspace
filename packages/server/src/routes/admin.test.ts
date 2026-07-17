@@ -65,6 +65,89 @@ async function deleteSpace(slug: string, token?: string): Promise<Response> {
   });
 }
 
+async function patchSettings(slug: string, token: string, body: unknown): Promise<Response> {
+  return app.request(`/api/projects/${slug}/auth/settings`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+async function readProject(id: string) {
+  return db.query.projects.findFirst({ where: eq(projects.id, id) });
+}
+
+describe('PATCH /auth/settings — Space name and purpose', () => {
+  it('lets an admin rename the Space and set its purpose', async () => {
+    const { project } = await createProject();
+    const admin = await authedMember(project.id, { role: 'admin' });
+
+    const res = await patchSettings(project.slug, admin.token, {
+      name: 'Renamed Space',
+      purpose: 'Ship the thing',
+    });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).project).toMatchObject({
+      name: 'Renamed Space',
+      purpose: 'Ship the thing',
+    });
+    expect(await readProject(project.id)).toMatchObject({
+      name: 'Renamed Space',
+      purpose: 'Ship the thing',
+    });
+  });
+
+  it('leaves purpose untouched when only the name is sent', async () => {
+    const { project } = await createProject();
+    const admin = await authedMember(project.id, { role: 'admin' });
+    await patchSettings(project.slug, admin.token, { purpose: 'Original purpose' });
+
+    const res = await patchSettings(project.slug, admin.token, { name: 'Just renamed' });
+
+    expect(res.status).toBe(200);
+    expect(await readProject(project.id)).toMatchObject({
+      name: 'Just renamed',
+      purpose: 'Original purpose',
+    });
+  });
+
+  it('trims the name and clears the purpose when sent an empty string', async () => {
+    const { project } = await createProject();
+    const admin = await authedMember(project.id, { role: 'admin' });
+    await patchSettings(project.slug, admin.token, { purpose: 'To be cleared' });
+
+    const res = await patchSettings(project.slug, admin.token, {
+      name: '  Padded name  ',
+      purpose: '',
+    });
+
+    expect(res.status).toBe(200);
+    expect(await readProject(project.id)).toMatchObject({ name: 'Padded name', purpose: '' });
+  });
+
+  it('rejects a blank or over-long name', async () => {
+    const { project } = await createProject('Keep me');
+    const admin = await authedMember(project.id, { role: 'admin' });
+
+    expect((await patchSettings(project.slug, admin.token, { name: '   ' })).status).toBe(422);
+    expect((await patchSettings(project.slug, admin.token, { name: 'x'.repeat(101) })).status).toBe(
+      422,
+    );
+    expect(await readProject(project.id)).toMatchObject({ name: 'Keep me' });
+  });
+
+  it('rejects a rename from a non-admin member', async () => {
+    const { project } = await createProject('Keep me');
+    const plain = await authedMember(project.id);
+
+    const res = await patchSettings(project.slug, plain.token, { name: 'Nope' });
+
+    expect(res.status).toBe(403);
+    expect(await readProject(project.id)).toMatchObject({ name: 'Keep me' });
+  });
+});
+
 describe('DELETE /auth/space — delete Space', () => {
   it('lets the creator delete the Space and cascades to members and items', async () => {
     const { project, listId } = await createProject();

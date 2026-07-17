@@ -18,6 +18,7 @@ import ApiTokens from './ApiTokens';
 import DeviceLink from './DeviceLink';
 import EmailVerify from './EmailVerify';
 import SharingModeControl from './SharingModeControl';
+import SpaceDetailsControl from './SpaceDetailsControl';
 import { Badge, Button, ConfirmDialog, Dialog } from '../ui';
 import styles from './MemberList.module.css';
 
@@ -400,6 +401,7 @@ export default function MemberList(props: MemberListProps) {
       <Show when={isAdmin()}>
         <section class={styles.section}>
           <h4 class={styles.sectionTitle}>Space settings</h4>
+          <SpaceDetailsControl slug={props.slug} project={props.project} />
           <SharingModeControl
             slug={props.slug}
             project={props.project}
