@@ -62,14 +62,6 @@
   color: var(--color-text-secondary);
 }
 
-.body code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.9em;
-  background: var(--color-soft);
-  padding: 1px 4px;
-  border-radius: var(--radius-sm);
-}
-
 .form {
   display: flex;
   flex-direction: column;

@@ -75,6 +75,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .surfaceSwatch {
@@ -125,6 +128,9 @@
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .logoFrameBare,
