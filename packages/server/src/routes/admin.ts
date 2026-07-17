@@ -37,31 +37,21 @@ adminRoutes.patch('/settings', authMiddleware, requireAdmin, async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
   }
-  const { name, purpose, sharingMode } = parsed.data;
+  const { sharingMode } = parsed.data;
 
   if (sharingMode === 'private' && !member.emailVerified) {
     return c.json({ error: 'Add an email to this Space before turning link joining off' }, 400);
   }
 
-  // Only the keys the caller actually sent, so a name-only patch can't reset
-  // purpose (or vice versa) to a default.
-  const changes = {
-    ...(name !== undefined && { name }),
-    ...(purpose !== undefined && { purpose }),
-    ...(sharingMode !== undefined && { sharingMode }),
-  };
+  // Absent optional keys aren't in parsed.data, and drizzle drops undefined
+  // ones, so a name-only patch leaves purpose and sharingMode untouched.
+  const [updated] = await db
+    .update(projects)
+    .set({ ...parsed.data, updatedAt: new Date() })
+    .where(eq(projects.id, project.id))
+    .returning();
 
-  if (Object.keys(changes).length > 0) {
-    await db
-      .update(projects)
-      .set({ ...changes, updatedAt: new Date() })
-      .where(eq(projects.id, project.id));
-  }
-
-  const updated = await db.query.projects.findFirst({
-    where: eq(projects.id, project.id),
-  });
-
+  // The Space can be deleted between projectMiddleware and this write.
   if (!updated) {
     return c.json({ error: 'Space not found' }, 404);
   }

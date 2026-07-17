@@ -20,6 +20,7 @@ import type {
   PushSubscriptionInput,
   Scratchpad,
   UpdateItemInput,
+  UpdateProjectSettingsInput,
   VerifyLoginCodeResponse,
 } from '@plainspace/shared';
 
@@ -444,10 +445,7 @@ export const api = {
     ),
 
   // Project settings
-  updateSettings: (
-    slug: string,
-    data: { sharingMode?: Project['sharingMode']; name?: string; purpose?: string },
-  ) =>
+  updateSettings: (slug: string, data: UpdateProjectSettingsInput) =>
     request<ProjectResponse>(
       `/projects/${slug}/auth/settings`,
       { method: 'PATCH', body: JSON.stringify(data) },

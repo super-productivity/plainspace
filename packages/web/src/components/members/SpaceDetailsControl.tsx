@@ -21,22 +21,31 @@ export default function SpaceDetailsControl(props: SpaceDetailsControlProps) {
 
   const changed = () =>
     name().trim() !== props.project.name || purpose().trim() !== props.project.purpose;
+  // `required` only blocks the empty string, so the trim check earns its place.
+  const canSave = () => !pending() && changed() && !!name().trim();
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
+    if (!canSave()) return;
+
     const nextName = name().trim();
-    if (pending() || !nextName || !changed()) return;
+    const nextPurpose = purpose().trim();
+    // Send only the fields this admin actually changed. Another admin's edit to
+    // the other field arrives over SSE, and resending our seeded copy of it
+    // would silently revert their change.
+    const changes = {
+      ...(nextName !== props.project.name && { name: nextName }),
+      ...(nextPurpose !== props.project.purpose && { purpose: nextPurpose }),
+    };
 
     setPending(true);
     setError('');
     try {
-      const result = await api.updateSettings(props.slug, {
-        name: nextName,
-        purpose: purpose().trim(),
-      });
+      const result = await api.updateSettings(props.slug, changes);
       updateProject(result.project);
-      // Re-seed from the server's copy so the fields show what was actually
-      // stored and `changed()` settles back to false.
+      // Show what the server actually stored: it trims, and a partial patch
+      // returns the other field as whoever last wrote it left it. Safe to
+      // overwrite the drafts because the inputs are disabled while pending.
       setName(result.project.name);
       setPurpose(result.project.purpose);
     } catch (err) {
@@ -56,6 +65,7 @@ export default function SpaceDetailsControl(props: SpaceDetailsControlProps) {
         value={name()}
         onInput={(e) => setName(e.currentTarget.value)}
         maxLength={MAX_PROJECT_NAME_LENGTH}
+        disabled={pending()}
         required
         data-testid="space-name-input"
       />
@@ -67,13 +77,14 @@ export default function SpaceDetailsControl(props: SpaceDetailsControlProps) {
         value={purpose()}
         onInput={(e) => setPurpose(e.currentTarget.value)}
         maxLength={MAX_PURPOSE_LENGTH}
+        disabled={pending()}
         data-testid="space-purpose-input"
       />
       <div class={styles.actions}>
         <Button
           type="submit"
           size="sm"
-          disabled={pending() || !changed() || !name().trim()}
+          disabled={!canSave()}
           data-testid="save-space-details-button"
         >
           {pending() ? 'Saving…' : 'Save'}

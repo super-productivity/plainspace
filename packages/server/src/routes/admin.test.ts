@@ -137,6 +137,33 @@ describe('PATCH /auth/settings — Space name and purpose', () => {
     expect(await readProject(project.id)).toMatchObject({ name: 'Keep me' });
   });
 
+  // The route sets `{ ...parsed.data }` and leans on zod omitting absent keys +
+  // drizzle dropping undefined ones. This pins that: a name-only patch must not
+  // disturb sharingMode.
+  it('leaves sharingMode untouched when only the name is sent', async () => {
+    const { project } = await createProject();
+    const admin = await authedMember(project.id, { role: 'admin', email: 'a@example.com' });
+    await patchSettings(project.slug, admin.token, { sharingMode: 'private' });
+
+    const res = await patchSettings(project.slug, admin.token, { name: 'Renamed' });
+
+    expect(res.status).toBe(200);
+    expect(await readProject(project.id)).toMatchObject({
+      name: 'Renamed',
+      sharingMode: 'private',
+    });
+  });
+
+  it('rejects unknown keys instead of silently ignoring them', async () => {
+    const { project } = await createProject('Keep me');
+    const admin = await authedMember(project.id, { role: 'admin' });
+
+    const res = await patchSettings(project.slug, admin.token, { name: 'New', slug: 'hijacked' });
+
+    expect(res.status).toBe(422);
+    expect(await readProject(project.id)).toMatchObject({ name: 'Keep me', slug: project.slug });
+  });
+
   it('rejects a rename from a non-admin member', async () => {
     const { project } = await createProject('Keep me');
     const plain = await authedMember(project.id);
