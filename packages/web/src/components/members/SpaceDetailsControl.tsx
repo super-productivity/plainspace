@@ -57,7 +57,6 @@ export default function SpaceDetailsControl(props: SpaceDetailsControlProps) {
 
   return (
     <form class={styles.section} onSubmit={handleSubmit} data-testid="space-details-section">
-      <h4 class={styles.heading}>Name and purpose</h4>
       <TextField
         id="space-name"
         label="Name"

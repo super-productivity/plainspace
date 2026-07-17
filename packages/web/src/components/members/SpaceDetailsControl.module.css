@@ -5,11 +5,6 @@
   margin-bottom: var(--space-md);
 }
 
-.heading {
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
 .actions {
   display: flex;
   justify-content: flex-end;
