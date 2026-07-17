@@ -16,8 +16,8 @@ import {
 } from './constants.js';
 
 export const CreateProjectSchema = z.object({
-  name: z.string().min(1).max(MAX_PROJECT_NAME_LENGTH),
-  purpose: z.string().max(MAX_PURPOSE_LENGTH).default(''),
+  name: z.string().trim().min(1).max(MAX_PROJECT_NAME_LENGTH),
+  purpose: z.string().trim().max(MAX_PURPOSE_LENGTH).default(''),
   displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH),
   email: z.string().email().max(255),
   // 6-digit code from POST /api/auth/request-creation-code. Required in
@@ -48,8 +48,8 @@ export type UpdateProjectSettingsInput = z.infer<typeof UpdateProjectSettingsSch
 // email/code fields: the PAT already proves email ownership. displayName is
 // optional and defaults to the email local-part server-side when omitted.
 export const CreateSpaceViaTokenSchema = z.object({
-  name: z.string().min(1).max(MAX_PROJECT_NAME_LENGTH),
-  purpose: z.string().max(MAX_PURPOSE_LENGTH).default(''),
+  name: z.string().trim().min(1).max(MAX_PROJECT_NAME_LENGTH),
+  purpose: z.string().trim().max(MAX_PURPOSE_LENGTH).default(''),
   displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
 });
 

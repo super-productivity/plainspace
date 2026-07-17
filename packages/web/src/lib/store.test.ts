@@ -4,6 +4,7 @@ import type {
   Item,
   Member,
   PollPanel,
+  Project,
   TimeSlotPanel,
   ChecklistPanel,
 } from '@plainspace/shared';
@@ -25,6 +26,7 @@ import {
   state,
   updateItem,
   updateMember,
+  updateProject,
 } from './store';
 
 // Minimal fixtures — only the fields the store actually reads/sorts on.
@@ -286,6 +288,46 @@ describe('scratchpad editors', () => {
     expect(state.scratchpadEditors).toEqual(['m1']);
     setScratchpadEditing('m1', false);
     expect(state.scratchpadEditors).toEqual([]);
+  });
+});
+
+describe('updateProject', () => {
+  function project(name: string, updatedAt: string): Project {
+    return {
+      id: 'p1',
+      slug: 's',
+      name,
+      purpose: '',
+      sharingMode: 'open',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt,
+    };
+  }
+
+  it('applies a newer snapshot', () => {
+    updateProject(project('first', '2026-01-01T00:00:01.000Z'));
+    updateProject(project('second', '2026-01-01T00:00:02.000Z'));
+    expect(state.project?.name).toBe('second');
+  });
+
+  it('applies the first snapshot when nothing is held', () => {
+    updateProject(project('only', '2026-01-01T00:00:01.000Z'));
+    expect(state.project?.name).toBe('only');
+  });
+
+  // A settings PATCH response that lost a race with a newer write must not
+  // revert the store to its stale snapshot.
+  it('ignores a snapshot older than the one held', () => {
+    updateProject(project('newer', '2026-01-01T00:00:02.000Z'));
+    updateProject(project('stale', '2026-01-01T00:00:01.000Z'));
+    expect(state.project?.name).toBe('newer');
+  });
+
+  // Same-timestamp writes carry the same state, so neither is stale.
+  it('applies a snapshot with an equal timestamp', () => {
+    updateProject(project('a', '2026-01-01T00:00:01.000Z'));
+    updateProject(project('b', '2026-01-01T00:00:01.000Z'));
+    expect(state.project?.name).toBe('b');
   });
 });
 

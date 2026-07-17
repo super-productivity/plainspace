@@ -85,6 +85,11 @@ export function setProjectData(data: {
 }
 
 export function updateProject(project: Project) {
+  // Settings PATCHes and their SSE echoes race: two in-flight writes can land
+  // out of order, and each response carries a whole project. Drop any snapshot
+  // older than what we hold so a late response can't revert a newer write.
+  const current = state.project;
+  if (current && project.updatedAt < current.updatedAt) return;
   setState('project', project);
 }
 

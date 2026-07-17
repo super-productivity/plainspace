@@ -21,13 +21,20 @@ import {
   scrubOrphanedApiTokensForProject,
 } from '../services/member-deletion.js';
 import { readJson } from '../lib/json.js';
+import { checkRateLimit } from '../lib/rate-limit.js';
 
 export const adminRoutes = new Hono<{ Variables: ProjectContext & AuthContext }>();
 
 // PATCH /api/projects/:slug/auth/settings - Update project settings (admin only)
+// Member-keyed rate limit (20/min), as on panel rename: name/purpose are free
+// text now, and each write fans out an SSE broadcast to everyone in the Space.
 adminRoutes.patch('/settings', authMiddleware, requireAdmin, async (c) => {
   const project = c.get('project');
   const member = c.get('member');
+
+  if (!checkRateLimit(`space-settings:${member.id}`, 20, 60_000)) {
+    return c.json({ error: 'Too many changes, slow down a moment' }, 429);
+  }
 
   const body = await readJson(c);
   if (body === null) {
