@@ -1,5 +1,6 @@
 import { createSignal, Show, onCleanup } from 'solid-js';
 import { api } from '../../lib/api';
+import { copyText } from '../../lib/clipboard';
 import { Dialog } from '../ui';
 import styles from './NudgeButton.module.css';
 
@@ -35,12 +36,10 @@ export default function NudgeButton(props: NudgeButtonProps) {
   }
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(nudgeText());
+    // On failure the text stays visible in the preview for manual copying.
+    if (await copyText(nudgeText())) {
       setCopied(true);
       copyTimer = setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard permission denied — text is still visible */
     }
   }
 

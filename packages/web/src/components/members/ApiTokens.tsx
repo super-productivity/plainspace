@@ -2,6 +2,7 @@ import { createSignal, Show, onMount, onCleanup } from 'solid-js';
 import type { ApiToken } from '@plainspace/shared';
 import { api } from '../../lib/api';
 import { addToast } from '../../lib/toast';
+import { copyText } from '../../lib/clipboard';
 import { Button, ConfirmDialog } from '../ui';
 import styles from './ApiTokens.module.css';
 
@@ -58,10 +59,13 @@ export default function ApiTokens(props: ApiTokensProps) {
   }
 
   async function handleCopy() {
-    if (newToken()) {
-      await navigator.clipboard.writeText(newToken()!).catch(() => {});
+    const value = newToken();
+    if (!value) return;
+    if (await copyText(value)) {
       setCopied(true);
       copyTimer = setTimeout(() => setCopied(false), 2000);
+    } else {
+      addToast('Could not copy the token. Select it and copy manually.');
     }
   }
 
