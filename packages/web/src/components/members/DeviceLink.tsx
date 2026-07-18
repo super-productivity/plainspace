@@ -1,6 +1,7 @@
 import { createResource, createSignal, Show } from 'solid-js';
 import QRCode from 'qrcode';
 import { buildClaimUrl, getToken } from '../../lib/identity';
+import { copyText } from '../../lib/clipboard';
 import { Button } from '../ui';
 import styles from './DeviceLink.module.css';
 
@@ -29,12 +30,10 @@ export default function DeviceLink(props: DeviceLinkProps) {
   async function copyLink() {
     const url = claimUrl();
     if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
+    // On failure the QR stays available to scan, so we just leave the label as-is.
+    if (await copyText(url)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard denied — user can long-press the QR or copy via dev tools */
     }
   }
 

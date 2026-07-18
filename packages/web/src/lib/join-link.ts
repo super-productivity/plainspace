@@ -1,11 +1,11 @@
 import { addToast } from './toast';
+import { copyText } from './clipboard';
 
 export async function copyJoinLink(slug: string): Promise<void> {
   const link = `${window.location.origin}/${slug}/join`;
-  try {
-    await navigator.clipboard.writeText(link);
+  if (await copyText(link)) {
     addToast('Join link copied. Anyone with this link can join this Space.');
-  } catch {
+  } else {
     addToast('Could not copy link');
   }
 }

@@ -4,6 +4,7 @@ import type { ApiToken } from '@plainspace/shared';
 import { CODE_EXPIRY_MS, CODE_REQUEST_WINDOW_MS } from '@plainspace/shared';
 import { api, ApiError } from '../lib/api';
 import { addToast } from '../lib/toast';
+import { copyText } from '../lib/clipboard';
 import {
   buildClaimUrl,
   clearIdentity,
@@ -413,16 +414,15 @@ export default function Connect() {
   async function handleCopy() {
     const r = reveal();
     if (!r) return;
-    try {
-      await navigator.clipboard.writeText(r.token);
-      // §10.3: flip copied/saved ONLY inside the resolved branch – a rejected
-      // write must not open the gate on a copy that never happened.
+    // §10.3: flip copied/saved ONLY when the copy actually happened – a failed
+    // write must not open the gate on a copy that never happened.
+    if (await copyText(r.token)) {
       setCopyFailed(false);
       setCopied(true);
       setSaved(true);
       if (copyTimer) clearTimeout(copyTimer);
       copyTimer = setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } else {
       setCopyFailed(true);
     }
   }
