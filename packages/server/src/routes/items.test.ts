@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
@@ -437,6 +437,15 @@ describe('PATCH item — recurring check advances the schedule', () => {
 });
 
 describe('PATCH item — un-check restores the completed occurrence', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-24T14:00:00.000Z')); // 16:00 Europe/Berlin
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('rolls remindAt back to the current occurrence when an overdue recurring task is restored', async () => {
     const { project, listId } = await createProject();
     const { token } = await authedMember(project.id);
