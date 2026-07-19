@@ -422,6 +422,7 @@ export default function ReminderPicker(props: ReminderPickerProps) {
       anchor={props.anchor}
       onClose={props.onClose}
       class={styles.popover}
+      backdrop
       data-testid="reminder-picker"
     >
       <div class={styles.chips} role="group" aria-label="Reminder presets" ref={presetsRef}>

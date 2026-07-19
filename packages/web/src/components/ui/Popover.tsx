@@ -1,5 +1,5 @@
 import type { JSX } from 'solid-js';
-import { createSignal, onCleanup, onMount } from 'solid-js';
+import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
 interface PopoverProps {
@@ -8,6 +8,11 @@ interface PopoverProps {
   align?: 'start' | 'end';
   offset?: number;
   class?: string;
+  /** Render a full-screen scrim behind the popover that swallows the
+   *  tap-away. Without it, an outside `mousedown` closes the popover but the
+   *  following `click` still lands on whatever was underneath — an accidental
+   *  action. With it, the tap hits the backdrop and never reaches the page. */
+  backdrop?: boolean;
   children: JSX.Element;
   'data-testid'?: string;
 }
@@ -69,7 +74,10 @@ export default function Popover(props: PopoverProps) {
   }
 
   onMount(() => {
-    document.addEventListener('mousedown', handleOutsideClick);
+    // With a backdrop the scrim owns the tap-away: it swallows the click so the
+    // page never gets it. The document mousedown handler would close on the
+    // mousedown and let the trailing click fall through to the page, so skip it.
+    if (!props.backdrop) document.addEventListener('mousedown', handleOutsideClick);
     document.addEventListener('keydown', handleKey);
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
@@ -84,7 +92,7 @@ export default function Popover(props: PopoverProps) {
   });
 
   onCleanup(() => {
-    document.removeEventListener('mousedown', handleOutsideClick);
+    if (!props.backdrop) document.removeEventListener('mousedown', handleOutsideClick);
     document.removeEventListener('keydown', handleKey);
     window.removeEventListener('scroll', reposition, true);
     window.removeEventListener('resize', reposition);
@@ -101,6 +109,14 @@ export default function Popover(props: PopoverProps) {
 
   return (
     <Portal>
+      <Show when={props.backdrop}>
+        <div
+          onClick={() => props.onClose()}
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, 'z-index': 999 }}
+          data-testid="popover-backdrop"
+        />
+      </Show>
       <div
         ref={popoverRef}
         class={props.class}
