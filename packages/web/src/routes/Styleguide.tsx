@@ -642,8 +642,8 @@ export default function Styleguide() {
         <p>
           A “⋯ more” trigger that opens a popover list of actions. Used in panel card headers for
           Rename / Delete (collapse is a separate header chevron, not a menu item). The last item
-          supports a <code>danger</code> variant. Like every popover, tapping outside closes it
-          and the tap is swallowed by a transparent backdrop, so it can’t accidentally trigger the
+          supports a <code>danger</code> variant. Like every popover, tapping outside closes it and
+          the tap is swallowed by a transparent backdrop, so it can’t accidentally trigger the
           control underneath.
         </p>
         <div class={styles.row}>
