@@ -269,7 +269,8 @@
 
 .assignButton,
 .reminderButton,
-.deleteButton {
+.deleteButton,
+.moreButton {
   position: relative;
   width: 30px;
   height: 30px;
@@ -292,9 +293,34 @@
 @media (hover: none) {
   .assignButton,
   .reminderButton,
-  .deleteButton {
+  .deleteButton,
+  .moreButton {
     width: 38px;
     height: 38px;
+  }
+}
+
+/* Touch devices (no hover) can't reveal actions on hover the way desktop does,
+   so the empty assign/reminder and the delete button would otherwise sit
+   permanently in the row, eating ~120px the title needs. Collapse them behind
+   the ⋯ trigger; the assignee avatar and an active reminder badge stay inline
+   because they carry state (same rule the desktop hover reveal uses). */
+@media (hover: none) {
+  .actions:not([data-actions-open='true']) .assignButton:not(.hasAssignee),
+  .actions:not([data-actions-open='true']) .reminderButton:not(.hasReminder),
+  .actions:not([data-actions-open='true']) .deleteButton {
+    display: none;
+  }
+  /* Opened: the full action set takes over and the ⋯ trigger steps aside. */
+  .actions[data-actions-open='true'] .moreButton {
+    display: none;
+  }
+}
+
+/* The ⋯ trigger is a touch affordance only — desktop reveals actions on hover. */
+@media (hover: hover) {
+  .moreButton {
+    display: none;
   }
 }
 

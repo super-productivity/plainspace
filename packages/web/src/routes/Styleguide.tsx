@@ -783,11 +783,12 @@ export default function Styleguide() {
           <code>--disc-hand</code>, <code>--color-primary</code>) with a hand check (
           <code>--check-hand</code>) — all masked so the ink stays themeable. On pointer devices the
           per-row action icons (reminder / assign / delete) stay hidden at rest and appear on row
-          hover or keyboard focus; on touch they're always visible. The third task carries a
-          recurring reminder — its badge shows the ↻ glyph before the time. The repeat{' '}
-          <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks / Monthly)
-          lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen fire time
-          at commit, and the server owns the immutable anchor.
+          hover or keyboard focus; on touch they collapse behind a single ⋯ trigger (an assignee
+          avatar or active reminder badge stays inline because it carries state) so the title keeps
+          the row's width. The third task carries a recurring reminder — its badge shows the ↻ glyph
+          before the time. The repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly /
+          Every 2 weeks / Monthly) lives in the reminder picker; byWeekday/byMonthDay are derived
+          from the chosen fire time at commit, and the server owns the immutable anchor.
         </p>
       </section>
 

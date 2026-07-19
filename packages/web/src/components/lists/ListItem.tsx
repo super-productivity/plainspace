@@ -54,6 +54,10 @@ export default function ListItem(props: ListItemProps) {
   const [editText, setEditText] = createSignal('');
   const [showPicker, setShowPicker] = createSignal(false);
   const [showReminderPicker, setShowReminderPicker] = createSignal(false);
+  // Mobile only: the non-state actions (empty assign, empty reminder, delete)
+  // collapse behind a single ⋯ trigger so the title gets the row's width back.
+  // A CSS media query does the hiding; this just tracks the disclosure state.
+  const [actionsOpen, setActionsOpen] = createSignal(false);
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -159,6 +163,7 @@ export default function ListItem(props: ListItemProps) {
   }
 
   async function handleAssign(memberId: string | null) {
+    setActionsOpen(false);
     const result = await api
       .updateItem(props.slug, props.item.id, {
         assignedTo: memberId,
@@ -174,6 +179,7 @@ export default function ListItem(props: ListItemProps) {
     // no race where the push delivery beats the subscription PUT. Subscribe
     // failure is silently tolerated — the sweep falls back to email when no
     // push subscription exists.
+    setActionsOpen(false);
     const subscribe = iso ? ensurePushSubscription(props.slug) : Promise.resolve();
     const patch = api.updateItem(props.slug, props.item.id, { remindAt: iso, repeat }).catch(() => {
       addToast('Could not save the reminder. Please try again.');
@@ -276,7 +282,7 @@ export default function ListItem(props: ListItemProps) {
         />
       </Show>
 
-      <div class={styles.actions}>
+      <div class={styles.actions} data-actions-open={actionsOpen() ? 'true' : undefined}>
         <div class={styles.reminderWrapper}>
           <button
             ref={reminderButtonRef}
@@ -417,6 +423,26 @@ export default function ListItem(props: ListItemProps) {
             <path d="M3 6h18" />
             <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          </svg>
+        </button>
+        {/* Mobile-only disclosure: the CSS collapses the empty assign/reminder
+            and delete buttons behind this ⋯ so the title reclaims the width.
+            Hidden on hover-capable (desktop) devices, which reveal on hover. */}
+        <button
+          type="button"
+          class={styles.moreButton}
+          onClick={() => setActionsOpen((v) => !v)}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="More actions"
+          aria-label={actionsOpen() ? 'Hide actions' : 'More actions'}
+          aria-expanded={actionsOpen()}
+          data-testid="more-actions-button"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.6" />
+            <circle cx="12" cy="12" r="1.6" />
+            <circle cx="19" cy="12" r="1.6" />
           </svg>
         </button>
       </div>

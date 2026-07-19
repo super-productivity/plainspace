@@ -167,6 +167,18 @@ describe('ListItem reminder', () => {
   });
 });
 
+describe('ListItem mobile actions disclosure', () => {
+  it('toggles the ⋯ trigger open and closed (CSS reveals the actions on touch)', () => {
+    renderItem();
+    const more = screen.getByTestId('more-actions-button');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
 describe('ListItem delete', () => {
   it('asks the parent to delete on click (parent owns the undo flow)', () => {
     const { onDelete } = renderItem();
