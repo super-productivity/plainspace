@@ -1,5 +1,5 @@
 import type { JSX } from 'solid-js';
-import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
 interface PopoverProps {
@@ -8,11 +8,6 @@ interface PopoverProps {
   align?: 'start' | 'end';
   offset?: number;
   class?: string;
-  /** Render a full-screen scrim behind the popover that swallows the
-   *  tap-away. Without it, an outside `mousedown` closes the popover but the
-   *  following `click` still lands on whatever was underneath — an accidental
-   *  action. With it, the tap hits the backdrop and never reaches the page. */
-  backdrop?: boolean;
   children: JSX.Element;
   'data-testid'?: string;
 }
@@ -62,22 +57,15 @@ export default function Popover(props: PopoverProps) {
     setPos(compute());
   }
 
-  function handleOutsideClick(e: MouseEvent) {
-    const target = e.target as Node;
-    if (popoverRef?.contains(target)) return;
-    if (props.anchor.contains(target)) return;
-    props.onClose();
-  }
-
   function handleKey(e: KeyboardEvent) {
     if (e.key === 'Escape') props.onClose();
   }
 
   onMount(() => {
-    // With a backdrop the scrim owns the tap-away: it swallows the click so the
-    // page never gets it. The document mousedown handler would close on the
-    // mousedown and let the trailing click fall through to the page, so skip it.
-    if (!props.backdrop) document.addEventListener('mousedown', handleOutsideClick);
+    // Outside-tap closing is owned by the backdrop scrim below — it swallows the
+    // click so the page never gets it. (A document mousedown handler would close
+    // on the mousedown and let the trailing click fall through to whatever was
+    // underneath, an accidental action.)
     document.addEventListener('keydown', handleKey);
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
@@ -92,7 +80,6 @@ export default function Popover(props: PopoverProps) {
   });
 
   onCleanup(() => {
-    if (!props.backdrop) document.removeEventListener('mousedown', handleOutsideClick);
     document.removeEventListener('keydown', handleKey);
     window.removeEventListener('scroll', reposition, true);
     window.removeEventListener('resize', reposition);
@@ -109,14 +96,16 @@ export default function Popover(props: PopoverProps) {
 
   return (
     <Portal>
-      <Show when={props.backdrop}>
-        <div
-          onClick={() => props.onClose()}
-          role="presentation"
-          style={{ position: 'fixed', inset: 0, 'z-index': 999 }}
-          data-testid="popover-backdrop"
-        />
-      </Show>
+      {/* Full-screen scrim just below the popover. Owns the tap-away: a click
+          here closes the popover and, because it lands on the scrim, never
+          reaches the element underneath — no accidental action from tapping
+          away. Kept transparent so a lightweight popover doesn't dim the page. */}
+      <div
+        onClick={() => props.onClose()}
+        role="presentation"
+        style={{ position: 'fixed', inset: 0, 'z-index': 999 }}
+        data-testid="popover-backdrop"
+      />
       <div
         ref={popoverRef}
         class={props.class}
