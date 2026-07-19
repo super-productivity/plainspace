@@ -427,23 +427,50 @@ export default function ListItem(props: ListItemProps) {
         </button>
         {/* Mobile-only disclosure: the CSS collapses the empty assign/reminder
             and delete buttons behind this ⋯ so the title reclaims the width.
-            Hidden on hover-capable (desktop) devices, which reveal on hover. */}
+            Stays visible when open (as an ×) so it doubles as the collapse
+            control and keeps focus. Hidden on hover-capable (desktop) devices,
+            which reveal actions on hover. */}
         <button
           type="button"
           class={styles.moreButton}
           onClick={() => setActionsOpen((v) => !v)}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
-          title="More actions"
+          title={actionsOpen() ? 'Hide actions' : 'More actions'}
           aria-label={actionsOpen() ? 'Hide actions' : 'More actions'}
           aria-expanded={actionsOpen()}
           data-testid="more-actions-button"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.6" />
-            <circle cx="12" cy="12" r="1.6" />
-            <circle cx="19" cy="12" r="1.6" />
-          </svg>
+          <Show
+            when={actionsOpen()}
+            fallback={
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            }
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12" />
+              <path d="M18 6l-12 12" />
+            </svg>
+          </Show>
         </button>
       </div>
     </div>

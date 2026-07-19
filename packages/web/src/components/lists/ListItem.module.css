@@ -311,10 +311,9 @@
   .actions:not([data-actions-open='true']) .deleteButton {
     display: none;
   }
-  /* Opened: the full action set takes over and the ⋯ trigger steps aside. */
-  .actions[data-actions-open='true'] .moreButton {
-    display: none;
-  }
+  /* Opened: the full action set appears; the trigger stays put as an × so it
+     remains the rightmost tap target (delete never lands under the finger's
+     prior position) and there's always a visible way to re-collapse the row. */
 }
 
 /* The ⋯ trigger is a touch affordance only — desktop reveals actions on hover. */
