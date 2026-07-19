@@ -99,12 +99,15 @@ export default function Popover(props: PopoverProps) {
       {/* Full-screen scrim just below the popover. Owns the tap-away: a click
           here closes the popover and, because it lands on the scrim, never
           reaches the element underneath — no accidental action from tapping
-          away. Kept transparent so a lightweight popover doesn't dim the page. */}
+          away. Kept transparent so a lightweight popover doesn't dim the page.
+          cursor:pointer is load-bearing: Solid delegates the click to the
+          document root, and iOS Safari only bubbles clicks from elements it
+          treats as clickable, so without it a tap on the scrim wouldn't dismiss
+          the popover on iOS (its only tap-away path on touch). */}
       <div
         onClick={() => props.onClose()}
         role="presentation"
-        style={{ position: 'fixed', inset: 0, 'z-index': 999 }}
-        data-testid="popover-backdrop"
+        style={{ position: 'fixed', inset: 0, 'z-index': 999, cursor: 'pointer' }}
       />
       <div
         ref={popoverRef}
