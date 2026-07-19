@@ -57,19 +57,15 @@ export default function Popover(props: PopoverProps) {
     setPos(compute());
   }
 
-  function handleOutsideClick(e: MouseEvent) {
-    const target = e.target as Node;
-    if (popoverRef?.contains(target)) return;
-    if (props.anchor.contains(target)) return;
-    props.onClose();
-  }
-
   function handleKey(e: KeyboardEvent) {
     if (e.key === 'Escape') props.onClose();
   }
 
   onMount(() => {
-    document.addEventListener('mousedown', handleOutsideClick);
+    // Outside-tap closing is owned by the backdrop scrim below — it swallows the
+    // click so the page never gets it. (A document mousedown handler would close
+    // on the mousedown and let the trailing click fall through to whatever was
+    // underneath, an accidental action.)
     document.addEventListener('keydown', handleKey);
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
@@ -84,7 +80,6 @@ export default function Popover(props: PopoverProps) {
   });
 
   onCleanup(() => {
-    document.removeEventListener('mousedown', handleOutsideClick);
     document.removeEventListener('keydown', handleKey);
     window.removeEventListener('scroll', reposition, true);
     window.removeEventListener('resize', reposition);
@@ -101,6 +96,19 @@ export default function Popover(props: PopoverProps) {
 
   return (
     <Portal>
+      {/* Full-screen scrim just below the popover. Owns the tap-away: a click
+          here closes the popover and, because it lands on the scrim, never
+          reaches the element underneath — no accidental action from tapping
+          away. Kept transparent so a lightweight popover doesn't dim the page.
+          cursor:pointer is load-bearing: Solid delegates the click to the
+          document root, and iOS Safari only bubbles clicks from elements it
+          treats as clickable, so without it a tap on the scrim wouldn't dismiss
+          the popover on iOS (its only tap-away path on touch). */}
+      <div
+        onClick={() => props.onClose()}
+        role="presentation"
+        style={{ position: 'fixed', inset: 0, 'z-index': 999, cursor: 'pointer' }}
+      />
       <div
         ref={popoverRef}
         class={props.class}
