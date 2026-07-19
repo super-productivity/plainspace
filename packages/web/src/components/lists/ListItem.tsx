@@ -4,7 +4,7 @@ import { api, type ItemWithActivityResponse } from '../../lib/api';
 import { addActivity, updateItem } from '../../lib/store';
 import { addToast } from '../../lib/toast';
 import { ensurePushSubscription } from '../../lib/push';
-import { Avatar } from '../ui';
+import { Avatar, Popover } from '../ui';
 import MemberPicker from './MemberPicker';
 import ReminderPicker, { describeRepeat } from './ReminderPicker';
 import styles from './ListItem.module.css';
@@ -54,10 +54,14 @@ export default function ListItem(props: ListItemProps) {
   const [editText, setEditText] = createSignal('');
   const [showPicker, setShowPicker] = createSignal(false);
   const [showReminderPicker, setShowReminderPicker] = createSignal(false);
-  // Mobile only: the non-state actions (empty assign, empty reminder, delete)
-  // collapse behind a single ⋯ trigger so the title gets the row's width back.
-  // A CSS media query does the hiding; this just tracks the disclosure state.
-  const [actionsOpen, setActionsOpen] = createSignal(false);
+  // Mobile: the non-state actions (empty assign, empty reminder, delete) move
+  // into a ⋯ popover menu so the title reclaims the row width (a CSS media
+  // query hides the inline buttons on touch; desktop keeps its hover-reveal).
+  // `menuOpen` drives that menu; the picker it opens anchors to whichever
+  // element was tapped — the inline badge on desktop, the ⋯ trigger on mobile.
+  const [menuOpen, setMenuOpen] = createSignal(false);
+  const [reminderAnchor, setReminderAnchor] = createSignal<HTMLButtonElement>();
+  const [assignAnchor, setAssignAnchor] = createSignal<HTMLButtonElement>();
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -131,10 +135,26 @@ export default function ListItem(props: ListItemProps) {
   let inputRef: HTMLInputElement | undefined;
   let assignButtonRef: HTMLButtonElement | undefined;
   let reminderButtonRef: HTMLButtonElement | undefined;
+  let moreButtonRef: HTMLButtonElement | undefined;
 
   const assignedMember = createMemo(() =>
     props.members.find((m) => m.id === props.item.assignedTo),
   );
+
+  // Open a picker anchored to `anchor` and close the ⋯ menu if it was the
+  // opener. Both pickers are Popovers positioned against a live element, so the
+  // anchor must stay mounted while open — the inline badge (visible on desktop,
+  // or on mobile when it carries state) or the ⋯ trigger (visible on mobile).
+  function openReminderPicker(anchor: HTMLButtonElement) {
+    setMenuOpen(false);
+    setReminderAnchor(anchor);
+    setShowReminderPicker(true);
+  }
+  function openAssignPicker(anchor: HTMLButtonElement) {
+    setMenuOpen(false);
+    setAssignAnchor(anchor);
+    setShowPicker(true);
+  }
 
   async function toggleChecked() {
     const wasChecked = props.item.checked;
@@ -163,7 +183,7 @@ export default function ListItem(props: ListItemProps) {
   }
 
   async function handleAssign(memberId: string | null) {
-    setActionsOpen(false);
+    setMenuOpen(false);
     const result = await api
       .updateItem(props.slug, props.item.id, {
         assignedTo: memberId,
@@ -179,7 +199,7 @@ export default function ListItem(props: ListItemProps) {
     // no race where the push delivery beats the subscription PUT. Subscribe
     // failure is silently tolerated — the sweep falls back to email when no
     // push subscription exists.
-    setActionsOpen(false);
+    setMenuOpen(false);
     const subscribe = iso ? ensurePushSubscription(props.slug) : Promise.resolve();
     const patch = api.updateItem(props.slug, props.item.id, { remindAt: iso, repeat }).catch(() => {
       addToast('Could not save the reminder. Please try again.');
@@ -282,14 +302,18 @@ export default function ListItem(props: ListItemProps) {
         />
       </Show>
 
-      <div class={styles.actions} data-actions-open={actionsOpen() ? 'true' : undefined}>
+      <div class={styles.actions}>
         <div class={styles.reminderWrapper}>
           <button
             ref={reminderButtonRef}
             class={`${styles.reminderButton} ${props.item.remindAt ? styles.hasReminder : ''} ${
               isOverdue() ? styles.overdue : ''
             }`}
-            onClick={() => setShowReminderPicker((v) => !v)}
+            onClick={() =>
+              showReminderPicker()
+                ? setShowReminderPicker(false)
+                : openReminderPicker(reminderButtonRef!)
+            }
             onMouseDown={(e) => e.stopPropagation()}
             // Sortable listens on pointerdown (not mousedown) on PointerEvent
             // browsers; without this, press-and-drag from the button lifts the row.
@@ -333,9 +357,9 @@ export default function ListItem(props: ListItemProps) {
               </span>
             </Show>
           </button>
-          <Show when={showReminderPicker() && reminderButtonRef}>
+          <Show when={showReminderPicker() && reminderAnchor()}>
             <ReminderPicker
-              anchor={reminderButtonRef!}
+              anchor={reminderAnchor()!}
               remindAt={props.item.remindAt}
               repeat={props.item.repeat}
               onSet={handleReminder}
@@ -347,7 +371,9 @@ export default function ListItem(props: ListItemProps) {
           <button
             ref={assignButtonRef}
             class={`${styles.assignButton} ${assignedMember() ? styles.hasAssignee : ''}`}
-            onClick={() => setShowPicker((v) => !v)}
+            onClick={() =>
+              showPicker() ? setShowPicker(false) : openAssignPicker(assignButtonRef!)
+            }
             onMouseDown={(e) => e.stopPropagation()}
             // Sortable listens on pointerdown (not mousedown) on PointerEvent
             // browsers; without this, press-and-drag from the button lifts the row.
@@ -392,9 +418,9 @@ export default function ListItem(props: ListItemProps) {
               />
             </Show>
           </button>
-          <Show when={showPicker() && assignButtonRef}>
+          <Show when={showPicker() && assignAnchor()}>
             <MemberPicker
-              anchor={assignButtonRef!}
+              anchor={assignAnchor()!}
               members={props.members}
               assignedTo={props.item.assignedTo ?? null}
               onSelect={handleAssign}
@@ -425,53 +451,70 @@ export default function ListItem(props: ListItemProps) {
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
           </svg>
         </button>
-        {/* Mobile-only disclosure: the CSS collapses the empty assign/reminder
-            and delete buttons behind this ⋯ so the title reclaims the width.
-            Stays visible when open (as an ×) so it doubles as the collapse
-            control and keeps focus. Hidden on hover-capable (desktop) devices,
-            which reveal actions on hover. */}
+        {/* Mobile-only: the empty reminder/assign and delete collapse into this
+            ⋯ popover menu so the title reclaims the row width. Hidden on
+            hover-capable (desktop) devices, which reveal the inline buttons on
+            hover. The menu's picker actions anchor back to this trigger. */}
         <button
+          ref={moreButtonRef}
           type="button"
           class={styles.moreButton}
-          onClick={() => setActionsOpen((v) => !v)}
+          onClick={() => setMenuOpen((v) => !v)}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
-          title={actionsOpen() ? 'Hide actions' : 'More actions'}
-          aria-label={actionsOpen() ? 'Hide actions' : 'More actions'}
-          aria-expanded={actionsOpen()}
+          title="Task actions"
+          aria-label="Task actions"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen()}
           data-testid="more-actions-button"
         >
-          <Show
-            when={actionsOpen()}
-            fallback={
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <circle cx="5" cy="12" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="19" cy="12" r="1.8" />
-              </svg>
-            }
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <path d="M6 6l12 12" />
-              <path d="M18 6l-12 12" />
-            </svg>
-          </Show>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+          </svg>
         </button>
+        <Show when={menuOpen() && moreButtonRef}>
+          <Popover
+            anchor={moreButtonRef!}
+            onClose={() => setMenuOpen(false)}
+            class={styles.menu}
+            data-testid="actions-menu"
+          >
+            <div role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                class={styles.menuItem}
+                onClick={() => openReminderPicker(moreButtonRef!)}
+                data-testid="menu-reminder"
+              >
+                {props.item.remindAt ? 'Edit reminder' : 'Set reminder'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                class={styles.menuItem}
+                onClick={() => openAssignPicker(moreButtonRef!)}
+                data-testid="menu-assign"
+              >
+                {assignedMember() ? 'Reassign' : 'Assign'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                class={`${styles.menuItem} ${styles.menuDanger}`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onDelete(props.item.id);
+                }}
+                data-testid="menu-delete"
+              >
+                Delete
+              </button>
+            </div>
+          </Popover>
+        </Show>
       </div>
     </div>
   );

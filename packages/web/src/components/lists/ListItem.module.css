@@ -302,24 +302,68 @@
 
 /* Touch devices (no hover) can't reveal actions on hover the way desktop does,
    so the empty assign/reminder and the delete button would otherwise sit
-   permanently in the row, eating ~120px the title needs. Collapse them behind
-   the ⋯ trigger; the assignee avatar and an active reminder badge stay inline
-   because they carry state (same rule the desktop hover reveal uses). */
+   permanently in the row, eating ~120px the title needs. Move them into the ⋯
+   popover menu instead; the assignee avatar and an active reminder badge stay
+   inline because they carry state (same rule the desktop hover reveal uses). */
 @media (hover: none) {
-  .actions:not([data-actions-open='true']) .assignButton:not(.hasAssignee),
-  .actions:not([data-actions-open='true']) .reminderButton:not(.hasReminder),
-  .actions:not([data-actions-open='true']) .deleteButton {
+  .assignButton:not(.hasAssignee),
+  .reminderButton:not(.hasReminder),
+  .deleteButton {
     display: none;
   }
-  /* Opened: the full action set appears; the trigger stays put as an × so it
-     remains the rightmost tap target (delete never lands under the finger's
-     prior position) and there's always a visible way to re-collapse the row. */
 }
 
-/* The ⋯ trigger is a touch affordance only — desktop reveals actions on hover. */
+/* The ⋯ menu trigger is a touch affordance only — desktop reveals the inline
+   action buttons on hover, so the trigger (and thus the menu) never shows. */
 @media (hover: hover) {
   .moreButton {
     display: none;
+  }
+}
+
+/* Popover menu opened by the ⋯ trigger on touch. Mirrors the shared ui/Menu
+   surface (ui/Menu.module.css) so the row's action menu reads the same as the
+   card-header kebab menu. */
+.menu {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 168px;
+  padding: 4px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.menuDanger {
+  color: var(--color-danger);
+}
+
+@media (hover: hover) {
+  .menuItem:hover {
+    background: var(--color-soft);
+  }
+
+  .menuDanger:hover {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
   }
 }
 

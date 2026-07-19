@@ -167,15 +167,31 @@ describe('ListItem reminder', () => {
   });
 });
 
-describe('ListItem mobile actions disclosure', () => {
-  it('toggles the ⋯ trigger open and closed (CSS reveals the actions on touch)', () => {
+describe('ListItem mobile actions menu', () => {
+  it('opens the ⋯ popover menu and reflects it in aria-expanded', () => {
     renderItem();
     const more = screen.getByTestId('more-actions-button');
     expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(more.getAttribute('aria-haspopup')).toBe('menu');
     fireEvent.click(more);
     expect(more.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(more);
-    expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('actions-menu')).toBeTruthy();
+  });
+
+  it('deletes via the menu Delete item', () => {
+    const { onDelete } = renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    fireEvent.click(screen.getByTestId('menu-delete'));
+    expect(onDelete).toHaveBeenCalledWith('i1');
+  });
+
+  it('opens the reminder picker from the menu', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    fireEvent.click(screen.getByTestId('menu-reminder'));
+    // The menu closes and the reminder picker takes over.
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
+    expect(screen.getByTestId('reminder-picker')).toBeTruthy();
   });
 });
 
