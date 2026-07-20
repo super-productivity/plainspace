@@ -386,6 +386,27 @@
   opacity: 0.6;
 }
 
+/* ! marking an overdue occurrence — a shape signal alongside the amber colour
+   (.overdue), so "late" isn't conveyed by colour alone. Bold to read as an
+   alert, not punctuation; inherits the amber via the button's .overdue rule. */
+.overdueGlyph {
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* + affordance on the empty schedule button ("add a reminder"). A corner badge
+   over the clock so the idle button stays a compact circle like assign/delete,
+   rather than widening into a pill. */
+.addGlyph {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+}
+
 /* Mobile: stack the time under the clock icon so the reminder badge stays
    roughly icon-width instead of icon+label, leaving the task title more room. */
 @media (max-width: 720px) {

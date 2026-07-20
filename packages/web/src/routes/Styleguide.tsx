@@ -134,6 +134,28 @@ const demoItems: Item[] = [
       anchor: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     },
   },
+  {
+    id: 'i4',
+    listId: 'l1',
+    projectId: 'p1',
+    text: 'Water the plants (overdue occurrence)',
+    // Unchecked + repeat + past remindAt = "overdue": the fire passed while
+    // still undone. Badge shows ↻ and the ! marker in amber.
+    checked: false,
+    checkedBy: null,
+    assignedTo: null,
+    columnId: 'todo',
+    position: 4000,
+    createdBy: 'm1',
+    createdAt: NOW,
+    remindAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    repeat: {
+      freq: 'daily',
+      interval: 1,
+      tz: 'Europe/Berlin',
+      anchor: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    },
+  },
 ];
 
 const demoScratchpad: Scratchpad = {
@@ -798,6 +820,14 @@ export default function Styleguide() {
             myId="m1"
             onDelete={() => {}}
           />
+          <ListItem
+            item={demoItems[3]}
+            members={demoMembers}
+            attachments={demoAttachments}
+            slug={SLUG}
+            myId="m1"
+            onDelete={() => {}}
+          />
         </div>
         <p class={styles.helperText}>
           The checkbox is hand-drawn to match the heading underline: the resting box is a squircle
@@ -808,11 +838,13 @@ export default function Styleguide() {
           hover or keyboard focus; on touch they collapse into a single ⋯ button that opens a
           popover menu (Set reminder / Assign / Delete), while an assignee avatar or active reminder
           badge stays inline because it carries state — so the title keeps the row's width. The
-          third task carries a recurring reminder — its badge shows the ↻ glyph before the time, plus
-          a › glyph while it's resting (checked, awaiting its next occurrence). The
-          repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks /
-          Monthly) lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen
-          fire time at commit, and the server owns the immutable anchor.
+          schedule button carries a glyph per state so it doesn't lean on colour alone: an empty
+          button shows a <code>+</code> add affordance on hover, a repeating one the ↻ glyph, a
+          resting one (checked, awaiting its next occurrence) a › before the time, and an overdue one
+          (recurring fire passed while undone) a bold amber <code>!</code> — the third task is
+          resting, the fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily
+          / Weekly / Every 2 weeks / Monthly) lives in the reminder picker; byWeekday/byMonthDay are
+          derived from the chosen fire time at commit, and the server owns the immutable anchor.
         </p>
       </section>
 
