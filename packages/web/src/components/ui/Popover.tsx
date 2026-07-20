@@ -1,5 +1,5 @@
 import type { JSX } from 'solid-js';
-import { Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import styles from './Popover.module.css';
 
@@ -9,7 +9,6 @@ interface PopoverProps {
   align?: 'start' | 'end';
   offset?: number;
   class?: string;
-  backdrop?: boolean;
   children: JSX.Element;
   'data-testid'?: string;
 }
@@ -59,19 +58,15 @@ export default function Popover(props: PopoverProps) {
     setPos(compute());
   }
 
-  function handleOutsideClick(e: MouseEvent) {
-    const target = e.target as Node;
-    if (popoverRef?.contains(target)) return;
-    if (props.anchor.contains(target)) return;
-    props.onClose();
-  }
-
   function handleKey(e: KeyboardEvent) {
     if (e.key === 'Escape') props.onClose();
   }
 
   onMount(() => {
-    document.addEventListener('mousedown', handleOutsideClick);
+    // Outside-tap closing is owned by the backdrop scrim below — it swallows the
+    // click so the page never gets it. (A document mousedown handler would close
+    // on the mousedown and let the trailing click fall through to whatever was
+    // underneath, an accidental action.)
     document.addEventListener('keydown', handleKey);
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
@@ -86,7 +81,6 @@ export default function Popover(props: PopoverProps) {
   });
 
   onCleanup(() => {
-    document.removeEventListener('mousedown', handleOutsideClick);
     document.removeEventListener('keydown', handleKey);
     window.removeEventListener('scroll', reposition, true);
     window.removeEventListener('resize', reposition);
@@ -103,9 +97,15 @@ export default function Popover(props: PopoverProps) {
 
   return (
     <Portal>
-      <Show when={props.backdrop}>
-        <div class={styles.backdrop} aria-hidden="true" data-testid="popover-backdrop" />
-      </Show>
+      {/* Full-screen scrim just below the popover. Owns the tap-away: a click
+          here closes the popover and, because it lands on the scrim, never
+          reaches the element underneath — no accidental action from tapping
+          away. It is visible on touch devices, where there is no hover cue.
+          cursor:pointer is load-bearing: Solid delegates the click to the
+          document root, and iOS Safari only bubbles clicks from elements it
+          treats as clickable, so without it a tap on the scrim wouldn't dismiss
+          the popover on iOS (its only tap-away path on touch). */}
+      <div onClick={() => props.onClose()} role="presentation" class={styles.backdrop} />
       <div
         ref={popoverRef}
         class={props.class}

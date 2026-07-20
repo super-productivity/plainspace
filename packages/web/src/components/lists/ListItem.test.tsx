@@ -210,9 +210,9 @@ describe('ListItem mobile actions menu', () => {
     renderItem();
     fireEvent.click(screen.getByTestId('more-actions-button'));
 
-    const backdrop = screen.getByTestId('popover-backdrop');
-    expect(backdrop.getAttribute('aria-hidden')).toBe('true');
-    fireEvent.mouseDown(backdrop);
+    const backdrop = document.querySelector('[role="presentation"]');
+    expect(backdrop).toBeTruthy();
+    fireEvent.click(backdrop!);
     expect(screen.queryByTestId('actions-menu')).toBeNull();
   });
 
@@ -243,7 +243,7 @@ describe('ListItem mobile actions menu', () => {
     expect(screen.getByTestId('actions-menu')).toBeTruthy();
   });
 
-  it('closes another row menu before opening its own', () => {
+  it('dismisses one row menu before another can open', () => {
     renderItem();
     renderItem({ id: 'i2', text: 'Buy oats' });
     const first = screen.getByLabelText('Actions for Buy milk');
@@ -251,7 +251,8 @@ describe('ListItem mobile actions menu', () => {
 
     fireEvent.click(first);
     expect(screen.getAllByTestId('actions-menu')).toHaveLength(1);
-    fireEvent.mouseDown(second);
+    fireEvent.click(document.querySelector('[role="presentation"]')!);
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
     fireEvent.click(second);
     expect(screen.getAllByTestId('actions-menu')).toHaveLength(1);
   });

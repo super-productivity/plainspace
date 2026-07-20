@@ -643,7 +643,9 @@ export default function Styleguide() {
           A “⋯ more” trigger that opens a popover list of actions. Used in panel card headers for
           Rename / Delete (collapse is a separate header chevron, not a menu item). Items support
           optional icons and a <code>danger</code> variant. Opening focuses the first action; arrow
-          keys, Home, and End move through the menu. Touch devices add a backdrop behind the menu.
+          keys, Home, and End move through the menu. Like every popover, tapping outside closes it
+          and the tap is swallowed by a backdrop, so it can’t accidentally trigger the control
+          underneath. The backdrop is visible on touch devices.
         </p>
         <div class={styles.row}>
           <Menu
