@@ -39,6 +39,7 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  margin: 0;
 }
 
 .name {
