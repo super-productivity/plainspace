@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { setupProject } from '../helpers/fixtures';
 import { createItemViaApi } from '../helpers/api';
+import { clickItemAction } from '../helpers/item-actions';
 
 test('item present at load is not marked as entering; item added later is', async ({ page }) => {
   const { project, token } = await setupProject(page);
@@ -43,7 +44,7 @@ test('assignee changes do not mark an existing task as entering again', async ({
   await expect(added).toBeVisible({ timeout: 5000 });
   await expect(added).toHaveAttribute('data-animate-in', 'true');
 
-  await added.getByTestId('assign-button').click();
+  await clickItemAction(page, 'assign', added);
   await page.getByTestId(`assign-option-${member.id}`).click();
 
   await expect(added.getByTestId('assign-button')).toHaveAttribute(

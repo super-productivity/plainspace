@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { setupProject, setupJoinedMember } from '../helpers/fixtures';
+import { clickItemAction } from '../helpers/item-actions';
 
 // A valid URL-safe base64 string (87 chars + '=' pad = 88 chars → 65 bytes,
 // the size of a P-256 uncompressed public key). Bytes themselves are
@@ -93,7 +94,7 @@ function localInputValue(offsetMs: number): string {
 }
 
 async function setReminder(page: Page, offsetMs: number): Promise<void> {
-  await page.getByTestId('reminder-button').click();
+  await clickItemAction(page, 'reminder');
   await expect(page.getByTestId('reminder-picker')).toBeVisible();
   // The exact-time native input now lives inside a <details> disclosure; reveal
   // it before filling for a deterministic future offset.
@@ -158,7 +159,7 @@ test.describe('reminders', () => {
     );
 
     // Open the picker, pick a future time, choose Daily, then save.
-    await page.getByTestId('reminder-button').click();
+    await clickItemAction(page, 'reminder');
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
     await page.getByTestId('reminder-exact-toggle').click();
     await page.getByTestId('reminder-input').fill(localInputValue(5 * 60_000));
@@ -200,7 +201,7 @@ test.describe('reminders', () => {
       (req) => /\/items\/[^/]+$/.test(req.url()) && req.method() === 'PATCH',
     );
 
-    await page.getByTestId('reminder-button').click();
+    await clickItemAction(page, 'reminder');
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
     await page.getByTestId('reminder-exact-toggle').click();
     await page.getByTestId('reminder-input').fill(localInputValue(5 * 60_000));
@@ -231,7 +232,7 @@ test.describe('reminders', () => {
       (req) => /\/items\/[^/]+$/.test(req.url()) && req.method() === 'PATCH',
     );
 
-    await page.getByTestId('reminder-button').click();
+    await clickItemAction(page, 'reminder');
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
 
     // Advance to next month (always future, so the cell is never past-disabled)
@@ -268,7 +269,7 @@ test.describe('reminders', () => {
     await page.getByTestId('add-item-input').press('Enter');
     await expect(page.getByTestId('item-text')).toHaveText('Water plants');
 
-    await page.getByTestId('reminder-button').click();
+    await clickItemAction(page, 'reminder');
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
     await page.getByTestId('reminder-exact-toggle').click();
     await page.getByTestId('reminder-input').fill(localInputValue(5 * 60_000));
@@ -285,7 +286,7 @@ test.describe('reminders', () => {
     await page.getByTestId('add-item-input').press('Enter');
     await expect(page.getByTestId('item-text')).toHaveText('Pay rent');
 
-    await page.getByTestId('reminder-button').click();
+    await clickItemAction(page, 'reminder');
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
     await page.getByTestId('reminder-exact-toggle').click();
     // Next year's Jan 31 — deterministic day-of-month, always in the future.
@@ -361,7 +362,7 @@ test.describe('reminders', () => {
     await page.getByTestId('add-item-input').fill('Second');
     await page.getByTestId('add-item-input').press('Enter');
     await expect(page.getByTestId('item-text').nth(1)).toHaveText('Second');
-    await page.getByTestId('reminder-button').nth(1).click();
+    await clickItemAction(page, 'reminder', page.getByTestId('list-item').nth(1));
     await expect(page.getByTestId('reminder-picker')).toBeVisible();
     await page.getByTestId('reminder-exact-toggle').click();
     await page.getByTestId('reminder-input').fill(localInputValue(10 * 60_000));

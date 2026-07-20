@@ -1,6 +1,7 @@
 import { test, expect, type Browser } from '@playwright/test';
 import { createProjectViaApi, joinProjectViaApi, createItemViaApi } from '../helpers/api';
 import { seedIdentity } from '../helpers/fixtures';
+import { clickItemAction } from '../helpers/item-actions';
 
 async function setupTwoUsers(browser: Browser) {
   const result = await createProjectViaApi('Sync Test', 'Alice');
@@ -77,7 +78,7 @@ test('two users see item deleted by other in real-time', async ({ browser }) => 
   await expect(page1.getByTestId('item-text')).toHaveText('Delete me');
   await expect(page2.getByTestId('item-text')).toHaveText('Delete me');
 
-  await page1.getByTestId('delete-item-button').click();
+  await clickItemAction(page1, 'delete');
 
   await expect(page2.getByTestId('list-item')).not.toBeVisible({ timeout: 5000 });
 
