@@ -206,6 +206,16 @@ describe('ListItem mobile actions menu', () => {
     }
   });
 
+  it('adds a backdrop that dismisses the actions menu', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+
+    const backdrop = screen.getByTestId('popover-backdrop');
+    expect(backdrop.getAttribute('aria-hidden')).toBe('true');
+    fireEvent.mouseDown(backdrop);
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
+  });
+
   it('deletes via the menu Delete item', () => {
     const { onDelete } = renderItem();
     fireEvent.click(screen.getByTestId('more-actions-button'));

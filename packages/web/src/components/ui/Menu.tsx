@@ -78,6 +78,7 @@ export default function Menu(props: MenuProps) {
           anchor={triggerRef!}
           onClose={() => setOpen(false)}
           class={styles.menu}
+          backdrop
           data-testid={props.menuTestId}
         >
           <div role="menu" aria-label={props.label} onKeyDown={handleMenuKeyDown}>

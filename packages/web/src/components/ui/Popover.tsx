@@ -1,6 +1,7 @@
 import type { JSX } from 'solid-js';
-import { createSignal, onCleanup, onMount } from 'solid-js';
+import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
+import styles from './Popover.module.css';
 
 interface PopoverProps {
   anchor: HTMLElement;
@@ -8,6 +9,7 @@ interface PopoverProps {
   align?: 'start' | 'end';
   offset?: number;
   class?: string;
+  backdrop?: boolean;
   children: JSX.Element;
   'data-testid'?: string;
 }
@@ -101,6 +103,9 @@ export default function Popover(props: PopoverProps) {
 
   return (
     <Portal>
+      <Show when={props.backdrop}>
+        <div class={styles.backdrop} aria-hidden="true" data-testid="popover-backdrop" />
+      </Show>
       <div
         ref={popoverRef}
         class={props.class}
