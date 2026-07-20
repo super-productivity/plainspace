@@ -1,4 +1,13 @@
-import { createSignal, onCleanup, onMount, Show, Switch, Match } from 'solid-js';
+import {
+  createEffect,
+  createSignal,
+  createUniqueId,
+  onCleanup,
+  onMount,
+  Show,
+  Switch,
+  Match,
+} from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import type { ApiToken } from '@plainspace/shared';
 import { CODE_EXPIRY_MS, CODE_REQUEST_WINDOW_MS } from '@plainspace/shared';
@@ -75,6 +84,7 @@ export default function Connect() {
   const [code, setCode] = createSignal('');
   const [devCode, setDevCode] = createSignal<string | undefined>(undefined);
   const [error, setError] = createSignal('');
+  const [codeError, setCodeError] = createSignal('');
   const [submitting, setSubmitting] = createSignal(false);
 
   const [reveal, setReveal] = createSignal<{
@@ -98,10 +108,24 @@ export default function Connect() {
   const [safeOpen, setSafeOpen] = createSignal(false);
   const [resendRemaining, setResendRemaining] = createSignal(0);
   const [exitNote, setExitNote] = createSignal(false);
+  const howBodyId = createUniqueId();
+  const safeBodyId = createUniqueId();
 
+  let headingRef: HTMLHeadingElement | undefined;
+  let nameInput: HTMLInputElement | undefined;
+  let codeInput: HTMLInputElement | undefined;
   let keyRef: HTMLElement | undefined;
   let resendTimer: number | undefined;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+  createEffect(() => {
+    const nextState = state();
+    if (nextState === 'resolving') return;
+    if (nextState === 'details') nameInput?.focus();
+    else if (nextState === 'verify') codeInput?.focus();
+    else headingRef?.focus();
+  });
+
   onCleanup(() => {
     if (resendTimer) clearInterval(resendTimer);
     if (copyTimer) clearTimeout(copyTimer);
@@ -147,6 +171,8 @@ export default function Connect() {
   }
 
   onMount(async () => {
+    document.title = 'Connect Super Productivity — Plainspace';
+
     // 0. Resume a paused verify first (§ Screen B) so a reload/app-switch doesn't
     // dead-end on the 2-min resend cooldown with a valid code sitting unused.
     const pending = getPendingConnect();
@@ -201,6 +227,7 @@ export default function Connect() {
     if (!name().trim() || !email().trim()) return;
     setSubmitting(true);
     setError('');
+    setCodeError('');
     try {
       await requestCodeAndVerify(email().trim());
     } catch (err) {
@@ -213,6 +240,7 @@ export default function Connect() {
   async function handleResend() {
     if (resendRemaining() > 0) return;
     setError('');
+    setCodeError('');
     try {
       await requestCodeAndVerify(email().trim());
     } catch {
@@ -226,10 +254,12 @@ export default function Connect() {
   function handleVerifySubmit(e: Event) {
     e.preventDefault();
     if (!/^\d{6}$/.test(code())) {
-      setError('Enter the 6-digit code we emailed you.');
+      setError('');
+      setCodeError('Enter the 6-digit code we emailed you.');
       return;
     }
     setError('');
+    setCodeError('');
     void connectOrCreate(code());
   }
 
@@ -274,7 +304,8 @@ export default function Connect() {
       if (e instanceof ApiError && e.body?.code === 'no-account') {
         await createFirstSpace(verifyCode);
       } else {
-        setError('Could not connect – check the code and try again.');
+        if (e instanceof ApiError && e.status === 401) setCodeError(e.message);
+        else setError('Could not connect. Please try again.');
         setState('verify');
       }
     }
@@ -299,9 +330,11 @@ export default function Connect() {
       clearPendingConnect();
       revealKey(t.token, { created: true, spaceName: res.project.name, slug: res.project.slug });
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Could not set up your Space – please try again.',
-      );
+      if (err instanceof ApiError && err.status === 401) setCodeError(err.message);
+      else
+        setError(
+          err instanceof ApiError ? err.message : 'Could not set up your Space – please try again.',
+        );
       setState('verify');
     }
   }
@@ -453,14 +486,31 @@ export default function Connect() {
   }
 
   return (
-    <div class={styles.container}>
+    <main
+      class={styles.container}
+      aria-busy={state() === 'resolving' || state() === 'minting' ? 'true' : undefined}
+    >
       <div class={styles.header}>
         <img src="/favicon.svg" alt="" class={styles.logo} />
+        <Show when={state() === 'resolving'}>
+          <h1 ref={(element) => (headingRef = element)} class={styles.title} tabindex="-1">
+            Connect Super Productivity
+          </h1>
+        </Show>
         <Show when={state() === 'details'}>
-          <h1 class={styles.title}>Set up your first Space</h1>
+          <h1 ref={(element) => (headingRef = element)} class={styles.title} tabindex="-1">
+            Set up your first Space
+          </h1>
         </Show>
         <Show when={state() === 'verify'}>
-          <h1 class={styles.title}>Check your email</h1>
+          <h1 ref={(element) => (headingRef = element)} class={styles.title} tabindex="-1">
+            Check your email
+          </h1>
+        </Show>
+        <Show when={state() === 'minting'}>
+          <h1 ref={(element) => (headingRef = element)} class={styles.title} tabindex="-1">
+            Setting up your connection
+          </h1>
         </Show>
       </div>
       <Show when={state() === 'details' || state() === 'verify'}>
@@ -469,7 +519,9 @@ export default function Connect() {
 
       <Switch>
         <Match when={state() === 'resolving'}>
-          <p class={styles.spinner}>Loading…</p>
+          <p class={styles.spinner} role="status" aria-live="polite">
+            Loading…
+          </p>
         </Match>
 
         <Match when={state() === 'details'}>
@@ -483,11 +535,12 @@ export default function Connect() {
             <CollapseToggle
               collapsed={!howOpen()}
               onToggle={() => setHowOpen((v) => !v)}
+              controls={howBodyId}
               testId="how-toggle"
             >
               How does this work?
             </CollapseToggle>
-            <CollapseBody collapsed={!howOpen()}>
+            <CollapseBody id={howBodyId} collapsed={!howOpen()}>
               <div class={styles.expanderBody}>
                 The people you assign tasks to can follow along in Plainspace – no Super
                 Productivity account needed. You keep working in SP; they see just their shared
@@ -497,11 +550,12 @@ export default function Connect() {
             <CollapseToggle
               collapsed={!safeOpen()}
               onToggle={() => setSafeOpen((v) => !v)}
+              controls={safeBodyId}
               testId="safe-toggle"
             >
               Is this safe?
             </CollapseToggle>
-            <CollapseBody collapsed={!safeOpen()}>
+            <CollapseBody id={safeBodyId} collapsed={!safeOpen()}>
               <div class={styles.expanderBody}>
                 <ul>
                   <li>No passwords – your email is your login.</li>
@@ -513,16 +567,22 @@ export default function Connect() {
             </CollapseBody>
           </div>
 
-          <FormCard onSubmit={handleDetailsSubmit} data-testid="connect-details-form">
+          <FormCard
+            onSubmit={handleDetailsSubmit}
+            aria-busy={submitting() ? 'true' : undefined}
+            data-testid="connect-details-form"
+          >
             <TextField
               id="connect-name"
               label="Your name"
               type="text"
+              autocomplete="name"
               placeholder="e.g. Johannes"
               value={name()}
               onInput={(e) => setName(e.currentTarget.value)}
               maxLength={40}
               required
+              ref={(element) => (nameInput = element)}
               data-testid="connect-name-input"
               helperText="This is how people you share a task with see you."
             />
@@ -541,6 +601,7 @@ export default function Connect() {
               id="connect-email"
               label="Your email"
               type="email"
+              autocomplete="email"
               placeholder="e.g. you@example.com"
               value={email()}
               onInput={(e) => setEmail(e.currentTarget.value)}
@@ -551,7 +612,9 @@ export default function Connect() {
             />
 
             <Show when={error()}>
-              <p class={styles.error}>{error()}</p>
+              <p class={styles.error} role="alert">
+                {error()}
+              </p>
             </Show>
 
             <LegalNotice action="connecting" />
@@ -580,15 +643,22 @@ export default function Connect() {
               autocomplete="one-time-code"
               placeholder="123456"
               value={code()}
-              onInput={(e) => setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
+              onInput={(e) => {
+                setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6));
+                setCodeError('');
+              }}
               maxLength={6}
               required
+              ref={(element) => (codeInput = element)}
               data-testid="connect-code-input"
               helperText={devCode() ? `Dev code: ${devCode()}` : undefined}
+              error={codeError()}
             />
 
             <Show when={error()}>
-              <p class={styles.error}>{error()}</p>
+              <p class={styles.error} role="alert">
+                {error()}
+              </p>
             </Show>
 
             <Button
@@ -618,7 +688,7 @@ export default function Connect() {
         </Match>
 
         <Match when={state() === 'minting'}>
-          <p class={styles.spinner}>
+          <p class={styles.spinner} role="status" aria-live="polite">
             Setting up {spaceName().trim() ? `"${spaceName().trim()}"` : 'your connection'}…
           </p>
         </Match>
@@ -626,11 +696,11 @@ export default function Connect() {
         <Match when={state() === 'reveal' && reveal()}>
           {(r) => (
             <div class={styles.card} data-testid="connect-reveal">
-              <h2 class={styles.title}>
+              <h1 ref={(element) => (headingRef = element)} class={styles.title} tabindex="-1">
                 {r().created
                   ? `Your Space "${r().spaceName}" is ready`
                   : 'Welcome back – we connected this to your existing Spaces'}
-              </h2>
+              </h1>
               <p class={styles.note}>
                 One last step: paste this key into Super Productivity so it can post here for you.
               </p>
@@ -648,15 +718,22 @@ export default function Connect() {
               <Button size="sm" onClick={handleCopy} data-testid="connect-copy">
                 {copied() ? 'Copied ✓' : copyFailed() ? 'Copy failed' : 'Copy key'}
               </Button>
+              <Show when={copied()}>
+                <span class="visually-hidden" role="status">
+                  Key copied.
+                </span>
+              </Show>
               <Show when={copyFailed()}>
-                <p class={styles.warn}>Copy failed – tap the key above to select it.</p>
+                <p class={styles.warn} role="alert">
+                  Copy failed – tap the key above to select it.
+                </p>
               </Show>
               <p class={styles.scope}>{SCOPE_LINE} Lasts 1 year.</p>
 
               <Show
                 when={!done()}
                 fallback={
-                  <p class={styles.note}>
+                  <p class={styles.note} role="status">
                     You're all set – switch back to Super Productivity and paste your key into the
                     Connect box. You can close this tab.
                   </p>
@@ -697,7 +774,13 @@ export default function Connect() {
                 when={info().apiToken}
                 fallback={
                   <>
-                    <h2 class={styles.title}>Connect Super Productivity</h2>
+                    <h1
+                      ref={(element) => (headingRef = element)}
+                      class={styles.title}
+                      tabindex="-1"
+                    >
+                      Connect Super Productivity
+                    </h1>
                     <p class={styles.scope}>{SCOPE_LINE}</p>
                     <Button
                       class={styles.submit}
@@ -711,7 +794,13 @@ export default function Connect() {
               >
                 {(token) => (
                   <>
-                    <h2 class={styles.title}>Super Productivity needs a key</h2>
+                    <h1
+                      ref={(element) => (headingRef = element)}
+                      class={styles.title}
+                      tabindex="-1"
+                    >
+                      Super Productivity needs a key
+                    </h1>
                     <Show when={info().email}>
                       <p class={styles.note}>You already have one active for {info().email}.</p>
                     </Show>
@@ -762,7 +851,7 @@ export default function Connect() {
                 Back to Super Productivity
               </Button>
               <Show when={exitNote()}>
-                <p class={styles.note}>
+                <p class={styles.note} role="status">
                   You can close this tab and reconnect from Super Productivity anytime.
                 </p>
               </Show>
@@ -781,6 +870,6 @@ export default function Connect() {
           onCancel={() => setConfirmRegenerate(false)}
         />
       </Show>
-    </div>
+    </main>
   );
 }

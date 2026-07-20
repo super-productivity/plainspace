@@ -69,12 +69,17 @@ export default function Contact() {
         <a href="mailto:hello@plainspace.org">hello@plainspace.org</a>.
       </p>
 
-      <form class={styles.form} onSubmit={handleSubmit}>
+      <form
+        class={styles.form}
+        onSubmit={handleSubmit}
+        aria-busy={submitting() ? 'true' : undefined}
+      >
         <TextField
           id="contact-name"
           label="Name"
           optionalText="(optional)"
           type="text"
+          autocomplete="name"
           maxLength={100}
           value={name()}
           onInput={(e) => setName(e.currentTarget.value)}
@@ -84,6 +89,7 @@ export default function Contact() {
           id="contact-email"
           label="Email"
           type="email"
+          autocomplete="email"
           maxLength={255}
           required
           value={email()}
@@ -136,10 +142,14 @@ export default function Contact() {
         </p>
 
         <Show when={error()}>
-          <p class={styles.formError}>{error()}</p>
+          <p class={styles.formError} role="alert">
+            {error()}
+          </p>
         </Show>
         <Show when={sent()}>
-          <p class={styles.formSuccess}>Message sent.</p>
+          <p class={styles.formSuccess} role="status">
+            Message sent.
+          </p>
         </Show>
 
         <Button type="submit" disabled={submitting() || !email().trim() || !message().trim()}>
