@@ -377,6 +377,15 @@
   line-height: 1;
 }
 
+/* › marking the upcoming occurrence of a resting recurring item — shown only
+   while resting, so it (not the ↻) is what tells resting from an active fire.
+   Dimmed so it reads as a separator, not a competing glyph. */
+.nextGlyph {
+  font-size: var(--text-xs);
+  line-height: 1;
+  opacity: 0.6;
+}
+
 /* Mobile: stack the time under the clock icon so the reminder badge stays
    roughly icon-width instead of icon+label, leaving the task title more room. */
 @media (max-width: 720px) {

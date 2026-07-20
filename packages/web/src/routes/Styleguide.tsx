@@ -115,8 +115,10 @@ const demoItems: Item[] = [
     listId: 'l1',
     projectId: 'p1',
     text: 'Take meds (recurring reminder)',
-    checked: false,
-    checkedBy: null,
+    // Checked + repeat = "resting": done for now, waiting to reopen. The badge
+    // shows ↻ and, because it's resting, the › glyph before the next time.
+    checked: true,
+    checkedBy: 'm1',
     assignedTo: null,
     columnId: 'todo',
     position: 3000,
@@ -806,7 +808,8 @@ export default function Styleguide() {
           hover or keyboard focus; on touch they collapse into a single ⋯ button that opens a
           popover menu (Set reminder / Assign / Delete), while an assignee avatar or active reminder
           badge stays inline because it carries state — so the title keeps the row's width. The
-          third task carries a recurring reminder — its badge shows the ↻ glyph before the time. The
+          third task carries a recurring reminder — its badge shows the ↻ glyph before the time, plus
+          a › glyph while it's resting (checked, awaiting its next occurrence). The
           repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks /
           Monthly) lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen
           fire time at commit, and the server owns the immutable anchor.

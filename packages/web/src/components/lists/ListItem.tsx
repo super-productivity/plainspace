@@ -346,6 +346,12 @@ export default function ListItem(props: ListItemProps) {
                   </span>
                 </Show>
                 <Show when={isResting()} fallback={formatRemindAt(props.item.remindAt!)}>
+                  {/* › marks the upcoming occurrence of a resting recurring
+                      item (what the "next" word used to say). Resting-only, so
+                      unlike ↻ it distinguishes resting from an active fire. */}
+                  <span class={styles.nextGlyph} aria-hidden="true">
+                    &#8250;
+                  </span>
                   {formatNextDue(props.item.remindAt!)}
                 </Show>
               </span>
