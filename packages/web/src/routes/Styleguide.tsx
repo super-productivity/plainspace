@@ -840,11 +840,12 @@ export default function Styleguide() {
           badge stays inline because it carries state — so the title keeps the row's width. The
           schedule button carries a glyph per state so it doesn't lean on colour alone: an empty
           button shows a <code>+</code> add affordance on hover, a repeating one the ↻ glyph, a
-          resting one (checked, awaiting its next occurrence) a › before the time, and an overdue one
-          (recurring fire passed while undone) a bold amber <code>!</code> — the third task is
-          resting, the fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily
-          / Weekly / Every 2 weeks / Monthly) lives in the reminder picker; byWeekday/byMonthDay are
-          derived from the chosen fire time at commit, and the server owns the immutable anchor.
+          resting one (checked, awaiting its next occurrence) a › before the time, and an overdue
+          one (recurring fire passed while undone) a bold amber <code>!</code> — the third task is
+          resting, the fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat /
+          Daily / Weekly / Every 2 weeks / Monthly) lives in the reminder picker;
+          byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
+          the immutable anchor.
         </p>
       </section>
 
