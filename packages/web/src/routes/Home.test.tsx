@@ -35,6 +35,7 @@ import { ApiError } from '../lib/api';
 import { saveIdentity, savePlainspaceEmail, saveVerifiedWitnessSlug } from '../lib/identity';
 
 beforeEach(() => {
+  document.title = 'Previous page';
   navigate.mockReset();
   api.getProjectSummary.mockReset();
   api.createProject.mockReset();
@@ -48,15 +49,57 @@ function fill(testid: string, value: string) {
 }
 
 describe('Home — first visit', () => {
+  it('sets a route-specific title and exposes one main page heading', () => {
+    render(() => <Home />);
+
+    expect(document.title).toBe('Plainspace — Simple shared spaces');
+    expect(screen.getByRole('main')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Plainspace' })).toBeTruthy();
+  });
+
   it('offers the onboarding choice when no Spaces are known', () => {
     const { container } = render(() => <Home />);
     expect(screen.getByTestId('onboarding-choice')).toBeTruthy();
     expect(screen.queryByTestId('known-spaces')).toBeNull();
     expect(container.querySelector('main')).toBeTruthy();
   });
+
+  it('returns focus to the page heading when leaving a form', async () => {
+    render(() => <Home />);
+    fireEvent.click(screen.getByTestId('show-login-button'));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Plainspace' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
 });
 
 describe('Home — create flow', () => {
+  it('focuses and identifies the first fields when a form step opens', async () => {
+    let resolveCodeRequest!: (result: { message: string }) => void;
+    api.requestCreationCode.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCodeRequest = resolve;
+      }),
+    );
+    render(() => <Home />);
+
+    fireEvent.click(screen.getByTestId('show-create-button'));
+    const projectName = screen.getByTestId('project-name-input');
+    await waitFor(() => expect(document.activeElement).toBe(projectName));
+    expect(screen.getByTestId('display-name-input').getAttribute('autocomplete')).toBe('name');
+    expect(screen.getByTestId('email-input').getAttribute('autocomplete')).toBe('email');
+
+    fill('project-name-input', 'Summer Trip');
+    fill('display-name-input', 'Jo');
+    fill('email-input', 'jo@example.com');
+    fireEvent.click(screen.getByTestId('create-project-button'));
+    resolveCodeRequest({ message: 'sent' });
+
+    const code = await screen.findByTestId('verify-code-input');
+    expect(document.activeElement).toBe(code);
+  });
+
   it('gates the Continue button until name, display name, and email are present', () => {
     render(() => <Home />);
     fireEvent.click(screen.getByTestId('show-create-button'));
@@ -180,6 +223,7 @@ describe('Home — find my Spaces', () => {
 
     await waitFor(() => expect(api.findSpaces).toHaveBeenCalledWith({ email: 'jo@example.com' }));
     await waitFor(() => expect(screen.getByText('Check your inbox.')).toBeTruthy());
+    expect(screen.getByRole('status').textContent).toBe('Check your inbox.');
     const button = screen.getByTestId('find-email-button') as HTMLButtonElement;
     await waitFor(() => expect(button.textContent).toMatch(/Send again in/));
     expect(button.disabled).toBe(true);
@@ -191,6 +235,7 @@ describe('Home — open a Space link', () => {
     render(() => <Home />);
     fireEvent.click(screen.getByTestId('show-open-button'));
 
+    expect(screen.getByTestId('space-link-input').getAttribute('autocomplete')).toBe('off');
     fill('space-link-input', 'https://plainspace.org/abc123');
     fireEvent.submit(screen.getByTestId('open-space-form'));
 
@@ -205,7 +250,11 @@ describe('Home — open a Space link', () => {
     fireEvent.submit(screen.getByTestId('open-space-form'));
 
     expect(navigate).not.toHaveBeenCalled();
-    expect(screen.getByText(/Enter a Space link/)).toBeTruthy();
+    const input = screen.getByTestId('space-link-input');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/Enter a Space link/);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toContain(alert.id);
   });
 });
 
