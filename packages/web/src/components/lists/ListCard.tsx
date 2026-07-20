@@ -36,7 +36,7 @@ interface ListCardProps {
   attachments: Attachment[];
   slug: string;
   myId: string;
-  onDeleteItem: (itemId: string) => void;
+  onDeleteItem: (itemId: string) => Promise<boolean>;
   /** Heading text. Defaults to the hero list's "What needs doing". */
   title?: string;
   /** When set, an actions menu appears in the header (checklist panels). */
