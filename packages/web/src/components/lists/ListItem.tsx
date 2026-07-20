@@ -346,7 +346,7 @@ export default function ListItem(props: ListItemProps) {
                   </span>
                 </Show>
                 <Show when={isResting()} fallback={formatRemindAt(props.item.remindAt!)}>
-                  next {formatNextDue(props.item.remindAt!)}
+                  {formatNextDue(props.item.remindAt!)}
                 </Show>
               </span>
             </Show>

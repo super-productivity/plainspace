@@ -364,7 +364,11 @@
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
+  /* A shared floor so short labels ("9:00") don't shrink the pill below wider
+     ones ("Jul 24"), keeping reminder badges aligned across rows. */
+  min-width: 2.75rem;
 }
 
 /* ↻ glyph marking a recurring reminder, shown before the time label. */
@@ -385,6 +389,9 @@
 
   .reminderLabel {
     font-size: 11px;
+    /* Stacked under the icon here, so drop the desktop alignment floor and let
+       the badge stay roughly icon-width. */
+    min-width: 0;
   }
 }
 
