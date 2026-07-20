@@ -1,5 +1,5 @@
 import { createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
-import { useParams, useNavigate } from '@solidjs/router';
+import { A, useParams, useNavigate } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
 import {
   hasIdentity,
@@ -49,6 +49,8 @@ export default function Project() {
   const [termsError, setTermsError] = createSignal('');
   const [showMembers, setShowMembers] = createSignal(false);
   const [focusEmailVerification, setFocusEmailVerification] = createSignal(false);
+  const [loadAttempt, setLoadAttempt] = createSignal(0);
+  const [retryFocusPending, setRetryFocusPending] = createSignal(false);
 
   // A plain memo on params.slug would miss the localStorage write the #claim=
   // hand-off does inside the effect below (same slug, so nothing re-tracks).
@@ -74,6 +76,12 @@ export default function Project() {
   function handleConnectEmailClick() {
     setFocusEmailVerification(true);
     setShowMembers(true);
+  }
+
+  function handleRetry() {
+    setRetryFocusPending(true);
+    setLoading(true);
+    setLoadAttempt((attempt) => attempt + 1);
   }
 
   // SSE carries no event ids and the server buffers nothing, so a reconnect
@@ -180,7 +188,9 @@ export default function Project() {
         class={styles.termsDialog}
         data-testid="terms-acceptance-dialog"
       >
-        <h2>Updated Legal Terms</h2>
+        <h1 data-testid="terms-heading" tabindex="-1">
+          Updated Legal Terms
+        </h1>
         <p>
           Plainspace needs your active acceptance of the current{' '}
           <a href="/terms" target="_blank" rel="noopener noreferrer">
@@ -193,7 +203,9 @@ export default function Project() {
           before you continue using {termsProjectName()}.
         </p>
         <Show when={termsError()}>
-          <p class={styles.termsError}>{termsError()}</p>
+          <p class={styles.termsError} role="alert">
+            {termsError()}
+          </p>
         </Show>
         <div class={styles.termsActions}>
           <Button variant="ghost" onClick={() => navigate('/')}>
@@ -208,6 +220,51 @@ export default function Project() {
   }
 
   createEffect(() => {
+    if (state.loading) {
+      document.title = 'Opening Space — Plainspace';
+    } else if (state.error) {
+      document.title = 'Couldn’t open Space — Plainspace';
+    } else if (termsRequired()) {
+      document.title = 'Accept updated legal terms — Plainspace';
+    } else if (state.project) {
+      document.title = `${state.project.name} — Plainspace`;
+    } else {
+      document.title = 'Opening Space — Plainspace';
+    }
+  });
+
+  createEffect(() => {
+    if (!retryFocusPending()) return;
+    const loading = state.loading;
+    const error = state.error;
+    const project = state.project;
+    const waitingForTerms = termsRequired();
+
+    // Dialog owns modal focus. Hand off once the terms gate replaces the
+    // loading state instead of racing its initial-focus microtask.
+    if (!loading && waitingForTerms) {
+      setRetryFocusPending(false);
+      return;
+    }
+
+    queueMicrotask(() => {
+      const selector = loading
+        ? '[data-testid="project-loading"]'
+        : error
+          ? '[data-testid="project-error-heading"]'
+          : project
+            ? '[data-testid="project-name"]'
+            : null;
+      if (!selector) return;
+      const target = document.querySelector<HTMLElement>(selector);
+      if (!target) return;
+      target.focus();
+      if (!loading) setRetryFocusPending(false);
+    });
+  });
+
+  createEffect(() => {
+    loadAttempt();
     const slug = params.slug;
 
     // Tear down anything from a previous slug before starting fresh.
@@ -322,7 +379,7 @@ export default function Project() {
 
   async function handleDeleteItem(itemId: string) {
     const item = state.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item) return false;
     try {
       await api.deleteItem(params.slug, itemId);
       // Apply the confirmed result directly instead of waiting for the SSE
@@ -338,23 +395,66 @@ export default function Project() {
         },
         'Undo',
       );
+      return true;
     } catch {
       // SSE will resync if the delete actually went through.
       addToast('Could not delete the item. Please try again.');
+      return false;
     }
   }
 
   return (
-    <Show when={!state.loading} fallback={<div class={styles.loading}>Loading...</div>}>
-      <Show when={!state.error} fallback={<div class={styles.error}>{state.error}</div>}>
+    <Show
+      when={!state.loading}
+      fallback={
+        <main class={styles.statePage}>
+          <div
+            class={styles.loading}
+            role="status"
+            aria-label="Loading Space"
+            aria-live="polite"
+            tabindex="-1"
+            data-testid="project-loading"
+          >
+            Loading Space…
+          </div>
+        </main>
+      }
+    >
+      <Show
+        when={!state.error}
+        fallback={
+          <main class={styles.statePage}>
+            <div class={styles.error} role="alert">
+              <h1 tabindex="-1" data-testid="project-error-heading">
+                Couldn’t open this Space
+              </h1>
+              <p>{state.error}</p>
+              <div class={styles.errorActions}>
+                <Button onClick={handleRetry}>Try again</Button>
+                <A href="/spaces" class={styles.backLink}>
+                  Back to Spaces
+                </A>
+              </div>
+            </div>
+          </main>
+        }
+      >
         <Show
           when={state.project}
           fallback={
-            <div class={styles.termsGate} data-testid="terms-gate">
-              <Show when={termsRequired()} fallback={<div class={styles.loading}>Loading...</div>}>
+            <main class={styles.termsGate} data-testid="terms-gate">
+              <Show
+                when={termsRequired()}
+                fallback={
+                  <div class={styles.loading} role="status" aria-label="Loading Space">
+                    Loading Space…
+                  </div>
+                }
+              >
                 {renderTermsDialog()}
               </Show>
-            </div>
+            </main>
           }
         >
           <Shell>
@@ -420,31 +520,18 @@ export default function Project() {
               </Banner>
             </Show>
 
-            <div class={styles.content}>
-              <div class={styles.mainColumn}>
-                <div class={styles.lists}>
-                  <Show when={state.list}>
-                    <ListCard
-                      list={state.list!}
-                      items={sortedItems()}
-                      members={state.members}
-                      attachments={state.attachments}
-                      slug={params.slug}
-                      myId={myId() ?? ''}
-                      onDeleteItem={handleDeleteItem}
-                    />
-                  </Show>
-                </div>
-
-                <Show when={state.activity.length > 0}>
-                  <div class={styles.activityPanel}>
-                    <ActivityFeed
-                      entries={state.activity}
-                      members={state.members}
-                      slug={params.slug}
-                      hasMore={state.activityHasMore}
-                    />
-                  </div>
+            <main class={styles.content}>
+              <div class={styles.lists}>
+                <Show when={state.list}>
+                  <ListCard
+                    list={state.list!}
+                    items={sortedItems()}
+                    members={state.members}
+                    attachments={state.attachments}
+                    slug={params.slug}
+                    myId={myId() ?? ''}
+                    onDeleteItem={handleDeleteItem}
+                  />
                 </Show>
               </div>
 
@@ -466,7 +553,18 @@ export default function Project() {
                   myId={myId() ?? ''}
                 />
               </div>
-            </div>
+
+              <Show when={state.activity.length > 0}>
+                <div class={styles.activityPanel}>
+                  <ActivityFeed
+                    entries={state.activity}
+                    members={state.members}
+                    slug={params.slug}
+                    hasMore={state.activityHasMore}
+                  />
+                </div>
+              </Show>
+            </main>
 
             <div class={styles.toasts}>
               <For each={toasts()}>

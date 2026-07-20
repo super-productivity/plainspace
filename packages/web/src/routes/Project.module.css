@@ -1,49 +1,78 @@
-.loading,
-.error {
+.statePage {
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
-  color: var(--color-text-secondary);
-  font-size: var(--text-lg);
   padding: var(--space-lg);
 }
 
+.loading {
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+}
+
 .error {
+  display: flex;
+  max-width: 32rem;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.error h1 {
+  margin: 0;
   color: var(--color-danger);
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+}
+
+.error p {
+  margin: 0;
+  line-height: var(--leading-normal);
+}
+
+.errorActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.backLink {
+  color: var(--color-accent-hover);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.backLink:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
-  /* Two side-by-side columns that each hug their own content from the top.
-     Flex with `flex-start` (not grid) is deliberate: there are no shared rows
-     to stretch and no free space to distribute, so neither column can drift or
-     center vertically no matter how tall the other one gets. */
-  display: flex;
-  align-items: flex-start;
+  /* Independent floats keep Recent activity directly below the task list even
+     when the Scratchpad is much taller. Their DOM order still matches the
+     row-wise reading order: list, Scratchpad/panels, activity. */
+  display: flow-root;
   /* One uniform vertical rhythm for every stacked card (scratchpad, tasks,
      polls, time slots) and the add-panel button. Inherited by `.column` in
      PanelColumn.module.css -- change it here to move all of them at once. */
   --panel-gap: 16px;
-  column-gap: 48px;
   padding: 34px 0 36px;
   background: transparent;
 }
 
-/* Left column: the todo list with recent activity stacked a constant gap
-   directly beneath it. The gap is well above the `--panel-gap` card rhythm to
-   set recent activity clearly apart from the list. The 1.35 vs 1 flex-grow
-   keeps the old 1.35fr / 1fr width split. */
-.mainColumn {
-  flex: 1.35 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-
 .lists {
+  float: left;
+  width: calc(57.45% - 24px);
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
@@ -51,7 +80,8 @@
 }
 
 .scratchpads {
-  flex: 1 1 0;
+  float: right;
+  width: calc(42.55% - 24px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -59,7 +89,11 @@
 }
 
 .activityPanel {
+  float: left;
+  clear: left;
+  width: calc(57.45% - 24px);
   min-width: 0;
+  margin-top: 40px;
 }
 
 .reconnecting {
@@ -104,7 +138,7 @@
   padding: var(--space-lg);
 }
 
-.termsDialog h2 {
+.termsDialog h1 {
   margin: 0 0 var(--space-sm);
   font-family: var(--font-serif);
   font-size: var(--text-xl);
@@ -147,36 +181,32 @@
 
 @media (max-width: 1020px) {
   .content {
+    display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: var(--panel-gap);
     padding: 24px 0 32px;
   }
 
-  /* Single column: flatten the left column so the list and activity become
-     direct flex items, then `order` restores the intended sequence
-     (lists -> scratchpads -> activity) the wrapper would otherwise break. */
-  .mainColumn {
-    display: contents;
-  }
-
-  /* Stack at content height -- the desktop grow ratios would stretch these
-     vertically once the main axis is the column. */
-  .scratchpads {
-    flex: initial;
-  }
-
+  /* These are already in reading order in the DOM. Keep every child at the
+     same full column width at the whole tablet/mobile breakpoint range. */
   .lists {
-    order: 1;
+    float: none;
+    width: 100%;
   }
 
   .scratchpads {
-    order: 2;
+    float: none;
+    width: 100%;
+    flex: none;
   }
 
   /* Extra top margin (stacks on the column gap) sets recent activity apart
      from the section above it, mirroring the desktop list gap. */
   .activityPanel {
-    order: 3;
+    float: none;
+    clear: none;
+    width: 100%;
     margin-top: var(--space-md);
   }
 }
@@ -185,12 +215,6 @@
   .content {
     padding: var(--space-md) 0;
     padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
-  }
-
-  .lists,
-  .scratchpads,
-  .activityPanel {
-    width: 100%;
   }
 
   /* Keep toasts visible above the floating MobileQuickActions pill. The

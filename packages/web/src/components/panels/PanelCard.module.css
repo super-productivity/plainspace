@@ -24,6 +24,12 @@
   gap: var(--space-sm);
 }
 
+.heading {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
 .title {
   width: fit-content;
   font-family: var(--font-serif);

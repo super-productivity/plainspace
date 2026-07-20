@@ -55,6 +55,12 @@ beforeEach(() => {
 });
 
 describe('PollCard rendering', () => {
+  it('exposes the poll title as a section heading', () => {
+    render(() => <PollCard panel={poll()} members={[member('m1')]} slug="abc" myId="m1" />);
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Lunch?' })).toBeTruthy();
+  });
+
   it('shows per-option counts and only avatars for members still in the list', () => {
     render(() => (
       <PollCard

@@ -1,4 +1,4 @@
-import { Show, createSignal, untrack, type JSX } from 'solid-js';
+import { Show, createSignal, createUniqueId, untrack, type JSX } from 'solid-js';
 import { api } from '../../lib/api';
 import { addToast } from '../../lib/toast';
 import {
@@ -33,6 +33,7 @@ interface PanelCardProps {
 // -- the options / slots list -- as children.
 export default function PanelCard(props: PanelCardProps) {
   const { collapsed, toggle } = createCollapsed(untrack(() => props.panelId));
+  const bodyId = createUniqueId();
   const [confirming, setConfirming] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   const [renaming, setRenaming] = createSignal(false);
@@ -81,26 +82,30 @@ export default function PanelCard(props: PanelCardProps) {
   return (
     <section class={styles.card} data-testid={props.cardTestId}>
       <header class={styles.header}>
-        <Show
-          when={renaming()}
-          fallback={
-            <CollapseToggle collapsed={collapsed()} onToggle={toggle}>
-              <span class={`${styles.title} ${underline.line}`}>{props.title}</span>
-            </CollapseToggle>
-          }
-        >
-          <InlineRename
-            class={styles.titleInput}
-            value={props.title}
-            ariaLabel={`Rename ${props.label}`}
-            testId="panel-rename-input"
-            onCommit={commitRename}
-            onCancel={() => setRenaming(false)}
-          />
-        </Show>
+        <h2 class={styles.heading}>
+          <Show
+            when={renaming()}
+            fallback={
+              <CollapseToggle collapsed={collapsed()} onToggle={toggle} controls={bodyId}>
+                <span class={`${styles.title} ${underline.line}`}>{props.title}</span>
+              </CollapseToggle>
+            }
+          >
+            <InlineRename
+              class={styles.titleInput}
+              value={props.title}
+              ariaLabel={`Rename ${props.label}`}
+              testId="panel-rename-input"
+              onCommit={commitRename}
+              onCancel={() => setRenaming(false)}
+            />
+          </Show>
+        </h2>
         <Menu label={`${props.label} actions`} items={menuItems()} triggerTestId="panel-menu" />
       </header>
-      <CollapseBody collapsed={collapsed()}>{props.children}</CollapseBody>
+      <CollapseBody collapsed={collapsed()} id={bodyId}>
+        {props.children}
+      </CollapseBody>
       <Show when={confirming()}>
         <ConfirmDialog
           title={`Delete ${props.label}?`}
