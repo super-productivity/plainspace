@@ -1,4 +1,5 @@
 import { For, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { A } from '@solidjs/router';
 import type { Project, Member } from '@plainspace/shared';
 import { copyJoinLink } from '../../lib/join-link';
 import MemberList from '../members/MemberList';
@@ -76,7 +77,16 @@ export default function Header(props: HeaderProps) {
       >
         <div class={styles.inner}>
           <div class={styles.titleBlock}>
-            <h1 class={styles.name} data-testid="project-name">
+            <A
+              href="/spaces"
+              class={styles.overviewLink}
+              aria-label="Spaces overview"
+              data-testid="header-spaces-overview-link"
+            >
+              <span aria-hidden="true">←</span>
+              <span>Spaces</span>
+            </A>
+            <h1 class={styles.name} tabindex="-1" data-testid="project-name">
               {props.project.name}
             </h1>
             <Show when={props.project.purpose}>

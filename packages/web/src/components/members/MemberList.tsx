@@ -1,4 +1,12 @@
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  untrack,
+} from 'solid-js';
 import { A, useNavigate } from '@solidjs/router';
 import type { Member, Project } from '@plainspace/shared';
 import { api } from '../../lib/api';
@@ -58,7 +66,14 @@ export default function MemberList(props: MemberListProps) {
   const navigate = useNavigate();
   const [rememberedEmail, setRememberedEmail] = createSignal(getPlainspaceEmail());
   const [localEmailClearedAt, setLocalEmailClearedAt] = createSignal(0);
+  const [accountOpen, setAccountOpen] = createSignal(
+    untrack(() => Boolean(props.focusEmailVerification)),
+  );
+  const [spaceSettingsOpen, setSpaceSettingsOpen] = createSignal(false);
   const [advancedOpen, setAdvancedOpen] = createSignal(false);
+  const accountBodyId = createUniqueId();
+  const spaceSettingsBodyId = createUniqueId();
+  const advancedBodyId = createUniqueId();
   const isAdmin = () => props.myRole === 'admin' || props.isCreator;
   const me = createMemo(() => props.members.find((m) => m.id === props.myId));
   const onlineCount = createMemo(
@@ -74,11 +89,12 @@ export default function MemberList(props: MemberListProps) {
     );
   });
   // Spaces this device has no local token for but the verified email belongs to,
-  // fetched once so the list works cross-device (not just from localStorage).
+  // fetched once when the account opens so the list works cross-device (not
+  // just from localStorage) without loading hidden account data eagerly.
   const [serverSpaces, setServerSpaces] = createSignal<KnownSpace[]>([]);
   let fetchedSpaces = false;
   createEffect(() => {
-    if (fetchedSpaces || !me()?.emailVerified) return;
+    if (fetchedSpaces || !accountOpen() || !me()?.emailVerified) return;
     fetchedSpaces = true;
     // Leave the guard set on failure: the effect re-runs on reactive churn and
     // we don't want to hammer a failing endpoint. A panel reopen retries.
@@ -99,6 +115,7 @@ export default function MemberList(props: MemberListProps) {
 
   createEffect(() => {
     if (!props.focusEmailVerification || me()?.emailVerified || !emailSection) return;
+    setAccountOpen(true);
     setTimeout(() => {
       emailSection?.scrollIntoView({ block: 'start' });
       emailSection?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
@@ -212,7 +229,7 @@ export default function MemberList(props: MemberListProps) {
       data-testid="member-list-panel"
     >
       <div class={styles.header}>
-        <h3 class={styles.title}>People ({props.members.length})</h3>
+        <h2 class={styles.title}>People ({props.members.length})</h2>
         <button
           type="button"
           class={styles.closeButton}
@@ -237,40 +254,12 @@ export default function MemberList(props: MemberListProps) {
       </div>
 
       <section class={styles.section}>
-        <h4 class={styles.sectionTitle}>Your Spaces</h4>
-        <div class={styles.spacesList}>
-          <For each={otherSpaces()}>
-            {(space) => (
-              <A
-                // Spaces without a local token on this device (discovered via the
-                // server) deep-link into open-by-email so one tap starts recovery.
-                href={hasIdentity(space.slug) ? `/${space.slug}` : `/${space.slug}/join?recover=1`}
-                class={styles.spaceLink}
-                onClick={() => props.onClose()}
-                data-testid="panel-space-link"
-              >
-                {space.name ?? space.slug}
-              </A>
-            )}
-          </For>
-          <A
-            href="/spaces"
-            class={`${styles.spaceLink} ${styles.overviewLink}`}
-            onClick={() => props.onClose()}
-            data-testid="spaces-overview-link"
-          >
-            Find, create, or open a Space…
-          </A>
-        </div>
-      </section>
-
-      <section class={styles.section}>
-        <h4 class={styles.sectionTitle}>
+        <h3 class={styles.sectionTitle}>
           People
           <Show when={onlineCount() > 0}>
             <span class={styles.onlineCount}> · {onlineCount()} online</span>
           </Show>
-        </h4>
+        </h3>
         <div class={styles.list}>
           <For each={sortedMembers()}>
             {(member) => {
@@ -322,119 +311,200 @@ export default function MemberList(props: MemberListProps) {
         </div>
       </section>
 
-      <Show when={me()}>
-        {(member) => (
-          <section class={styles.section}>
-            <h4 class={styles.sectionTitle}>You</h4>
-            <div class={styles.selfRow} style={{ '--member-accent': member().color }}>
-              <div class={styles.info}>
-                <MemberChip member={member()} online={props.presence.includes(member().id)} />
-                <span class={styles.joined}>{joinedAgo(member().joinedAt)}</span>
-                <p class={styles.helpText}>
-                  {member().emailVerified
-                    ? 'An email is connected to this Space for finding and reopening it.'
-                    : 'This browser can open this Space. Add an email to reopen it elsewhere.'}
-                </p>
-              </div>
-              <div class={styles.actions}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleSignOut}
-                  title="Revoke this browser session without leaving the Space"
-                  data-testid="sign-out-button"
-                >
-                  Sign out on this device
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleExport}
-                  title="Download a JSON copy of your data in this Space"
-                  data-testid="export-data-button"
-                >
-                  Download my data
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => setConfirmingLeave(true)}
-                  data-testid="leave-space-button"
-                >
-                  Leave Space
-                </Button>
-              </div>
-            </div>
-
-            <Show when={rememberedEmail()}>
-              {(email) => (
-                <div class={styles.localEmailRow}>
-                  <p class={styles.helpText}>
-                    Saved on this device for email forms: <strong>{email()}</strong>
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleClearSavedEmail}
-                    data-testid="forget-plainspace-email-button"
+      <section class={styles.section}>
+        <div class={styles.sectionHeader}>
+          <div>
+            <h3 class={styles.sectionTitle}>Your account</h3>
+            <p class={styles.helpText}>Your Spaces, email, session, and personal data.</p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setAccountOpen((open) => !open)}
+            aria-controls={accountBodyId}
+            aria-expanded={accountOpen()}
+            aria-label={`${accountOpen() ? 'Hide' : 'Show'} account settings`}
+            data-testid="account-toggle-button"
+          >
+            {accountOpen() ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        <div
+          id={accountBodyId}
+          class={styles.disclosureBody}
+          hidden={!accountOpen()}
+          data-testid="account-body"
+        >
+          <div>
+            <h4 class={styles.subsectionTitle}>Your Spaces</h4>
+            <div class={styles.spacesList}>
+              <For each={otherSpaces()}>
+                {(space) => (
+                  <A
+                    // Spaces without a local token on this device (discovered via the
+                    // server) deep-link into open-by-email so one tap starts recovery.
+                    href={
+                      hasIdentity(space.slug) ? `/${space.slug}` : `/${space.slug}/join?recover=1`
+                    }
+                    class={styles.spaceLink}
+                    onClick={() => props.onClose()}
+                    data-testid="panel-space-link"
                   >
-                    Clear saved email
-                  </Button>
-                </div>
-              )}
-            </Show>
+                    {space.name ?? space.slug}
+                  </A>
+                )}
+              </For>
+              <A
+                href="/spaces"
+                class={`${styles.spaceLink} ${styles.overviewLink}`}
+                onClick={() => props.onClose()}
+                data-testid="spaces-overview-link"
+              >
+                Find, create, or open a Space…
+              </A>
+            </div>
+          </div>
 
-            <Show when={!member().emailVerified}>
-              <div ref={(el) => (emailSection = el)} class={styles.subsection}>
-                <EmailVerify
-                  slug={props.slug}
-                  currentEmail={member().email}
-                  localEmailClearedAt={localEmailClearedAt()}
-                  onVerified={(member) => updateMember(member)}
-                />
+          <Show when={me()}>
+            {(member) => (
+              <div>
+                <h4 class={styles.subsectionTitle}>You</h4>
+                <div class={styles.selfRow} style={{ '--member-accent': member().color }}>
+                  <div class={styles.info}>
+                    <MemberChip member={member()} online={props.presence.includes(member().id)} />
+                    <span class={styles.joined}>{joinedAgo(member().joinedAt)}</span>
+                    <p class={styles.helpText}>
+                      {member().emailVerified
+                        ? 'An email is connected to this Space for finding and reopening it.'
+                        : 'This browser can open this Space. Add an email to reopen it elsewhere.'}
+                    </p>
+                  </div>
+                  <div class={styles.actions}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleSignOut}
+                      title="Revoke this browser session without leaving the Space"
+                      data-testid="sign-out-button"
+                    >
+                      Sign out on this device
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleExport}
+                      title="Download a JSON copy of your data in this Space"
+                      data-testid="export-data-button"
+                    >
+                      Download my data
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => setConfirmingLeave(true)}
+                      data-testid="leave-space-button"
+                    >
+                      Leave Space
+                    </Button>
+                  </div>
+                </div>
+
+                <Show when={rememberedEmail()}>
+                  {(email) => (
+                    <div class={styles.localEmailRow}>
+                      <p class={styles.helpText}>
+                        Saved on this device for email forms: <strong>{email()}</strong>
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleClearSavedEmail}
+                        data-testid="forget-plainspace-email-button"
+                      >
+                        Clear saved email
+                      </Button>
+                    </div>
+                  )}
+                </Show>
+
+                <Show when={!member().emailVerified}>
+                  <div ref={(el) => (emailSection = el)} class={styles.subsection}>
+                    <EmailVerify
+                      slug={props.slug}
+                      currentEmail={member().email}
+                      localEmailClearedAt={localEmailClearedAt()}
+                      onVerified={(member) => updateMember(member)}
+                    />
+                  </div>
+                </Show>
               </div>
-            </Show>
-          </section>
-        )}
-      </Show>
+            )}
+          </Show>
+        </div>
+      </section>
 
       <Show when={isAdmin()}>
         <section class={styles.section}>
-          <h4 class={styles.sectionTitle}>Space settings</h4>
-          <SpaceDetailsControl slug={props.slug} project={props.project} />
-          <SharingModeControl
-            slug={props.slug}
-            project={props.project}
-            emailVerified={me()?.emailVerified ?? false}
-          />
-          {/* Deleting the whole Space is an ownership-level action: creator only,
-              matching the server's requireCreator gate. */}
-          <Show when={props.isCreator}>
-            <div class={styles.dangerZone}>
-              <div>
-                <p class={styles.dangerTitle}>Delete this Space</p>
-                <p class={styles.helpText}>
-                  Permanently removes this Space and everything in it for everyone here. This cannot
-                  be undone.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => setConfirmingDelete(true)}
-                data-testid="delete-space-button"
-              >
-                Delete Space
-              </Button>
+          <div class={styles.sectionHeader}>
+            <div>
+              <h3 class={styles.sectionTitle}>Space settings</h3>
+              <p class={styles.helpText}>Space details, sharing, and deletion.</p>
             </div>
-          </Show>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setSpaceSettingsOpen((open) => !open)}
+              aria-controls={spaceSettingsBodyId}
+              aria-expanded={spaceSettingsOpen()}
+              aria-label={`${spaceSettingsOpen() ? 'Hide' : 'Show'} Space settings`}
+              data-testid="space-settings-toggle-button"
+            >
+              {spaceSettingsOpen() ? 'Hide' : 'Show'}
+            </Button>
+          </div>
+          <div
+            id={spaceSettingsBodyId}
+            class={styles.disclosureBody}
+            hidden={!spaceSettingsOpen()}
+            data-testid="space-settings-body"
+          >
+            <SpaceDetailsControl slug={props.slug} project={props.project} />
+            <SharingModeControl
+              slug={props.slug}
+              project={props.project}
+              emailVerified={me()?.emailVerified ?? false}
+            />
+            {/* Deleting the whole Space is an ownership-level action: creator only,
+                matching the server's requireCreator gate. */}
+            <Show when={props.isCreator}>
+              <div class={styles.dangerZone}>
+                <div>
+                  <p class={styles.dangerTitle}>Delete this Space</p>
+                  <p class={styles.helpText}>
+                    Permanently removes this Space and everything in it for everyone here. This
+                    cannot be undone.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => setConfirmingDelete(true)}
+                  data-testid="delete-space-button"
+                >
+                  Delete Space
+                </Button>
+              </div>
+            </Show>
+          </div>
         </section>
       </Show>
 
       <section class={styles.section}>
         <div class={styles.sectionHeader}>
           <div>
-            <h4 class={styles.sectionTitle}>Advanced</h4>
+            <h3 class={styles.sectionTitle}>Advanced</h3>
             <p class={styles.helpText}>Device link and API tokens.</p>
           </div>
           <Button
@@ -442,13 +512,20 @@ export default function MemberList(props: MemberListProps) {
             size="sm"
             variant="ghost"
             onClick={() => setAdvancedOpen((open) => !open)}
+            aria-controls={advancedBodyId}
             aria-expanded={advancedOpen()}
+            aria-label={`${advancedOpen() ? 'Hide' : 'Show'} advanced settings`}
             data-testid="advanced-toggle-button"
           >
             {advancedOpen() ? 'Hide' : 'Show'}
           </Button>
         </div>
-        <div class={styles.advancedBody} hidden={!advancedOpen()}>
+        <div
+          id={advancedBodyId}
+          class={styles.disclosureBody}
+          hidden={!advancedOpen()}
+          data-testid="advanced-body"
+        >
           <DeviceLink slug={props.slug} myId={props.myId} />
           <ApiTokens slug={props.slug} emailVerified={me()?.emailVerified ?? false} />
         </div>

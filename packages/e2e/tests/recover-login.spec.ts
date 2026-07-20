@@ -79,6 +79,7 @@ test('people panel lists a Space the verified email belongs to without a local t
   await expect(page.getByTestId('project-name')).toHaveText('Home Space');
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
   await expect(page.getByTestId('panel-space-link')).toContainText(['Faraway Space']);
 
   // A server-discovered Space (no local token) deep-links into open-by-email so
