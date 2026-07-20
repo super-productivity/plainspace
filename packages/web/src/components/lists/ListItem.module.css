@@ -364,13 +364,47 @@
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
+  /* A shared floor so short labels ("9:00") don't shrink the pill below wider
+     ones ("Jul 24"), keeping reminder badges aligned across rows. */
+  min-width: 2.75rem;
 }
 
 /* ↻ glyph marking a recurring reminder, shown before the time label. */
 .repeatGlyph {
   font-size: var(--text-xs);
   line-height: 1;
+}
+
+/* › marking the upcoming occurrence of a resting recurring item — shown only
+   while resting, so it (not the ↻) is what tells resting from an active fire.
+   Dimmed so it reads as a separator, not a competing glyph. */
+.nextGlyph {
+  font-size: var(--text-xs);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* ! marking an overdue occurrence — a shape signal alongside the amber colour
+   (.overdue), so "late" isn't conveyed by colour alone. Bold to read as an
+   alert, not punctuation; inherits the amber via the button's .overdue rule. */
+.overdueGlyph {
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* + affordance on the empty schedule button ("add a reminder"). A corner badge
+   over the clock so the idle button stays a compact circle like assign/delete,
+   rather than widening into a pill. */
+.addGlyph {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
 }
 
 /* Mobile: stack the time under the clock icon so the reminder badge stays
@@ -385,6 +419,9 @@
 
   .reminderLabel {
     font-size: 11px;
+    /* Stacked under the icon here, so drop the desktop alignment floor and let
+       the badge stay roughly icon-width. */
+    min-width: 0;
   }
 }
 

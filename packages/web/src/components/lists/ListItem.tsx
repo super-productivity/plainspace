@@ -338,6 +338,13 @@ export default function ListItem(props: ListItemProps) {
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3 2" />
             </svg>
+            {/* + corner badge on the empty button — an "add a reminder"
+                affordance, keeping the idle button a compact circle. */}
+            <Show when={!props.item.remindAt}>
+              <span class={styles.addGlyph} aria-hidden="true">
+                +
+              </span>
+            </Show>
             <Show when={props.item.remindAt}>
               <span class={styles.reminderLabel}>
                 <Show when={props.item.repeat}>
@@ -345,8 +352,28 @@ export default function ListItem(props: ListItemProps) {
                     &#8635;
                   </span>
                 </Show>
-                <Show when={isResting()} fallback={formatRemindAt(props.item.remindAt!)}>
-                  next {formatNextDue(props.item.remindAt!)}
+                <Show
+                  when={isResting()}
+                  fallback={
+                    <>
+                      {/* ! marks an overdue occurrence — a shape signal so
+                          "late" doesn't ride on the amber colour alone. */}
+                      <Show when={isOverdue()}>
+                        <span class={styles.overdueGlyph} aria-hidden="true">
+                          !
+                        </span>
+                      </Show>
+                      {formatRemindAt(props.item.remindAt!)}
+                    </>
+                  }
+                >
+                  {/* › marks the upcoming occurrence of a resting recurring
+                      item (what the "next" word used to say). Resting-only, so
+                      unlike ↻ it distinguishes resting from an active fire. */}
+                  <span class={styles.nextGlyph} aria-hidden="true">
+                    &#8250;
+                  </span>
+                  {formatNextDue(props.item.remindAt!)}
                 </Show>
               </span>
             </Show>
