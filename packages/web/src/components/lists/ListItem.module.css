@@ -321,52 +321,6 @@
   }
 }
 
-/* Popover menu opened by the ⋯ trigger on touch. Mirrors the shared ui/Menu
-   surface (ui/Menu.module.css) so the row's action menu reads the same as the
-   card-header kebab menu. */
-.menu {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  min-width: 168px;
-  padding: 4px;
-}
-
-.menuItem {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
-  border: none;
-  background: none;
-  border-radius: var(--radius-sm);
-  text-align: left;
-  font-size: var(--text-sm);
-  color: var(--color-text);
-}
-
-.menuItem:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: -2px;
-}
-
-.menuDanger {
-  color: var(--color-danger);
-}
-
-@media (hover: hover) {
-  .menuItem:hover {
-    background: var(--color-soft);
-  }
-
-  .menuDanger:hover {
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-  }
-}
-
 @media (hover: hover) {
   .assignButton:hover:not(.hasAssignee),
   .reminderButton:hover:not(.hasReminder) {

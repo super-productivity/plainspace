@@ -4,7 +4,7 @@ import { api, type ItemWithActivityResponse } from '../../lib/api';
 import { addActivity, updateItem } from '../../lib/store';
 import { addToast } from '../../lib/toast';
 import { ensurePushSubscription } from '../../lib/push';
-import { Avatar, Popover } from '../ui';
+import { Avatar, Menu } from '../ui';
 import MemberPicker from './MemberPicker';
 import ReminderPicker, { describeRepeat } from './ReminderPicker';
 import styles from './ListItem.module.css';
@@ -57,9 +57,8 @@ export default function ListItem(props: ListItemProps) {
   // Mobile: the non-state actions (empty assign, empty reminder, delete) move
   // into a ⋯ popover menu so the title reclaims the row width (a CSS media
   // query hides the inline buttons on touch; desktop keeps its hover-reveal).
-  // `menuOpen` drives that menu; the picker it opens anchors to whichever
-  // element was tapped — the inline badge on desktop, the ⋯ trigger on mobile.
-  const [menuOpen, setMenuOpen] = createSignal(false);
+  // The picker it opens anchors to whichever element was tapped — the inline
+  // badge on desktop, the ⋯ trigger on mobile.
   const [reminderAnchor, setReminderAnchor] = createSignal<HTMLButtonElement>();
   const [assignAnchor, setAssignAnchor] = createSignal<HTMLButtonElement>();
   const prefersReducedMotion =
@@ -135,23 +134,20 @@ export default function ListItem(props: ListItemProps) {
   let inputRef: HTMLInputElement | undefined;
   let assignButtonRef: HTMLButtonElement | undefined;
   let reminderButtonRef: HTMLButtonElement | undefined;
-  let moreButtonRef: HTMLButtonElement | undefined;
 
   const assignedMember = createMemo(() =>
     props.members.find((m) => m.id === props.item.assignedTo),
   );
 
-  // Open a picker anchored to `anchor` and close the ⋯ menu if it was the
-  // opener. Both pickers are Popovers positioned against a live element, so the
+  // Open a picker anchored to `anchor`. Both pickers are Popovers positioned
+  // against a live element, so the
   // anchor must stay mounted while open — the inline badge (visible on desktop,
   // or on mobile when it carries state) or the ⋯ trigger (visible on mobile).
   function openReminderPicker(anchor: HTMLButtonElement) {
-    setMenuOpen(false);
     setReminderAnchor(anchor);
     setShowReminderPicker(true);
   }
   function openAssignPicker(anchor: HTMLButtonElement) {
-    setMenuOpen(false);
     setAssignAnchor(anchor);
     setShowPicker(true);
   }
@@ -183,7 +179,6 @@ export default function ListItem(props: ListItemProps) {
   }
 
   async function handleAssign(memberId: string | null) {
-    setMenuOpen(false);
     const result = await api
       .updateItem(props.slug, props.item.id, {
         assignedTo: memberId,
@@ -199,7 +194,6 @@ export default function ListItem(props: ListItemProps) {
     // no race where the push delivery beats the subscription PUT. Subscribe
     // failure is silently tolerated — the sweep falls back to email when no
     // push subscription exists.
-    setMenuOpen(false);
     const subscribe = iso ? ensurePushSubscription(props.slug) : Promise.resolve();
     const patch = api.updateItem(props.slug, props.item.id, { remindAt: iso, repeat }).catch(() => {
       addToast('Could not save the reminder. Please try again.');
@@ -451,70 +445,88 @@ export default function ListItem(props: ListItemProps) {
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
           </svg>
         </button>
-        {/* Mobile-only: the empty reminder/assign and delete collapse into this
-            ⋯ popover menu so the title reclaims the row width. Hidden on
-            hover-capable (desktop) devices, which reveal the inline buttons on
-            hover. The menu's picker actions anchor back to this trigger. */}
-        <button
-          ref={moreButtonRef}
-          type="button"
+        {/* Mobile-only: empty reminder/assign actions and delete collapse into
+            the shared ⋯ menu. Desktop keeps its hover-revealed inline buttons. */}
+        <Menu
           class={styles.moreButton}
-          onClick={() => setMenuOpen((v) => !v)}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          title="Task actions"
-          aria-label="Task actions"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen()}
-          data-testid="more-actions-button"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.8" />
-            <circle cx="12" cy="12" r="1.8" />
-            <circle cx="19" cy="12" r="1.8" />
-          </svg>
-        </button>
-        <Show when={menuOpen() && moreButtonRef}>
-          <Popover
-            anchor={moreButtonRef!}
-            onClose={() => setMenuOpen(false)}
-            class={styles.menu}
-            data-testid="actions-menu"
-          >
-            <div role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                class={styles.menuItem}
-                onClick={() => openReminderPicker(moreButtonRef!)}
-                data-testid="menu-reminder"
-              >
-                {props.item.remindAt ? 'Edit reminder' : 'Set reminder'}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class={styles.menuItem}
-                onClick={() => openAssignPicker(moreButtonRef!)}
-                data-testid="menu-assign"
-              >
-                {assignedMember() ? 'Reassign' : 'Assign'}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class={`${styles.menuItem} ${styles.menuDanger}`}
-                onClick={() => {
-                  setMenuOpen(false);
-                  props.onDelete(props.item.id);
-                }}
-                data-testid="menu-delete"
-              >
-                Delete
-              </button>
-            </div>
-          </Popover>
-        </Show>
+          label={`Actions for ${props.item.text}`}
+          triggerTestId="more-actions-button"
+          menuTestId="actions-menu"
+          onOpen={() => {
+            setShowReminderPicker(false);
+            setShowPicker(false);
+          }}
+          onTriggerPointerDown={(event) => event.stopPropagation()}
+          items={[
+            {
+              label: props.item.remindAt ? 'Edit reminder' : 'Set reminder',
+              onSelect: openReminderPicker,
+              testId: 'menu-reminder',
+              icon: (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              ),
+            },
+            {
+              label: assignedMember() ? 'Reassign' : 'Assign',
+              onSelect: openAssignPicker,
+              testId: 'menu-assign',
+              icon: (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6" />
+                  <path d="M22 11h-6" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Delete',
+              onSelect: () => props.onDelete(props.item.id),
+              danger: true,
+              testId: 'menu-delete',
+              icon: (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              ),
+            },
+          ]}
+        />
       </div>
     </div>
   );

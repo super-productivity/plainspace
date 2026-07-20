@@ -50,6 +50,7 @@
 .item {
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
   /* Comfortable tap targets for a touch-first audience. */
   min-height: 40px;
@@ -61,6 +62,11 @@
   text-align: left;
   font-size: var(--text-sm);
   color: var(--color-text);
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 @media (hover: none) {

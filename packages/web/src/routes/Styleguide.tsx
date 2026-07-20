@@ -641,14 +641,32 @@ export default function Styleguide() {
         <h2 class={styles.sectionTitle}>Actions Menu</h2>
         <p>
           A “⋯ more” trigger that opens a popover list of actions. Used in panel card headers for
-          Rename / Delete (collapse is a separate header chevron, not a menu item). The last item
-          supports a <code>danger</code> variant.
+          Rename / Delete (collapse is a separate header chevron, not a menu item). Items support
+          optional icons and a <code>danger</code> variant. Opening focuses the first action; arrow
+          keys, Home, and End move through the menu.
         </p>
         <div class={styles.row}>
           <Menu
             label="Demo actions"
             items={[
-              { label: 'Rename', onSelect: () => setLastMenuAction('rename') },
+              {
+                label: 'Rename',
+                onSelect: () => setLastMenuAction('rename'),
+                icon: (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
+                ),
+              },
               { label: 'Delete', onSelect: () => setLastMenuAction('delete'), danger: true },
             ]}
           />
