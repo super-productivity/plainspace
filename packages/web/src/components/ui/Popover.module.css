@@ -1,0 +1,12 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  cursor: pointer;
+}
+
+@media (hover: none) {
+  .backdrop {
+    background: var(--color-overlay);
+  }
+}

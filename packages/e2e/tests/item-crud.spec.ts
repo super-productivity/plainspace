@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupProject } from '../helpers/fixtures';
+import { clickItemAction } from '../helpers/item-actions';
 
 test('add and check an item', async ({ page }) => {
   const { project } = await setupProject(page);
@@ -98,14 +99,14 @@ test('assign item to self and unassign', async ({ page }) => {
   await expect(page.getByTestId('item-text')).toHaveText('Assign me');
 
   // The assign button opens a picker; choose self.
-  await page.getByTestId('assign-button').click();
+  await clickItemAction(page, 'assign');
   await page.getByTestId(`assign-option-${member.id}`).click();
   await expect(page.getByTestId('assign-button')).toHaveAttribute('aria-label', /currently Alice/, {
     timeout: 3000,
   });
 
   // Reopen the picker and unassign.
-  await page.getByTestId('assign-button').click();
+  await clickItemAction(page, 'assign');
   await page.getByTestId('unassign-option').click();
   // Match the unassigned state by prefix, not exact copy: the assigned label is
   // "Change assignee (currently …)", so /^Assign / proves we returned to
@@ -124,7 +125,7 @@ test('delete an item shows undo toast', async ({ page }) => {
   await page.getByTestId('add-item-input').press('Enter');
   await expect(page.getByTestId('item-text')).toHaveText('Test item');
 
-  await page.getByTestId('delete-item-button').click();
+  await clickItemAction(page, 'delete');
 
   // A fresh Space also shows the "first share" nudge toast, so target the
   // delete toast specifically rather than any toast.

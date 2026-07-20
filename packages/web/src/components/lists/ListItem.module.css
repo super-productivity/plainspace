@@ -269,7 +269,8 @@
 
 .assignButton,
 .reminderButton,
-.deleteButton {
+.deleteButton,
+.moreButton {
   position: relative;
   width: 30px;
   height: 30px;
@@ -292,9 +293,31 @@
 @media (hover: none) {
   .assignButton,
   .reminderButton,
-  .deleteButton {
+  .deleteButton,
+  .moreButton {
     width: 38px;
     height: 38px;
+  }
+}
+
+/* Touch devices (no hover) can't reveal actions on hover the way desktop does,
+   so the empty assign/reminder and the delete button would otherwise sit
+   permanently in the row, eating ~120px the title needs. Move them into the ⋯
+   popover menu instead; the assignee avatar and an active reminder badge stay
+   inline because they carry state (same rule the desktop hover reveal uses). */
+@media (hover: none) {
+  .assignButton:not(.hasAssignee),
+  .reminderButton:not(.hasReminder),
+  .deleteButton {
+    display: none;
+  }
+}
+
+/* The ⋯ menu trigger is a touch affordance only — desktop reveals the inline
+   action buttons on hover, so the trigger (and thus the menu) never shows. */
+@media (hover: hover) {
+  .moreButton {
+    display: none;
   }
 }
 

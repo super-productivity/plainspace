@@ -641,16 +641,34 @@ export default function Styleguide() {
         <h2 class={styles.sectionTitle}>Actions Menu</h2>
         <p>
           A “⋯ more” trigger that opens a popover list of actions. Used in panel card headers for
-          Rename / Delete (collapse is a separate header chevron, not a menu item). The last item
-          supports a <code>danger</code> variant. Like every popover, tapping outside closes it and
-          the tap is swallowed by a transparent backdrop, so it can’t accidentally trigger the
-          control underneath.
+          Rename / Delete (collapse is a separate header chevron, not a menu item). Items support
+          optional icons and a <code>danger</code> variant. Opening focuses the first action; arrow
+          keys, Home, and End move through the menu. Like every popover, tapping outside closes it
+          and the tap is swallowed by a backdrop, so it can’t accidentally trigger the control
+          underneath. The backdrop is visible on touch devices.
         </p>
         <div class={styles.row}>
           <Menu
             label="Demo actions"
             items={[
-              { label: 'Rename', onSelect: () => setLastMenuAction('rename') },
+              {
+                label: 'Rename',
+                onSelect: () => setLastMenuAction('rename'),
+                icon: (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
+                ),
+              },
               { label: 'Delete', onSelect: () => setLastMenuAction('delete'), danger: true },
             ]}
           />
@@ -785,11 +803,13 @@ export default function Styleguide() {
           <code>--disc-hand</code>, <code>--color-primary</code>) with a hand check (
           <code>--check-hand</code>) — all masked so the ink stays themeable. On pointer devices the
           per-row action icons (reminder / assign / delete) stay hidden at rest and appear on row
-          hover or keyboard focus; on touch they're always visible. The third task carries a
-          recurring reminder — its badge shows the ↻ glyph before the time. The repeat{' '}
-          <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks / Monthly)
-          lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen fire time
-          at commit, and the server owns the immutable anchor.
+          hover or keyboard focus; on touch they collapse into a single ⋯ button that opens a
+          popover menu (Set reminder / Assign / Delete), while an assignee avatar or active reminder
+          badge stays inline because it carries state — so the title keeps the row's width. The
+          third task carries a recurring reminder — its badge shows the ↻ glyph before the time. The
+          repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks /
+          Monthly) lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen
+          fire time at commit, and the server owns the immutable anchor.
         </p>
       </section>
 

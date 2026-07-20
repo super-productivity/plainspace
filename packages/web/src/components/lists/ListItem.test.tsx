@@ -167,6 +167,97 @@ describe('ListItem reminder', () => {
   });
 });
 
+describe('ListItem mobile actions menu', () => {
+  it('opens the labelled ⋯ menu and reflects it in aria-expanded', () => {
+    renderItem();
+    const more = screen.getByTestId('more-actions-button');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(more.getAttribute('aria-haspopup')).toBe('menu');
+    expect(more.getAttribute('aria-label')).toBe('Actions for Buy milk');
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('actions-menu')).toBeTruthy();
+    expect(screen.getByRole('menu').getAttribute('aria-label')).toBe('Actions for Buy milk');
+  });
+
+  it('focuses the first action and supports menu arrow keys', async () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('menu-reminder')));
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('menu-assign'));
+    fireEvent.keyDown(document.activeElement!, { key: 'End' });
+    expect(document.activeElement).toBe(screen.getByTestId('menu-delete'));
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('menu-reminder'));
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(screen.getByTestId('menu-delete'));
+  });
+
+  it('shows a decorative icon beside every menu action', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+
+    for (const testId of ['menu-reminder', 'menu-assign', 'menu-delete']) {
+      const icon = screen.getByTestId(testId).querySelector('svg');
+      expect(icon).toBeTruthy();
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('adds a backdrop that dismisses the actions menu', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+
+    const backdrop = document.querySelector('[role="presentation"]');
+    expect(backdrop).toBeTruthy();
+    fireEvent.click(backdrop!);
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
+  });
+
+  it('deletes via the menu Delete item', () => {
+    const { onDelete } = renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    fireEvent.click(screen.getByTestId('menu-delete'));
+    expect(onDelete).toHaveBeenCalledWith('i1');
+  });
+
+  it('opens the reminder picker from the menu', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    fireEvent.click(screen.getByTestId('menu-reminder'));
+    // The menu closes and the reminder picker takes over.
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
+    expect(screen.getByTestId('reminder-picker')).toBeTruthy();
+  });
+
+  it('closes an open picker before reopening the actions menu', () => {
+    renderItem();
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    fireEvent.click(screen.getByTestId('menu-reminder'));
+    expect(screen.getByTestId('reminder-picker')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('more-actions-button'));
+    expect(screen.queryByTestId('reminder-picker')).toBeNull();
+    expect(screen.getByTestId('actions-menu')).toBeTruthy();
+  });
+
+  it('dismisses one row menu before another can open', () => {
+    renderItem();
+    renderItem({ id: 'i2', text: 'Buy oats' });
+    const first = screen.getByLabelText('Actions for Buy milk');
+    const second = screen.getByLabelText('Actions for Buy oats');
+
+    fireEvent.click(first);
+    expect(screen.getAllByTestId('actions-menu')).toHaveLength(1);
+    fireEvent.click(document.querySelector('[role="presentation"]')!);
+    expect(screen.queryByTestId('actions-menu')).toBeNull();
+    fireEvent.click(second);
+    expect(screen.getAllByTestId('actions-menu')).toHaveLength(1);
+  });
+});
+
 describe('ListItem delete', () => {
   it('asks the parent to delete on click (parent owns the undo flow)', () => {
     const { onDelete } = renderItem();

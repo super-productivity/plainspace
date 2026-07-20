@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupProject } from '../helpers/fixtures';
+import { clickItemAction } from '../helpers/item-actions';
 
 test('undo restores a deleted item', async ({ page }) => {
   const { project } = await setupProject(page);
@@ -10,7 +11,7 @@ test('undo restores a deleted item', async ({ page }) => {
   await page.getByTestId('add-item-input').press('Enter');
   await expect(page.getByTestId('item-text')).toHaveText('Undo me');
 
-  await page.getByTestId('delete-item-button').click();
+  await clickItemAction(page, 'delete');
 
   await expect(page.getByTestId('list-item')).not.toBeVisible();
   // A fresh Space also shows the "first share" nudge toast, so target the
