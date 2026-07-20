@@ -38,6 +38,11 @@
   min-height: 24px;
 }
 
+.heading {
+  min-width: 0;
+  margin: 0;
+}
+
 .savingBadge {
   font-size: var(--text-xs);
   color: var(--color-accent);
@@ -73,7 +78,6 @@
 
 .content {
   border-radius: var(--radius-md);
-  min-height: 220px;
   overflow: hidden;
 }
 
@@ -91,7 +95,7 @@
   word-break: break-word;
   cursor: text;
   border: none;
-  min-height: 220px;
+  min-height: calc(var(--space-xl) * 2);
   background: transparent;
   color: inherit;
   transition: color 0.15s;
@@ -109,7 +113,7 @@
 .textarea {
   display: block;
   width: 100%;
-  min-height: 220px;
+  min-height: calc(var(--space-xl) * 2);
   padding: 4px 2px;
   font-size: var(--text-base);
   font-family: var(--font-sans);
@@ -139,9 +143,5 @@
     /* 16px floor: keeps iOS Safari from zooming on focus. */
     font-size: 16px;
     padding: 4px 2px;
-    min-height: 180px;
-  }
-  .content {
-    min-height: 180px;
   }
 }
