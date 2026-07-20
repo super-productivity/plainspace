@@ -10,17 +10,14 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  opacity: 0.6;
   transition:
     background 0.15s,
-    opacity 0.15s,
     color 0.15s;
 }
 
 .trigger:hover {
   background: var(--color-soft);
   color: var(--color-text);
-  opacity: 1;
 }
 
 .trigger:focus-visible {
@@ -34,7 +31,6 @@
   .trigger {
     width: 36px;
     height: 36px;
-    opacity: 0.9;
   }
 }
 

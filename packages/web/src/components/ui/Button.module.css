@@ -63,7 +63,7 @@
 
 .secondary {
   background: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: var(--color-accent-hover);
   border-color: var(--color-accent);
 }
 
