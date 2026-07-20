@@ -313,10 +313,10 @@
   }
 }
 
-/* The ⋯ menu trigger is a touch affordance only — desktop reveals the inline
-   action buttons on hover, so the trigger (and thus the menu) never shows. */
+/* Desktop normally reveals the inline action buttons on hover. Keep the ⋯ menu
+   when it contains keyboard reorder actions, which have no inline equivalent. */
 @media (hover: hover) {
-  .moreButton {
+  .moreButton:not(.reorderAvailable) {
     display: none;
   }
 }

@@ -52,6 +52,7 @@ interface ListCardProps {
 // for the duration of the drag — otherwise an empty or short list offers almost
 // no area to drop a cross-list row onto, and the drop silently snaps back.
 const [dragActive, setDragActive] = createSignal(false);
+const [reorderPending, setReorderPending] = createSignal(false);
 
 export default function ListCard(props: ListCardProps) {
   // Item ids seen by this list. Initial items are seeded at mount; later ids
@@ -77,6 +78,7 @@ export default function ListCard(props: ListCardProps) {
   //     item during this phase, plus justArrived being seeded at the phase
   //     transition so the destination instance gets animateIn=true.
   const [outro, setOutro] = createSignal<{
+    run: number;
     id: string;
     section: 'open' | 'done';
     // Toggle direction, kept explicit rather than inferred from `section`:
@@ -87,6 +89,7 @@ export default function ListCard(props: ListCardProps) {
   } | null>(null);
   let outroAnimTimer: ReturnType<typeof setTimeout> | undefined;
   let outroLeaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let outroRun = 0;
 
   // One-shot flag: items whose ids are here get animateIn=true on their next
   // renderItem call (and then the flag is consumed). Used to trigger the
@@ -105,23 +108,35 @@ export default function ListCard(props: ListCardProps) {
     // change and no collapse/grow leaving phase.
     const section: 'open' | 'done' = isRecurring ? 'open' : wasChecked ? 'done' : 'open';
     const dir: 'check' | 'uncheck' = wasChecked ? 'uncheck' : 'check';
-    setOutro({ id: itemId, section, dir, phase: 'animate' });
+    const run = ++outroRun;
+    setOutro({ run, id: itemId, section, dir, phase: 'animate' });
     // Uncheck has shorter strike/icon animations than check.
     const animateMs = wasChecked ? 80 : 140;
     outroAnimTimer = setTimeout(() => {
       if (isRecurring) {
-        setOutro((prev) => (prev?.id === itemId ? null : prev));
+        setOutro((prev) => (prev?.run === run ? null : prev));
         return;
       }
       // Seed justArrived BEFORE the phase transition. On the next render the
       // destination section mounts the item; shouldAnimateItem consumes the
       // flag and the grow-in plays in parallel with the source collapse.
-      justArrived.add(itemId);
-      setOutro((prev) => (prev?.id === itemId ? { ...prev, phase: 'leaving' } : prev));
+      setOutro((prev) => {
+        if (prev?.run !== run) return prev;
+        justArrived.add(itemId);
+        return { ...prev, phase: 'leaving' };
+      });
       outroLeaveTimer = setTimeout(() => {
-        setOutro((prev) => (prev?.id === itemId ? null : prev));
+        setOutro((prev) => (prev?.run === run ? null : prev));
       }, 150);
     }, animateMs);
+
+    return () => {
+      if (untrack(outro)?.run !== run) return;
+      if (outroAnimTimer) clearTimeout(outroAnimTimer);
+      if (outroLeaveTimer) clearTimeout(outroLeaveTimer);
+      justArrived.delete(itemId);
+      setOutro(null);
+    };
   }
 
   // Items that just disappeared from props.items are kept rendered in their
@@ -224,6 +239,8 @@ export default function ListCard(props: ListCardProps) {
   });
 
   const [doneExpanded, setDoneExpanded] = createSignal(false);
+  const [announcement, setAnnouncement] = createSignal<{ message: string }>();
+  const announce = (message: string) => setAnnouncement({ message });
 
   // Drag-to-reorder the open section. SortableJS owns pointer/touch (forceFallback)
   // so it works on mobile, where native HTML5 DnD is broken. Solid's <For> owns
@@ -317,46 +334,97 @@ export default function ListCard(props: ListCardProps) {
     const insertAt = nextId ? sorted.findIndex((i) => i.id === nextId) : sorted.length;
     sorted.splice(insertAt < 0 ? sorted.length : insertAt, 0, dragged);
 
-    const result = computeReorderPosition(sorted, prevId, nextId);
-    if (result.kind === 'single') {
-      commitMove(dragged, targetListId, result.position);
-    } else {
+    void commitReorder(dragged, targetListId, sorted, prevId, nextId);
+  }
+
+  async function commitReorder(
+    dragged: Item,
+    targetListId: string,
+    sorted: Item[],
+    prevId: string | null,
+    nextId: string | null,
+  ): Promise<boolean | null> {
+    if (reorderPending()) return null;
+    setReorderPending(true);
+    try {
+      const result = computeReorderPosition(sorted, prevId, nextId);
+      if (result.kind === 'single') {
+        return await commitMove(dragged, targetListId, result.position);
+      }
+
+      const updates: Promise<boolean>[] = [];
       for (const [itemId, pos] of result.positions) {
         const item = state.items.find((i) => i.id === itemId);
         if (!item) continue;
         // Only the dragged row can change lists; the renumbered siblings already
         // live in the target list, so they just shift position.
-        if (itemId === dragged.id) commitMove(dragged, targetListId, pos);
-        else reorderOne(itemId, item.position, pos);
+        updates.push(
+          itemId === dragged.id
+            ? commitMove(dragged, targetListId, pos)
+            : reorderOne(itemId, item.position, pos),
+        );
       }
+      return (await Promise.all(updates)).every(Boolean);
+    } finally {
+      setReorderPending(false);
     }
   }
 
-  async function reorderOne(id: string, prevPos: number, nextPos: number) {
-    if (prevPos === nextPos) return;
+  const reorderableItems = createMemo(() =>
+    props.items.filter((item) => !item.checked).sort(byPosition),
+  );
+  const reorderableIndexes = createMemo(
+    () => new Map(reorderableItems().map((item, index) => [item.id, index])),
+  );
+
+  async function moveByKeyboard(item: Item, direction: -1 | 1) {
+    const sorted = [...reorderableItems()];
+    const index = reorderableIndexes().get(item.id) ?? -1;
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= sorted.length) return;
+    sorted.splice(index, 1);
+    sorted.splice(targetIndex, 0, item);
+    const prevId = sorted[targetIndex - 1]?.id ?? null;
+    const nextId = sorted[targetIndex + 1]?.id ?? null;
+    const directionLabel = direction < 0 ? 'up' : 'down';
+    const moved = await commitReorder(item, props.list.id, sorted, prevId, nextId);
+    if (moved === null) return;
+    announce(
+      moved
+        ? `Moved "${item.text}" ${directionLabel}.`
+        : `Could not fully save the new order after moving "${item.text}" ${directionLabel}.`,
+    );
+  }
+
+  async function reorderOne(id: string, prevPos: number, nextPos: number): Promise<boolean> {
+    if (prevPos === nextPos) return true;
     setItemPosition(id, nextPos); // optimistic path write — keeps the row mounted
     try {
       await api.updateItem(props.slug, id, { position: nextPos });
+      return true;
     } catch {
       setItemPosition(id, prevPos); // roll back on failure
       addToast('Could not reorder the item. Please try again.');
+      return false;
     }
   }
 
   // Commit the dragged row's new (list, position). A same-list drop only sends
   // position (byte-identical to a plain reorder); a cross-list drop also sends
   // listId. Optimistic, with rollback to the prior list + position on failure.
-  async function commitMove(item: Item, listId: string, position: number) {
+  async function commitMove(item: Item, listId: string, position: number): Promise<boolean> {
     const prevListId = item.listId;
     const prevPos = item.position;
-    if (prevListId === listId && prevPos === position) return;
+    if (prevListId === listId && prevPos === position) return true;
     moveItem(item.id, listId, position);
     try {
       const payload = prevListId === listId ? { position } : { listId, position };
       await api.updateItem(props.slug, item.id, payload);
+      return true;
     } catch {
       moveItem(item.id, prevListId, prevPos);
       addToast('Could not move the item. Please try again.');
+      return false;
     }
   }
 
@@ -436,6 +504,20 @@ export default function ListCard(props: ListCardProps) {
           justToggled={justToggledFor(item.id, section)}
           leaving={leavingFor(item.id, section)}
           onBeforeToggle={startOutro}
+          onMoveUp={
+            section === 'open' && !reorderPending() && (reorderableIndexes().get(item.id) ?? -1) > 0
+              ? () => void moveByKeyboard(item, -1)
+              : undefined
+          }
+          onMoveDown={
+            section === 'open' &&
+            !reorderPending() &&
+            (reorderableIndexes().get(item.id) ?? -1) >= 0 &&
+            (reorderableIndexes().get(item.id) ?? -1) < reorderableItems().length - 1
+              ? () => void moveByKeyboard(item, 1)
+              : undefined
+          }
+          onAnnounce={announce}
           onDelete={props.onDeleteItem}
         />
       );
@@ -444,6 +526,11 @@ export default function ListCard(props: ListCardProps) {
 
   return (
     <section class={styles.card} data-testid={props.cardTestId ?? 'list-card'}>
+      <p class="visually-hidden" role="status" aria-live="polite">
+        <Show when={announcement()} keyed>
+          {(current) => <span>{current.message}</span>}
+        </Show>
+      </p>
       <header class={styles.header}>
         <h2 class={styles.titleGroup}>
           <Show
