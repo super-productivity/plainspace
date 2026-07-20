@@ -135,9 +135,11 @@ test('web app root reopens the last Space and people panel links back to overvie
   await page.goto(`/${first.project.slug}`);
   await expect(page.getByTestId('project-name')).toHaveText('First Space');
 
-  // The Spaces overview is reached from the people panel, not a header button.
+  // The People panel keeps account and Space-switching actions tucked away
+  // until they are needed.
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
   // Other known Spaces are listed for quick switching.
   await expect(page.getByTestId('panel-space-link')).toContainText(['Second Space']);
   await page.getByTestId('panel-space-link').click();
@@ -149,6 +151,7 @@ test('web app root reopens the last Space and people panel links back to overvie
   await expect(page.getByTestId('project-name')).toHaveText('Second Space');
 
   await page.getByTestId('presence-bar').click();
+  await page.getByTestId('account-toggle-button').click();
   await page.getByTestId('spaces-overview-link').click();
   await expect(page).toHaveURL('/spaces');
   await expect(page.getByTestId('known-spaces')).toBeVisible();
