@@ -16,7 +16,7 @@
 
 .input {
   width: 100%;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-field-border);
   border-radius: var(--radius-sm);
   background: transparent;
   transition:
@@ -33,7 +33,7 @@
 
 .input::placeholder {
   color: var(--color-text-secondary);
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .input[aria-invalid='true'] {

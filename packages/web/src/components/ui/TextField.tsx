@@ -59,7 +59,7 @@ export default function TextField(props: TextFieldProps) {
         </p>
       </Show>
       <Show when={local.error}>
-        <p id={errorId()} class={styles.error}>
+        <p id={errorId()} class={styles.error} role="alert">
           {local.error}
         </p>
       </Show>

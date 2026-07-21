@@ -18,6 +18,11 @@
   --color-text-secondary: #6d6456;
   --color-border: #d9d2c4;
   --color-border-strong: #b3a78f;
+  --color-field-border: color-mix(
+    in srgb,
+    var(--color-border-strong) 35%,
+    var(--color-text-secondary)
+  );
   --color-primary: #b05a3c;
   --color-primary-hover: #9d4e35;
   --color-on-primary: #fffaf2;
@@ -25,7 +30,7 @@
   --color-accent-hover: #2f5f5e;
   --color-on-accent: #fffaf2;
   --color-danger: #b3402f;
-  --color-success: #59795f;
+  --color-success: #436044;
   --color-warning: #b7792f;
   /* Body links need 4.5:1 on the page background; --color-primary only
      reaches 3.8:1 there, so links get a darker terracotta of their own. */
@@ -55,7 +60,7 @@
   --color-primary-soft: rgba(176, 90, 60, 0.12);
   --color-primary-softer: rgba(176, 90, 60, 0.08);
   --color-accent-soft: rgba(63, 116, 115, 0.12);
-  --color-focus-ring: rgba(63, 116, 115, 0.26);
+  --color-focus-ring: rgba(63, 116, 115, 0.85);
   --color-danger-soft: rgba(179, 64, 47, 0.1);
   --color-overlay: rgba(31, 28, 23, 0.28);
   --color-overlay-strong: rgba(31, 28, 23, 0.38);
@@ -164,7 +169,7 @@
     --color-primary-soft: rgba(240, 160, 124, 0.16);
     --color-primary-softer: rgba(240, 160, 124, 0.1);
     --color-accent-soft: rgba(143, 199, 194, 0.14);
-    --color-focus-ring: rgba(143, 199, 194, 0.28);
+    --color-focus-ring: rgba(143, 199, 194, 0.65);
     --color-danger-soft: rgba(240, 143, 134, 0.14);
     --color-overlay: rgba(10, 9, 8, 0.58);
     --color-overlay-strong: rgba(10, 9, 8, 0.68);

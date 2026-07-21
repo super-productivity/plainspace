@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, createUniqueId, For, onMount, Show } from 'solid-js';
 import type {
   ActivityEntry,
   Attachment,
@@ -455,6 +455,11 @@ export default function Styleguide() {
   const [renamingDemo, setRenamingDemo] = createSignal(false);
   const [renameValue, setRenameValue] = createSignal('Packing list');
   const [demoCollapsed, setDemoCollapsed] = createSignal(false);
+  const demoCollapseBodyId = createUniqueId();
+
+  onMount(() => {
+    document.title = 'Styleguide — Plainspace';
+  });
 
   return (
     <main class={styles.page}>
@@ -646,16 +651,18 @@ export default function Styleguide() {
           <CollapseToggle
             collapsed={demoCollapsed()}
             onToggle={() => setDemoCollapsed((v) => !v)}
+            controls={demoCollapseBodyId}
             count={3}
           >
             <span style={{ 'font-family': 'var(--font-serif)', 'font-size': 'var(--text-xl)' }}>
               Demo panel
             </span>
           </CollapseToggle>
-          <CollapseBody collapsed={demoCollapsed()}>
+          <CollapseBody id={demoCollapseBodyId} collapsed={demoCollapsed()}>
             <p class={styles.helperText}>
-              This body slides closed when the chevron is tapped. It stays mounted while folded, so
-              anything inside (a SortableJS handle, a focused field) survives the collapse.
+              This body slides closed when the chevron is tapped. It stays mounted so component
+              state is preserved, while the folded content becomes inert and hidden from assistive
+              technology until it is expanded again.
             </p>
           </CollapseBody>
         </div>
@@ -802,7 +809,7 @@ export default function Styleguide() {
             attachments={demoAttachments}
             slug={SLUG}
             myId="m1"
-            onDelete={() => {}}
+            onDelete={() => Promise.resolve(false)}
           />
           <ListItem
             item={demoItems[1]}
@@ -810,7 +817,7 @@ export default function Styleguide() {
             attachments={demoAttachments}
             slug={SLUG}
             myId="m1"
-            onDelete={() => {}}
+            onDelete={() => Promise.resolve(false)}
           />
           <ListItem
             item={demoItems[2]}
@@ -818,7 +825,7 @@ export default function Styleguide() {
             attachments={demoAttachments}
             slug={SLUG}
             myId="m1"
-            onDelete={() => {}}
+            onDelete={() => Promise.resolve(false)}
           />
           <ListItem
             item={demoItems[3]}
@@ -826,7 +833,7 @@ export default function Styleguide() {
             attachments={demoAttachments}
             slug={SLUG}
             myId="m1"
-            onDelete={() => {}}
+            onDelete={() => Promise.resolve(false)}
           />
         </div>
         <p class={styles.helperText}>

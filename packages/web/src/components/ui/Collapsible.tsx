@@ -30,6 +30,7 @@ export function createCollapsed(id: string) {
 export function CollapseToggle(props: {
   collapsed: boolean;
   onToggle: () => void;
+  controls?: string;
   count?: number;
   testId?: string;
   children: JSX.Element;
@@ -40,6 +41,7 @@ export function CollapseToggle(props: {
       class={styles.toggle}
       onClick={() => props.onToggle()}
       aria-expanded={!props.collapsed}
+      aria-controls={props.controls}
       title={props.collapsed ? 'Expand' : 'Collapse'}
       data-testid={props.testId ?? 'panel-collapse'}
     >
@@ -68,11 +70,17 @@ export function CollapseToggle(props: {
 // the consumer lay out the body.
 export function CollapseBody(props: {
   collapsed: boolean;
+  id?: string;
   innerClass?: string;
   children: JSX.Element;
 }) {
   return (
-    <div classList={{ [styles.body]: true, [styles.collapsed]: props.collapsed }}>
+    <div
+      id={props.id}
+      classList={{ [styles.body]: true, [styles.collapsed]: props.collapsed }}
+      aria-hidden={props.collapsed ? 'true' : undefined}
+      inert={props.collapsed}
+    >
       <div classList={{ [styles.inner]: true, [props.innerClass ?? '']: !!props.innerClass }}>
         {props.children}
       </div>
