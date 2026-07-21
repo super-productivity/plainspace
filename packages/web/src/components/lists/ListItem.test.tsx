@@ -78,14 +78,15 @@ describe('ListItem animation', () => {
 });
 
 describe('ListItem checkbox', () => {
-  it('describes the task and action in its accessible name', () => {
+  it('names the checkbox after the task', () => {
     renderItem({ text: 'Buy milk', checked: false });
-    expect(screen.getByRole('checkbox', { name: 'Mark "Buy milk" complete' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeTruthy();
   });
 
-  it('describes unchecking a completed task in its accessible name', () => {
+  // The name must not flip with the state — aria-checked already carries it.
+  it('keeps the checkbox name stable once the task is complete', () => {
     renderItem({ text: 'Buy milk', checked: true });
-    expect(screen.getByRole('checkbox', { name: 'Mark "Buy milk" incomplete' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeTruthy();
   });
 
   it('reflects the checked state via aria-checked', () => {

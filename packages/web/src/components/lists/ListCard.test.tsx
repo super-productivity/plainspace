@@ -259,7 +259,7 @@ describe('ListCard accessibility', () => {
       />
     ));
     const secondCheckbox = screen.getByRole('checkbox', {
-      name: 'Mark "Second task" complete',
+      name: 'Second task',
     });
     secondCheckbox.focus();
 
@@ -273,15 +273,13 @@ describe('ListCard accessibility', () => {
       expect(screen.getByRole('status').textContent).toBe('Completed "Second task".'),
     );
     await waitFor(() => expect(screen.getAllByTestId('item-checkbox')).toHaveLength(1));
-    expect(document.activeElement).toBe(
-      screen.getByRole('checkbox', { name: 'Mark "First task" complete' }),
-    );
+    expect(document.activeElement).toBe(screen.getByRole('checkbox', { name: 'First task' }));
   });
 
   it('cancels the leaving phase and keeps focus when a task update fails', async () => {
     api.updateItem.mockRejectedValueOnce(new Error('network'));
     renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
-    const first = screen.getByRole('checkbox', { name: 'Mark "First task" complete' });
+    const first = screen.getByRole('checkbox', { name: 'First task' });
     first.focus();
 
     fireEvent.click(first);
@@ -300,7 +298,7 @@ describe('ListCard accessibility', () => {
       }),
     );
     renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
-    const first = screen.getByRole('checkbox', { name: 'Mark "First task" complete' });
+    const first = screen.getByRole('checkbox', { name: 'First task' });
     const sourceRow = first.closest<HTMLElement>('[data-item-id]')!;
     const leaveAnimation = { addEventListener: vi.fn(), cancel: vi.fn() };
     Object.defineProperty(sourceRow, 'animate', {

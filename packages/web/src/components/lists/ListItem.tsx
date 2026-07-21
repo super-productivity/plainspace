@@ -174,6 +174,19 @@ export default function ListItem(props: ListItemProps) {
       rows.slice(0, index).reverse().find(canReceiveFocus);
     const targetId = targetRow?.getAttribute('data-item-id');
 
+    const checkboxIn = (row: Element | undefined) =>
+      row?.querySelector<HTMLElement>('[data-testid="item-checkbox"]');
+    // Used when the row is STAYING (its update failed): put focus back on the
+    // control the user was actually on — the original node if it survived the
+    // render, else the same control re-queried on the replacement instance.
+    const sourceControlIn = (row: Element | undefined) => {
+      if (!row) return undefined;
+      if (sourceControl?.isConnected && row.contains(sourceControl)) return sourceControl;
+      return sourceControlTestId
+        ? row.querySelector<HTMLElement>(`[data-testid="${sourceControlTestId}"]`)
+        : checkboxIn(row);
+    };
+
     // The focused row can be remounted by an SSE echo while its PATCH is in
     // flight. Resolve the destination by item id when the request finishes,
     // instead of retaining a checkbox node that may have been replaced too.
@@ -181,24 +194,13 @@ export default function ListItem(props: ListItemProps) {
       const active = document.activeElement;
       if (active !== activeAtCapture && active !== document.body) return;
       const currentRows = [...(container?.children ?? [])];
-      const currentSource = currentRows.find(
-        (element) => element.getAttribute('data-item-id') === sourceId && canReceiveFocus(element),
-      );
-      const currentTarget = targetId
-        ? currentRows.find(
-            (element) =>
-              element.getAttribute('data-item-id') === targetId && canReceiveFocus(element),
-          )
-        : undefined;
+      const rowById = (id: string) =>
+        currentRows.find(
+          (element) => element.getAttribute('data-item-id') === id && canReceiveFocus(element),
+        );
       const target =
-        (preferSource
-          ? sourceControl?.isConnected && currentSource?.contains(sourceControl)
-            ? sourceControl
-            : sourceControlTestId
-              ? currentSource?.querySelector<HTMLElement>(`[data-testid="${sourceControlTestId}"]`)
-              : currentSource?.querySelector<HTMLElement>('[data-testid="item-checkbox"]')
-          : undefined) ??
-        currentTarget?.querySelector<HTMLElement>('[data-testid="item-checkbox"]') ??
+        (preferSource ? sourceControlIn(rowById(sourceId)) : undefined) ??
+        (targetId ? checkboxIn(rowById(targetId)) : undefined) ??
         section?.querySelector<HTMLElement>('[data-testid="add-item-input"]');
       target?.focus();
     };
@@ -339,7 +341,10 @@ export default function ListItem(props: ListItemProps) {
         onClick={toggleChecked}
         role="checkbox"
         aria-checked={props.item.checked}
-        aria-label={`Mark "${props.item.text}" ${props.item.checked ? 'incomplete' : 'complete'}`}
+        // Name the checkbox after the task, not the action — role + aria-checked
+        // already convey "checkbox, not checked", so "Mark X complete" would
+        // both duplicate the state and flip the name as the row toggles.
+        aria-label={props.item.text}
         data-testid="item-checkbox"
       >
         <Show when={props.item.checked} fallback={<span class={styles.unchecked} />}>
