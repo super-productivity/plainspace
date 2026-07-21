@@ -546,7 +546,7 @@ export default function ListItem(props: ListItemProps) {
         <button
           class={styles.deleteButton}
           onClick={deleteItem}
-          title="Delete item"
+          title={`Delete "${props.item.text}"`}
           aria-label={`Delete "${props.item.text}"`}
           data-testid="delete-item-button"
         >

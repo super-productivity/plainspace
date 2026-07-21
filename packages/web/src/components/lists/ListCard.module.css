@@ -34,6 +34,9 @@
   margin-block: -8px;
 }
 
+/* The heading is an <h2> for document structure only — neutralize the UA margin
+   and bold/1.5em type so its children (.name, .titleInput, the collapse count)
+   keep the type they set themselves. */
 .titleGroup {
   display: flex;
   flex-direction: column;

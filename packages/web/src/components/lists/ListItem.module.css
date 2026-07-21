@@ -253,16 +253,19 @@
 @media (hover: hover) {
   .assignButton:not(.hasAssignee),
   .reminderButton:not(.hasReminder),
-  .deleteButton {
+  .deleteButton,
+  .moreButton {
     opacity: 0;
     transition: opacity 120ms ease;
   }
   .item:hover .assignButton,
   .item:hover .reminderButton,
   .item:hover .deleteButton,
+  .item:hover .moreButton,
   .item:focus-within .assignButton,
   .item:focus-within .reminderButton,
-  .item:focus-within .deleteButton {
+  .item:focus-within .deleteButton,
+  .item:focus-within .moreButton {
     opacity: 1;
   }
 }
@@ -313,8 +316,10 @@
   }
 }
 
-/* Desktop normally reveals the inline action buttons on hover. Keep the ⋯ menu
-   when it contains keyboard reorder actions, which have no inline equivalent. */
+/* Desktop hides the ⋯ menu, whose actions all have inline equivalents there —
+   except keyboard reorder, which has none. So keep the trigger when it carries
+   the reorder actions; it hover/focus-reveals like the other buttons above
+   rather than sitting permanently in the row. */
 @media (hover: hover) {
   .moreButton:not(.reorderAvailable) {
     display: none;

@@ -166,7 +166,7 @@ describe('ListCard accessibility', () => {
     );
   });
 
-  it('allows only one keyboard reorder to be pending at a time', async () => {
+  it('refuses a second keyboard reorder while one is still saving', async () => {
     let rejectUpdate!: (error: Error) => void;
     api.updateItem.mockReturnValueOnce(
       new Promise((_resolve, reject) => {
@@ -183,14 +183,24 @@ describe('ListCard accessibility', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
     expect(api.updateItem).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByLabelText('Actions for Second task'));
-    expect(screen.queryByRole('menuitem', { name: 'Move up' })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: 'Move down' })).toBeNull();
+    // The reorder actions stay offered while the move is in flight. Dropping
+    // them would strip .reorderAvailable from the ⋯ trigger, which desktop CSS
+    // display:none's — pulling the element out from under the focus the menu
+    // just returned to it.
+    expect(screen.getByLabelText('Actions for First task').className).toContain('reorderAvailable');
+    const second = screen.getByLabelText('Actions for Second task');
+    expect(second.className).toContain('reorderAvailable');
+    fireEvent.click(second);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
+
+    // …but committing it is refused, with feedback rather than a silent no-op.
+    expect(api.updateItem).toHaveBeenCalledTimes(1);
+    expect(addToast).toHaveBeenCalledTimes(1);
 
     rejectUpdate(new Error('network'));
-    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Move up' })).toBeTruthy());
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(2));
 
+    fireEvent.click(screen.getByLabelText('Actions for Second task'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
     await waitFor(() => expect(api.updateItem).toHaveBeenCalledTimes(2));
   });

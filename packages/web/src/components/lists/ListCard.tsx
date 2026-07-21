@@ -52,6 +52,13 @@ interface ListCardProps {
 // for the duration of the drag — otherwise an empty or short list offers almost
 // no area to drop a cross-list row onto, and the drop silently snaps back.
 const [dragActive, setDragActive] = createSignal(false);
+// One reorder commit at a time, across every list. Positions are bisected
+// against the CURRENT order read from the shared store, so a second commit
+// started before the first resolves would compute against stale neighbours —
+// and a cross-list drop renumbers the *destination* card's rows, which is why
+// this is module scope rather than per-card. Refused attempts toast (below);
+// they never change what the row offers, so the ⋯ trigger can't move under a
+// keyboard user mid-reorder.
 const [reorderPending, setReorderPending] = createSignal(false);
 
 export default function ListCard(props: ListCardProps) {
@@ -344,7 +351,13 @@ export default function ListCard(props: ListCardProps) {
     prevId: string | null,
     nextId: string | null,
   ): Promise<boolean | null> {
-    if (reorderPending()) return null;
+    // Refusing silently would leave a dropped row snapping back (the DOM was
+    // already reverted) with no explanation. The toast is role="status", so it
+    // reaches the keyboard path's screen-reader users too.
+    if (reorderPending()) {
+      addToast('Still saving the previous move. Please try again.');
+      return null;
+    }
     setReorderPending(true);
     try {
       const result = computeReorderPosition(sorted, prevId, nextId);
@@ -376,6 +389,18 @@ export default function ListCard(props: ListCardProps) {
   const reorderableIndexes = createMemo(
     () => new Map(reorderableItems().map((item, index) => [item.id, index])),
   );
+
+  // Whether a row offers keyboard reorder, by POSITION only — deliberately not
+  // gated on reorderPending(). Dropping the actions mid-flight would strip
+  // .reorderAvailable from the ⋯ trigger, which desktop CSS then display:none's
+  // out from under the focus Popover just returned to it. -1 = not reorderable
+  // (a done row, or a resting recurring task pinned to the end of the list).
+  const reorderIndex = (item: Item, section: 'open' | 'done') =>
+    section === 'open' ? (reorderableIndexes().get(item.id) ?? -1) : -1;
+  const canMoveDown = (item: Item, section: 'open' | 'done') => {
+    const index = reorderIndex(item, section);
+    return index >= 0 && index < reorderableItems().length - 1;
+  };
 
   async function moveByKeyboard(item: Item, direction: -1 | 1) {
     const sorted = [...reorderableItems()];
@@ -505,18 +530,9 @@ export default function ListCard(props: ListCardProps) {
           leaving={leavingFor(item.id, section)}
           onBeforeToggle={startOutro}
           onMoveUp={
-            section === 'open' && !reorderPending() && (reorderableIndexes().get(item.id) ?? -1) > 0
-              ? () => void moveByKeyboard(item, -1)
-              : undefined
+            reorderIndex(item, section) > 0 ? () => void moveByKeyboard(item, -1) : undefined
           }
-          onMoveDown={
-            section === 'open' &&
-            !reorderPending() &&
-            (reorderableIndexes().get(item.id) ?? -1) >= 0 &&
-            (reorderableIndexes().get(item.id) ?? -1) < reorderableItems().length - 1
-              ? () => void moveByKeyboard(item, 1)
-              : undefined
-          }
+          onMoveDown={canMoveDown(item, section) ? () => void moveByKeyboard(item, 1) : undefined}
           onAnnounce={announce}
           onDelete={props.onDeleteItem}
         />
