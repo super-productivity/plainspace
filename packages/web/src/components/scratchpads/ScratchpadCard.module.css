@@ -1,4 +1,10 @@
 .card {
+  /* One floor for the display button and the editor that replaces it -- they
+     swap in place, so any divergence shows up as the card jumping on click.
+     Exact parity also relies on global.css's `* { box-sizing: border-box }`:
+     under the UA default a button is border-box and a textarea content-box, so
+     the same floor would still leave the two ~8px apart. */
+  --pad-min-h: calc(var(--space-xl) * 2);
   position: relative;
   /* Same sheet of paper as ListCard: no outline, gently rounded, defined by
      the color step off the parchment plus a soft resting shadow. */
@@ -38,6 +44,17 @@
   min-height: 24px;
 }
 
+/* Block box, so the h2's own font sizes its line box: at the UA 1.5em/bold that
+   strut is 36px and the header grows 9px (measured). `font: inherit` also stops
+   global.css's `button { font: inherit }` pulling 24px/700 into the toggle.
+   PanelCard needs `display: flex` on top of this for its rename input; there is
+   no rename here, so a block box is enough. */
+.heading {
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+}
+
 .savingBadge {
   font-size: var(--text-xs);
   color: var(--color-accent);
@@ -73,7 +90,6 @@
 
 .content {
   border-radius: var(--radius-md);
-  min-height: 220px;
   overflow: hidden;
 }
 
@@ -91,7 +107,7 @@
   word-break: break-word;
   cursor: text;
   border: none;
-  min-height: 220px;
+  min-height: var(--pad-min-h);
   background: transparent;
   color: inherit;
   transition: color 0.15s;
@@ -109,7 +125,7 @@
 .textarea {
   display: block;
   width: 100%;
-  min-height: 220px;
+  min-height: var(--pad-min-h);
   padding: 4px 2px;
   font-size: var(--text-base);
   font-family: var(--font-sans);
@@ -123,6 +139,23 @@
 
 .textarea:focus {
   box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+/* `field-sizing: content` above is what lets the compact editor grow, but it
+   only became Baseline in June 2026 (Safari 26.2, Firefox 152). Without it the
+   box is stuck at its floor -- and `resize: none` leaves no way out -- so give
+   those engines the roomier fixed height the compact one replaced. Raising the
+   shared property keeps the display button and the editor the same size. */
+@supports not (field-sizing: content) {
+  .card {
+    --pad-min-h: 220px;
+  }
+
+  @media (max-width: 720px) {
+    .card {
+      --pad-min-h: 180px;
+    }
+  }
 }
 
 @media (max-width: 720px) {
@@ -139,9 +172,5 @@
     /* 16px floor: keeps iOS Safari from zooming on focus. */
     font-size: 16px;
     padding: 4px 2px;
-    min-height: 180px;
-  }
-  .content {
-    min-height: 180px;
   }
 }

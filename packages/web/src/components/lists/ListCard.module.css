@@ -39,6 +39,10 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  /* Carries the card's h2. Reset the heading defaults so the tag choice stays
+     purely semantic and can't leak 1.5em/bold into anything nested here. */
+  margin: 0;
+  font: inherit;
 }
 
 .name {

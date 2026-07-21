@@ -1,6 +1,7 @@
-import { createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
-import { useParams, useNavigate } from '@solidjs/router';
+import { createEffect, onCleanup, Show, For, createSignal, createMemo, untrack } from 'solid-js';
+import { A, useParams, useNavigate } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   hasIdentity,
   savePlainspaceEmail,
@@ -49,6 +50,9 @@ export default function Project() {
   const [termsError, setTermsError] = createSignal('');
   const [showMembers, setShowMembers] = createSignal(false);
   const [focusEmailVerification, setFocusEmailVerification] = createSignal(false);
+  const [loadAttempt, setLoadAttempt] = createSignal(0);
+  // Marks a load as user-initiated, so only a retry moves focus.
+  let retryFocusPending = false;
 
   // A plain memo on params.slug would miss the localStorage write the #claim=
   // hand-off does inside the effect below (same slug, so nothing re-tracks).
@@ -74,6 +78,28 @@ export default function Project() {
   function handleConnectEmailClick() {
     setFocusEmailVerification(true);
     setShowMembers(true);
+  }
+
+  function focus(testId: string) {
+    document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus();
+  }
+
+  // Retry owns focus across the reload: onto the loading indicator now, then
+  // onto whatever the finished load put in its place (see `settleRetryFocus`).
+  function handleRetry() {
+    retryFocusPending = true;
+    setLoadAttempt((attempt) => attempt + 1);
+    focus('project-loading');
+  }
+
+  // Called once the load has fully settled -- not when `state.project` arrives,
+  // which happens while the activity fetch is still able to fail into the error
+  // screen. The terms dialog owns modal focus, so there we only stand down.
+  function settleRetryFocus() {
+    if (!retryFocusPending) return;
+    retryFocusPending = false;
+    if (termsRequired()) return;
+    focus(state.error ? 'project-error-heading' : 'project-name');
   }
 
   // SSE carries no event ids and the server buffers nothing, so a reconnect
@@ -172,6 +198,22 @@ export default function Project() {
     }
   }
 
+  // Same node in both loading branches (top-level and behind the terms gate) so
+  // the retry-focus effect below always has its target, whichever one is up.
+  function renderLoading() {
+    return (
+      <div
+        class={styles.loading}
+        role="status"
+        aria-label="Loading Space"
+        tabindex="-1"
+        data-testid="project-loading"
+      >
+        Loading Space…
+      </div>
+    );
+  }
+
   function renderTermsDialog() {
     return (
       <Dialog
@@ -180,7 +222,7 @@ export default function Project() {
         class={styles.termsDialog}
         data-testid="terms-acceptance-dialog"
       >
-        <h2>Updated Legal Terms</h2>
+        <h1 data-testid="terms-heading">Updated Legal Terms</h1>
         <p>
           Plainspace needs your active acceptance of the current{' '}
           <a href="/terms" target="_blank" rel="noopener noreferrer">
@@ -193,7 +235,9 @@ export default function Project() {
           before you continue using {termsProjectName()}.
         </p>
         <Show when={termsError()}>
-          <p class={styles.termsError}>{termsError()}</p>
+          <p class={styles.termsError} role="alert">
+            {termsError()}
+          </p>
         </Show>
         <div class={styles.termsActions}>
           <Button variant="ghost" onClick={() => navigate('/')}>
@@ -207,7 +251,15 @@ export default function Project() {
     );
   }
 
+  useDocumentTitle(() => {
+    if (state.loading) return 'Opening Space — Plainspace';
+    if (state.error) return 'Couldn’t open Space — Plainspace';
+    if (termsRequired()) return 'Accept updated legal terms — Plainspace';
+    return state.project ? `${state.project.name} — Plainspace` : 'Opening Space — Plainspace';
+  });
+
   createEffect(() => {
+    loadAttempt();
     const slug = params.slug;
 
     // Tear down anything from a previous slug before starting fresh.
@@ -302,6 +354,14 @@ export default function Project() {
           disconnectSSE();
           setError(err instanceof ApiError ? err.message : 'Failed to load Space');
         }
+      } finally {
+        // Guarded: an aborted run settles *after* its replacement has already
+        // started, so only the current load may claim the focus hand-off.
+        // Untracked: the no-identity branch returns before any `await`, so this
+        // runs synchronously inside the effect body -- reading `state.error`
+        // there would subscribe the *load* effect to it and re-run the whole
+        // teardown on the next failure.
+        if (loadController === controller) untrack(settleRetryFocus);
       }
     })();
   });
@@ -345,13 +405,34 @@ export default function Project() {
   }
 
   return (
-    <Show when={!state.loading} fallback={<div class={styles.loading}>Loading...</div>}>
-      <Show when={!state.error} fallback={<div class={styles.error}>{state.error}</div>}>
+    <Show when={!state.loading} fallback={<main class={styles.statePage}>{renderLoading()}</main>}>
+      <Show
+        when={!state.error}
+        fallback={
+          <main class={styles.statePage}>
+            <div class={styles.error}>
+              <h1 tabindex="-1" data-testid="project-error-heading">
+                Couldn’t open this Space
+              </h1>
+              <p role="alert">{state.error}</p>
+              <div class={styles.errorActions}>
+                <Button onClick={handleRetry}>Try again</Button>
+                <A href="/spaces" class={styles.backLink}>
+                  Back to Spaces
+                </A>
+              </div>
+            </div>
+          </main>
+        }
+      >
+        {/* The terms gate is deliberately not a <main>: Dialog renders through a
+            Portal, so whenever the gate is up that wrapper would be an empty
+            landmark with the heading living outside it. */}
         <Show
           when={state.project}
           fallback={
             <div class={styles.termsGate} data-testid="terms-gate">
-              <Show when={termsRequired()} fallback={<div class={styles.loading}>Loading...</div>}>
+              <Show when={termsRequired()} fallback={renderLoading()}>
                 {renderTermsDialog()}
               </Show>
             </div>
@@ -420,31 +501,18 @@ export default function Project() {
               </Banner>
             </Show>
 
-            <div class={styles.content}>
-              <div class={styles.mainColumn}>
-                <div class={styles.lists}>
-                  <Show when={state.list}>
-                    <ListCard
-                      list={state.list!}
-                      items={sortedItems()}
-                      members={state.members}
-                      attachments={state.attachments}
-                      slug={params.slug}
-                      myId={myId() ?? ''}
-                      onDeleteItem={handleDeleteItem}
-                    />
-                  </Show>
-                </div>
-
-                <Show when={state.activity.length > 0}>
-                  <div class={styles.activityPanel}>
-                    <ActivityFeed
-                      entries={state.activity}
-                      members={state.members}
-                      slug={params.slug}
-                      hasMore={state.activityHasMore}
-                    />
-                  </div>
+            <main class={styles.content}>
+              <div class={styles.lists}>
+                <Show when={state.list}>
+                  <ListCard
+                    list={state.list!}
+                    items={sortedItems()}
+                    members={state.members}
+                    attachments={state.attachments}
+                    slug={params.slug}
+                    myId={myId() ?? ''}
+                    onDeleteItem={handleDeleteItem}
+                  />
                 </Show>
               </div>
 
@@ -466,7 +534,18 @@ export default function Project() {
                   myId={myId() ?? ''}
                 />
               </div>
-            </div>
+
+              <Show when={state.activity.length > 0}>
+                <div class={styles.activityPanel}>
+                  <ActivityFeed
+                    entries={state.activity}
+                    members={state.members}
+                    slug={params.slug}
+                    hasMore={state.activityHasMore}
+                  />
+                </div>
+              </Show>
+            </main>
 
             <div class={styles.toasts}>
               <For each={toasts()}>

@@ -24,6 +24,19 @@
   gap: var(--space-sm);
 }
 
+/* `display: flex` is load-bearing: the rename input below is `flex: 1`, which a
+   block h2 would silently ignore, dropping it to its intrinsic width (measured
+   295px vs 384px). It also removes the h2's line-box strut. `font: inherit`
+   then stops global.css's `button { font: inherit }` pulling the h2's UA
+   24px/700 into the toggle, which would bold a collapsed card's "N" count. */
+.heading {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+}
+
 .title {
   width: fit-content;
   font-family: var(--font-serif);

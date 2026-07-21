@@ -32,7 +32,7 @@ interface PanelCardProps {
 // the controls. Per-type cards (PollCard, TimeSlotCard) supply only their body
 // -- the options / slots list -- as children.
 export default function PanelCard(props: PanelCardProps) {
-  const { collapsed, toggle } = createCollapsed(untrack(() => props.panelId));
+  const { collapsed, toggle, bodyId } = createCollapsed(untrack(() => props.panelId));
   const [confirming, setConfirming] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   const [renaming, setRenaming] = createSignal(false);
@@ -81,26 +81,30 @@ export default function PanelCard(props: PanelCardProps) {
   return (
     <section class={styles.card} data-testid={props.cardTestId}>
       <header class={styles.header}>
-        <Show
-          when={renaming()}
-          fallback={
-            <CollapseToggle collapsed={collapsed()} onToggle={toggle}>
-              <span class={`${styles.title} ${underline.line}`}>{props.title}</span>
-            </CollapseToggle>
-          }
-        >
-          <InlineRename
-            class={styles.titleInput}
-            value={props.title}
-            ariaLabel={`Rename ${props.label}`}
-            testId="panel-rename-input"
-            onCommit={commitRename}
-            onCancel={() => setRenaming(false)}
-          />
-        </Show>
+        <h2 class={styles.heading}>
+          <Show
+            when={renaming()}
+            fallback={
+              <CollapseToggle collapsed={collapsed()} onToggle={toggle} controls={bodyId}>
+                <span class={`${styles.title} ${underline.line}`}>{props.title}</span>
+              </CollapseToggle>
+            }
+          >
+            <InlineRename
+              class={styles.titleInput}
+              value={props.title}
+              ariaLabel={`Rename ${props.label}`}
+              testId="panel-rename-input"
+              onCommit={commitRename}
+              onCancel={() => setRenaming(false)}
+            />
+          </Show>
+        </h2>
         <Menu label={`${props.label} actions`} items={menuItems()} triggerTestId="panel-menu" />
       </header>
-      <CollapseBody collapsed={collapsed()}>{props.children}</CollapseBody>
+      <CollapseBody collapsed={collapsed()} id={bodyId}>
+        {props.children}
+      </CollapseBody>
       <Show when={confirming()}>
         <ConfirmDialog
           title={`Delete ${props.label}?`}

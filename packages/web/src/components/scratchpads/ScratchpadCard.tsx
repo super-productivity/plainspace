@@ -18,7 +18,7 @@ interface ScratchpadCardProps {
 }
 
 export default function ScratchpadCard(props: ScratchpadCardProps) {
-  const { collapsed, toggle } = createCollapsed(untrack(() => props.pad.id));
+  const { collapsed, toggle, bodyId } = createCollapsed(untrack(() => props.pad.id));
   const [editing, setEditing] = createSignal(false);
   // Snapshot initial content; live updates flow in through props and are read in JSX/startEdit.
   // eslint-disable-next-line solid/reactivity
@@ -155,11 +155,13 @@ export default function ScratchpadCard(props: ScratchpadCardProps) {
   return (
     <section class={styles.card} data-testid="scratchpad-card">
       <header class={styles.header}>
-        <CollapseToggle collapsed={collapsed()} onToggle={toggle}>
-          <span class={`${styles.title} ${underline.line}`} data-testid="scratchpad-title">
-            Scratchpad
-          </span>
-        </CollapseToggle>
+        <h2 class={styles.heading}>
+          <CollapseToggle collapsed={collapsed()} onToggle={toggle} controls={bodyId}>
+            <span class={`${styles.title} ${underline.line}`} data-testid="scratchpad-title">
+              Scratchpad
+            </span>
+          </CollapseToggle>
+        </h2>
         <div class={styles.headerActions}>
           <ScratchpadEditingIndicator members={editingMembers()} myId={props.myId} />
           <Show when={saving()}>
@@ -173,7 +175,7 @@ export default function ScratchpadCard(props: ScratchpadCardProps) {
         </div>
       </header>
 
-      <CollapseBody collapsed={collapsed()}>
+      <CollapseBody collapsed={collapsed()} id={bodyId}>
         <div class={styles.content}>
           <Show
             when={editing()}
@@ -190,6 +192,7 @@ export default function ScratchpadCard(props: ScratchpadCardProps) {
           >
             <textarea
               ref={textareaRef}
+              aria-label="Scratchpad notes"
               class={styles.textarea}
               value={content()}
               onInput={(e) => handleInput(e.currentTarget.value)}

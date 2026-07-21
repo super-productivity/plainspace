@@ -86,7 +86,12 @@ export default function Header(props: HeaderProps) {
               <span aria-hidden="true">←</span>
               <span>Spaces</span>
             </A>
-            <h1 class={styles.name} data-testid="project-name">
+            {/* tabindex: Project's retry flow focuses this once a reload
+                succeeds, so the Space announces itself instead of dropping
+                focus to the body. Keep it -- focus() on a plain h1 is a
+                silent no-op, and Project.test mocks Header, so removing it
+                breaks the flow with every test still green. */}
+            <h1 class={styles.name} tabindex="-1" data-testid="project-name">
               {props.project.name}
             </h1>
             <Show when={props.project.purpose}>

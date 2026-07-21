@@ -389,7 +389,11 @@ export default function ListCard(props: ListCardProps) {
   // Collapse hides the card body (rows, add, done) but keeps the header. Every
   // card folds — the hero list included — keyed by the backing list id (stable
   // for the instance, so the read is untracked).
-  const { collapsed, toggle: toggleCollapsed } = createCollapsed(untrack(() => props.list.id));
+  const {
+    collapsed,
+    toggle: toggleCollapsed,
+    bodyId,
+  } = createCollapsed(untrack(() => props.list.id));
   // Shown next to the title when collapsed — count only open (not-done) items so
   // the number matches what the card is hiding (mirrors the "Done · N" disclosure).
   const itemCount = () => props.items.filter(inOpen).length;
@@ -441,7 +445,7 @@ export default function ListCard(props: ListCardProps) {
   return (
     <section class={styles.card} data-testid={props.cardTestId ?? 'list-card'}>
       <header class={styles.header}>
-        <div class={styles.titleGroup}>
+        <h2 class={styles.titleGroup}>
           <Show
             when={renaming()}
             fallback={
@@ -450,6 +454,7 @@ export default function ListCard(props: ListCardProps) {
               <CollapseToggle
                 collapsed={collapsed()}
                 onToggle={toggleCollapsed}
+                controls={bodyId}
                 count={itemCount()}
               >
                 <span class={`${styles.name} ${underline.line}`} data-testid="list-name">
@@ -467,7 +472,7 @@ export default function ListCard(props: ListCardProps) {
               onCancel={() => setRenaming(false)}
             />
           </Show>
-        </div>
+        </h2>
         <Show when={props.onDeletePanel}>
           <div class={styles.headerActions}>
             <Menu
@@ -479,7 +484,7 @@ export default function ListCard(props: ListCardProps) {
         </Show>
       </header>
 
-      <CollapseBody collapsed={collapsed()} innerClass={styles.bodyInner}>
+      <CollapseBody collapsed={collapsed()} id={bodyId} innerClass={styles.bodyInner}>
         <div
           class={styles.items}
           classList={{ [styles.dropZone]: dragActive() }}

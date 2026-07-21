@@ -1,49 +1,91 @@
-.loading,
-.error {
+.statePage {
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
-  color: var(--color-text-secondary);
-  font-size: var(--text-lg);
   padding: var(--space-lg);
 }
 
+.loading {
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+}
+
 .error {
+  display: flex;
+  max-width: 32rem;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.error h1 {
+  margin: 0;
   color: var(--color-danger);
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: var(--leading-tight);
+}
+
+.error p {
+  margin: 0;
+  line-height: var(--leading-normal);
+}
+
+.errorActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.backLink {
+  color: var(--color-accent-hover);
+  font-weight: 600;
+}
+
+.backLink:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
-  /* Two side-by-side columns that each hug their own content from the top.
-     Flex with `flex-start` (not grid) is deliberate: there are no shared rows
-     to stretch and no free space to distribute, so neither column can drift or
-     center vertically no matter how tall the other one gets. */
-  display: flex;
-  align-items: flex-start;
+  /* Recent activity sits in row 2 of the left column, so it stays directly
+     under the task list however tall the Scratchpad column grows. `start`
+     keeps each cell hugging its own content instead of stretching. DOM order
+     (list, Scratchpad/panels, activity) already matches the row-wise reading
+     order, so nothing is visually reordered here. */
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  /* Row 2 must be flexible, not auto: the Scratchpad column spans both rows, and
+     a spanning item distributes its overflow into the auto rows it crosses --
+     which would stretch row 1 and shove Recent activity away from the list. A
+     flexible row 2 soaks that up instead, so the 40px below the list is exact. */
+  grid-template-rows: auto 1fr;
+  column-gap: 48px;
+  align-items: start;
+  /* `.content` is a flex:1 child of a 100dvh shell, so it is routinely taller
+     than its cards. Without this, grid's default stretch would pad the rows out
+     to fill that slack and tear the stacked cards apart on narrow screens. */
+  align-content: start;
   /* One uniform vertical rhythm for every stacked card (scratchpad, tasks,
      polls, time slots) and the add-panel button. Inherited by `.column` in
      PanelColumn.module.css -- change it here to move all of them at once. */
   --panel-gap: 16px;
-  column-gap: 48px;
   padding: 34px 0 36px;
   background: transparent;
 }
 
-/* Left column: the todo list with recent activity stacked a constant gap
-   directly beneath it. The gap is well above the `--panel-gap` card rhythm to
-   set recent activity clearly apart from the list. The 1.35 vs 1 flex-grow
-   keeps the old 1.35fr / 1fr width split. */
-.mainColumn {
-  flex: 1.35 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-
 .lists {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
@@ -51,15 +93,21 @@
 }
 
 .scratchpads {
-  flex: 1 1 0;
+  grid-column: 2;
+  grid-row: 1 / span 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
 }
 
+/* The gap is well above the `--panel-gap` card rhythm to set recent activity
+   clearly apart from the list above it. */
 .activityPanel {
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
+  margin-top: 40px;
 }
 
 .reconnecting {
@@ -70,13 +118,6 @@
   font-size: var(--text-sm);
   font-weight: 500;
   border-bottom: 1px solid var(--color-warning-border);
-}
-
-.emptyState {
-  text-align: center;
-  padding: var(--space-xl) var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-base);
 }
 
 .toasts {
@@ -104,7 +145,7 @@
   padding: var(--space-lg);
 }
 
-.termsDialog h2 {
+.termsDialog h1 {
   margin: 0 0 var(--space-sm);
   font-family: var(--font-serif);
   font-size: var(--text-xl);
@@ -146,37 +187,27 @@
 }
 
 @media (max-width: 1020px) {
+  /* One column. The children are already in reading order in the DOM, so
+     dropping the explicit placement stacks them in the right sequence. */
   .content {
-    flex-direction: column;
-    gap: var(--panel-gap);
+    grid-template-columns: 1fr;
+    /* Back to plain auto rows -- the desktop `1fr` row would otherwise absorb
+       the container's slack and blow the gap open under the second card. */
+    grid-template-rows: none;
+    row-gap: var(--panel-gap);
     padding: 24px 0 32px;
   }
 
-  /* Single column: flatten the left column so the list and activity become
-     direct flex items, then `order` restores the intended sequence
-     (lists -> scratchpads -> activity) the wrapper would otherwise break. */
-  .mainColumn {
-    display: contents;
+  .lists,
+  .scratchpads,
+  .activityPanel {
+    grid-column: 1;
+    grid-row: auto;
   }
 
-  /* Stack at content height -- the desktop grow ratios would stretch these
-     vertically once the main axis is the column. */
-  .scratchpads {
-    flex: initial;
-  }
-
-  .lists {
-    order: 1;
-  }
-
-  .scratchpads {
-    order: 2;
-  }
-
-  /* Extra top margin (stacks on the column gap) sets recent activity apart
+  /* Extra top margin (stacks on the row gap) sets recent activity apart
      from the section above it, mirroring the desktop list gap. */
   .activityPanel {
-    order: 3;
     margin-top: var(--space-md);
   }
 }
@@ -185,12 +216,6 @@
   .content {
     padding: var(--space-md) 0;
     padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
-  }
-
-  .lists,
-  .scratchpads,
-  .activityPanel {
-    width: 100%;
   }
 
   /* Keep toasts visible above the floating MobileQuickActions pill. The
