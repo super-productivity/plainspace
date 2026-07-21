@@ -192,19 +192,17 @@ describe('ListCard accessibility', () => {
     );
   });
 
-  it('announces that the new order could not be saved when keyboard reorder fails', async () => {
+  // Toast is itself role="status", so a failure that also wrote to the live
+  // region would be read out twice.
+  it('reports a failed keyboard reorder once, through the toast', async () => {
     api.updateItem.mockRejectedValueOnce(new Error('network'));
     renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
 
     fireEvent.click(screen.getByLabelText('Actions for First task'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toBe(
-        'Could not fully save the new order after moving "First task" down.',
-      ),
-    );
-    expect(addToast).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('refuses a second keyboard reorder while one is still saving', async () => {

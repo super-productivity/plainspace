@@ -349,13 +349,13 @@ export default function ListCard(props: ListCardProps) {
     sorted: Item[],
     prevId: string | null,
     nextId: string | null,
-  ): Promise<boolean | null> {
+  ): Promise<boolean> {
     // Refusing silently would leave a dropped row snapping back (the DOM was
     // already reverted) with no explanation. The toast is role="status", so it
     // reaches the keyboard path's screen-reader users too.
     if (reorderPending()) {
       addToast('Still saving the previous move. Please try again.');
-      return null;
+      return false;
     }
     setReorderPending(true);
     try {
@@ -422,13 +422,10 @@ export default function ListCard(props: ListCardProps) {
     if (document.activeElement === document.body && trigger?.isConnected) {
       trigger.focus({ preventScroll: true });
     }
-    const moved = await pending;
-    if (moved === null) return;
-    announce(
-      moved
-        ? `Moved "${item.text}" ${directionLabel}.`
-        : `Could not fully save the new order after moving "${item.text}" ${directionLabel}.`,
-    );
+    // Success only. Every failure and refusal above already raises a toast, and
+    // Toast is itself role="status" — announcing here too would read the same
+    // event to a screen reader twice.
+    if (await pending) announce(`Moved "${item.text}" ${directionLabel}.`);
   }
 
   async function reorderOne(id: string, prevPos: number, nextPos: number): Promise<boolean> {

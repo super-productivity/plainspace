@@ -20,7 +20,7 @@ jobs:
       # go public at any time and turn this red without a code change. Typecheck
       # / lint / format must still report on that run.
       - name: Audit high-severity dependency advisories
-        if: always()
+        if: ${{ !cancelled() }}
         run: npm audit --audit-level=high
 
   unit-test:
