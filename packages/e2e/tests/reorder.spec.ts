@@ -144,6 +144,42 @@ test('drag a row to the top and the new order persists across reload', async ({ 
   expect(await orderedTexts(page)).toEqual(['Third', 'First', 'Second']);
 });
 
+// The keyboard path, whose only entry point is the ⋯ menu. The PATCH is held
+// open so the "saving" window survives a style recalc: while it is open the
+// trigger must stay in the layout, or the desktop rule
+// `.moreButton:not(.reorderAvailable) { display: none }` unrenders the very
+// element the closing menu returned focus to, dropping focus to <body>.
+test('reorders from the keyboard and keeps focus on the row it moved', async ({ page }) => {
+  const { project, token } = await setupProject(page);
+  for (const text of ['First', 'Second', 'Third']) {
+    await createItemViaApi(project.slug, token, text);
+  }
+
+  await page.goto(`/${project.slug}`);
+  await expect(page.getByTestId('item-text')).toHaveCount(3);
+  expect(await orderedTexts(page)).toEqual(['First', 'Second', 'Third']);
+
+  await page.route('**/projects/*/items/*', async (route) => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+
+  const activeLabel = () =>
+    page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+  const firstRow = page.getByTestId('list-item').filter({ hasText: 'First' });
+  await firstRow.getByTestId('more-actions-button').click();
+  await page.getByTestId('menu-move-down').click();
+
+  // Mid-flight: focus has to still be on the trigger, not on <body>.
+  expect(await activeLabel()).toBe('Actions for First');
+
+  await expect
+    .poll(() => orderedTexts(page), { timeout: 5000 })
+    .toEqual(['Second', 'First', 'Third']);
+  expect(await activeLabel()).toBe('Actions for First');
+});
+
 test('drag a row into another list moves it there and persists', async ({ page }) => {
   const { project, token } = await setupProject(page);
   await createItemViaApi(project.slug, token, 'Move me');
