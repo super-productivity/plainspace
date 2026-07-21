@@ -365,7 +365,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
   /* A shared floor so short labels ("9:00") don't shrink the pill below wider
      ones ("Jul 24"), keeping reminder badges aligned across rows. */
   min-width: 2.75rem;

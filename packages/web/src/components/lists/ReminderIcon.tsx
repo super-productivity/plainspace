@@ -1,6 +1,6 @@
 import { Switch, Match } from 'solid-js';
 
-/** The five states a schedule button can be in, most specific first. */
+/** The five states a schedule button can be in. */
 export type ReminderState = 'empty' | 'once' | 'repeat' | 'resting' | 'overdue';
 
 /** Gapped ring + arrowhead: the recurring frame shared by repeat/resting/overdue. */
@@ -31,7 +31,16 @@ export default function ReminderIcon(props: { state: ReminderState }) {
       stroke-linejoin="round"
       aria-hidden="true"
     >
-      <Switch>
+      {/* 'once' is the fallback, not a Match: an unhandled state then degrades
+          to the plain clock instead of rendering an empty box. */}
+      <Switch
+        fallback={
+          <>
+            <circle cx="12" cy="12" r="9" />
+            <Hands />
+          </>
+        }
+      >
         {/* Empty: clock with a + tucked into the ring's gap — the "add a
             reminder" affordance, without a separate corner badge. */}
         <Match when={props.state === 'empty'}>
@@ -39,10 +48,6 @@ export default function ReminderIcon(props: { state: ReminderState }) {
           <Hands />
           <path d="M17 20h5" />
           <path d="M19.5 17.5v5" />
-        </Match>
-        <Match when={props.state === 'once'}>
-          <circle cx="12" cy="12" r="9" />
-          <Hands />
         </Match>
         <Match when={props.state === 'repeat'}>
           <RepeatRing />

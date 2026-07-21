@@ -927,10 +927,10 @@ export default function Styleguide() {
           clock, a repeating one a clock ring closed by an arrowhead, a resting one (checked,
           awaiting its next occurrence) that same ring with a check instead of hands, and an overdue
           one (recurring fire passed while undone) the ring with an amber <code>!</code> — tasks
-          three to six walk that set: one-off, repeating, resting, overdue. The repeat{' '}
-          <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks / Monthly)
-          lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen fire time
-          at commit, and the server owns the immutable anchor.
+          three to six walk that set: one-off, repeating, resting, overdue. The repeat chips (Once /
+          Daily / Mon–Fri / Weekly / 2 weeks / Monthly) live in the reminder picker;
+          byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
+          the immutable anchor.
         </p>
       </section>
 

@@ -598,22 +598,7 @@ export default function ListItem(props: ListItemProps) {
               label: props.item.remindAt ? 'Edit reminder' : 'Set reminder',
               onSelect: openReminderPicker,
               testId: 'menu-reminder',
-              icon: (
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              ),
+              icon: <ReminderIcon state={reminderState()} />,
             },
             {
               label: assignedMember() ? 'Reassign' : 'Assign',

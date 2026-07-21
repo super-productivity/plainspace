@@ -354,6 +354,23 @@ describe('ListItem reminder', () => {
     );
     await waitFor(() => expect(addActivity).toHaveBeenCalledWith({ id: 'a1' }));
   });
+
+  // The badge renders one icon per state, so the state itself is the only
+  // thing worth asserting — it decides which icon the button shows.
+  const PAST = new Date(Date.now() - 3_600_000).toISOString();
+  const SOON = new Date(Date.now() + 3_600_000).toISOString();
+  const daily: Item['repeat'] = { freq: 'daily', interval: 1, tz: 'UTC', anchor: SOON };
+
+  it.each([
+    [{}, 'empty'],
+    [{ remindAt: SOON }, 'once'],
+    [{ remindAt: SOON, repeat: daily }, 'repeat'],
+    [{ remindAt: SOON, repeat: daily, checked: true }, 'resting'],
+    [{ remindAt: PAST, repeat: daily }, 'overdue'],
+  ])('picks the %o badge icon state: %s', (over, state) => {
+    renderItem(over);
+    expect(screen.getByTestId('reminder-button').dataset.reminderState).toBe(state);
+  });
 });
 
 describe('ListItem actions menu', () => {
