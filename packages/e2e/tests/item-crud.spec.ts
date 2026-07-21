@@ -36,9 +36,16 @@ test('collapse folds the main list via the header chevron and persists across re
   await page.getByTestId('add-item-input').press('Enter');
   await expect(card.getByTestId('item-text')).toHaveText('Book flights', { timeout: 5000 });
 
+  // The hero list carries the same section heading as every other card, and its
+  // toggle names the body it folds so the two are connected for assistive tech.
+  await expect(card.getByRole('heading', { level: 2, name: /What needs doing/ })).toBeVisible();
+
   // The hero list folds on one tap like every other card. aria-expanded reflects
   // the state, and a count appears next to the title when folded.
   const toggle = card.getByTestId('panel-collapse');
+  const bodyId = await toggle.getAttribute('aria-controls');
+  expect(bodyId).toBeTruthy();
+  await expect(page.locator(`[id="${bodyId}"]`)).toBeAttached();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
