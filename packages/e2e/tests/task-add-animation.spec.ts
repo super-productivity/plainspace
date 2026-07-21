@@ -31,7 +31,7 @@ test('item present at load is not marked as entering; item added later is', asyn
   await expect(preExisting).not.toHaveAttribute('data-animate-in', /.*/);
 });
 
-test('assignee changes do not mark an existing task as entering again', async ({ page }) => {
+test('assignee changes keep the existing task row mounted', async ({ page }) => {
   const { project, member } = await setupProject(page);
 
   await page.goto(`/${project.slug}`);
@@ -43,6 +43,7 @@ test('assignee changes do not mark an existing task as entering again', async ({
   const added = page.getByTestId('list-item').filter({ hasText: 'Assign without replay' });
   await expect(added).toBeVisible({ timeout: 5000 });
   await expect(added).toHaveAttribute('data-animate-in', 'true');
+  const originalRow = await added.evaluateHandle((row) => row);
 
   await clickItemAction(page, 'assign', added);
   await page.getByTestId(`assign-option-${member.id}`).click();
@@ -52,5 +53,7 @@ test('assignee changes do not mark an existing task as entering again', async ({
     /currently Alice/,
     { timeout: 5000 },
   );
-  await expect(added).not.toHaveAttribute('data-animate-in', /.*/);
+  const remainedMounted = await added.evaluate((row, original) => row === original, originalRow);
+  await originalRow.dispose();
+  expect(remainedMounted).toBe(true);
 });
