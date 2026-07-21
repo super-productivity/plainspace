@@ -180,6 +180,22 @@ export default function Project() {
     }
   }
 
+  // Same node in both loading branches (top-level and behind the terms gate) so
+  // the retry-focus effect below always has its target, whichever one is up.
+  function renderLoading() {
+    return (
+      <div
+        class={styles.loading}
+        role="status"
+        aria-label="Loading Space"
+        tabindex="-1"
+        data-testid="project-loading"
+      >
+        Loading Space…
+      </div>
+    );
+  }
+
   function renderTermsDialog() {
     return (
       <Dialog
@@ -188,9 +204,7 @@ export default function Project() {
         class={styles.termsDialog}
         data-testid="terms-acceptance-dialog"
       >
-        <h1 data-testid="terms-heading" tabindex="-1">
-          Updated Legal Terms
-        </h1>
+        <h1 data-testid="terms-heading">Updated Legal Terms</h1>
         <p>
           Plainspace needs your active acceptance of the current{' '}
           <a href="/terms" target="_blank" rel="noopener noreferrer">
@@ -379,7 +393,7 @@ export default function Project() {
 
   async function handleDeleteItem(itemId: string) {
     const item = state.items.find((i) => i.id === itemId);
-    if (!item) return false;
+    if (!item) return;
     try {
       await api.deleteItem(params.slug, itemId);
       // Apply the confirmed result directly instead of waiting for the SSE
@@ -395,32 +409,14 @@ export default function Project() {
         },
         'Undo',
       );
-      return true;
     } catch {
       // SSE will resync if the delete actually went through.
       addToast('Could not delete the item. Please try again.');
-      return false;
     }
   }
 
   return (
-    <Show
-      when={!state.loading}
-      fallback={
-        <main class={styles.statePage}>
-          <div
-            class={styles.loading}
-            role="status"
-            aria-label="Loading Space"
-            aria-live="polite"
-            tabindex="-1"
-            data-testid="project-loading"
-          >
-            Loading Space…
-          </div>
-        </main>
-      }
-    >
+    <Show when={!state.loading} fallback={<main class={styles.statePage}>{renderLoading()}</main>}>
       <Show
         when={!state.error}
         fallback={
@@ -440,21 +436,17 @@ export default function Project() {
           </main>
         }
       >
+        {/* The terms gate is deliberately not a <main>: Dialog renders through a
+            Portal, so whenever the gate is up that wrapper would be an empty
+            landmark with the heading living outside it. */}
         <Show
           when={state.project}
           fallback={
-            <main class={styles.termsGate} data-testid="terms-gate">
-              <Show
-                when={termsRequired()}
-                fallback={
-                  <div class={styles.loading} role="status" aria-label="Loading Space">
-                    Loading Space…
-                  </div>
-                }
-              >
+            <div class={styles.termsGate} data-testid="terms-gate">
+              <Show when={termsRequired()} fallback={renderLoading()}>
                 {renderTermsDialog()}
               </Show>
-            </main>
+            </div>
           }
         >
           <Shell>

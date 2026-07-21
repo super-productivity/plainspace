@@ -4,6 +4,7 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  createUniqueId,
   on,
   onCleanup,
   onMount,
@@ -54,6 +55,7 @@ interface ListCardProps {
 const [dragActive, setDragActive] = createSignal(false);
 
 export default function ListCard(props: ListCardProps) {
+  const bodyId = createUniqueId();
   // Item ids seen by this list. Initial items are seeded at mount; later ids
   // animate only on their first render, not on updates that replace the item
   // object (assignee, checked state, text edits, etc.).
@@ -441,7 +443,7 @@ export default function ListCard(props: ListCardProps) {
   return (
     <section class={styles.card} data-testid={props.cardTestId ?? 'list-card'}>
       <header class={styles.header}>
-        <div class={styles.titleGroup}>
+        <h2 class={styles.titleGroup}>
           <Show
             when={renaming()}
             fallback={
@@ -450,6 +452,7 @@ export default function ListCard(props: ListCardProps) {
               <CollapseToggle
                 collapsed={collapsed()}
                 onToggle={toggleCollapsed}
+                controls={bodyId}
                 count={itemCount()}
               >
                 <span class={`${styles.name} ${underline.line}`} data-testid="list-name">
@@ -467,7 +470,7 @@ export default function ListCard(props: ListCardProps) {
               onCancel={() => setRenaming(false)}
             />
           </Show>
-        </div>
+        </h2>
         <Show when={props.onDeletePanel}>
           <div class={styles.headerActions}>
             <Menu
@@ -479,7 +482,7 @@ export default function ListCard(props: ListCardProps) {
         </Show>
       </header>
 
-      <CollapseBody collapsed={collapsed()} innerClass={styles.bodyInner}>
+      <CollapseBody collapsed={collapsed()} id={bodyId} innerClass={styles.bodyInner}>
         <div
           class={styles.items}
           classList={{ [styles.dropZone]: dragActive() }}

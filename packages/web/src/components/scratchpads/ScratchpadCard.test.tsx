@@ -36,7 +36,7 @@ describe('ScratchpadCard', () => {
     expect(document.getElementById(bodyId!)).toBeTruthy();
   });
 
-  it('starts editing in an accessibly named compact textarea that can grow with its content', () => {
+  it('starts editing in an accessibly named textarea that opens at a compact height', () => {
     render(() => (
       <ScratchpadCard pad={pad} members={[]} editingMemberIds={[]} slug="weekend" myId="me" />
     ));

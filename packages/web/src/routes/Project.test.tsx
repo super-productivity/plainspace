@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import type { JSX } from 'solid-js';
 import type {
@@ -11,7 +11,7 @@ import type { TermsStatusResponse } from '../lib/api';
 
 type Api = (typeof import('../lib/api'))['api'];
 
-const { api, navigate, deleteResult } = vi.hoisted(() => ({
+const { api, navigate, addToast } = vi.hoisted(() => ({
   api: {
     getTermsStatus: vi.fn<Api['getTermsStatus']>(),
     getProject: vi.fn<Api['getProject']>(),
@@ -22,7 +22,7 @@ const { api, navigate, deleteResult } = vi.hoisted(() => ({
     restoreItem: vi.fn<Api['restoreItem']>(),
   },
   navigate: vi.fn(),
-  deleteResult: { current: undefined as boolean | undefined },
+  addToast: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -57,7 +57,7 @@ vi.mock('../lib/sse', () => ({
   disconnectSSE: vi.fn(),
   handleUnauthorized: vi.fn(),
 }));
-vi.mock('../lib/toast', () => ({ toasts: () => [], addToast: vi.fn(), dismissToast: vi.fn() }));
+vi.mock('../lib/toast', () => ({ toasts: () => [], addToast, dismissToast: vi.fn() }));
 vi.mock('../components/layout/Shell', () => ({
   default: (props: { children?: JSX.Element }) => <div>{props.children}</div>,
 }));
@@ -73,13 +73,8 @@ vi.mock('../components/layout/Header', () => ({
 vi.mock('../components/layout/MobileQuickActions', () => ({ default: () => null }));
 vi.mock('../components/onboarding/FirstShareNudge', () => ({ default: () => null }));
 vi.mock('../components/lists/ListCard', () => ({
-  default: (props: { onDeleteItem: (itemId: string) => Promise<boolean> }) => (
-    <button
-      data-testid="list-card"
-      onClick={async () => {
-        deleteResult.current = await props.onDeleteItem('item-1');
-      }}
-    >
+  default: (props: { onDeleteItem: (itemId: string) => void }) => (
+    <button data-testid="list-card" onClick={() => props.onDeleteItem('item-1')}>
       list
     </button>
   ),
@@ -235,12 +230,18 @@ beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
   resetState();
   document.title = 'Previous page';
-  deleteResult.current = undefined;
   api.getTermsStatus.mockReturnValue(new Promise(() => {}));
+  // Dialog's focus trap skips elements with no client rects, which jsdom always
+  // reports as empty. Defined as an own property so afterEach can delete it and
+  // fall back to Element.prototype's real (stubbed) implementation.
   Object.defineProperty(HTMLElement.prototype, 'getClientRects', {
     configurable: true,
     value: () => [{ width: 1, height: 1 }],
   });
+});
+
+afterEach(() => {
+  delete (HTMLElement.prototype as { getClientRects?: unknown }).getClientRects;
 });
 
 describe('Project page structure', () => {
@@ -337,25 +338,27 @@ describe('Project page structure', () => {
     );
   });
 
-  it('reports a confirmed item deletion back to the focused row', async () => {
+  it('deletes an item through the API and offers an undo', async () => {
     mockLoadedProject([task]);
     api.deleteItem.mockResolvedValue(undefined);
     render(() => <Project />);
 
     fireEvent.click(await screen.findByTestId('list-card'));
 
-    await waitFor(() => expect(deleteResult.current).toBe(true));
-    expect(api.deleteItem).toHaveBeenCalledWith('weekend', 'item-1');
+    await waitFor(() => expect(api.deleteItem).toHaveBeenCalledWith('weekend', 'item-1'));
+    expect(addToast).toHaveBeenCalledWith('"Buy milk" deleted', expect.any(Function), 'Undo');
   });
 
-  it('reports a failed item deletion back to the focused row', async () => {
+  it('keeps the item and explains a failed deletion', async () => {
     mockLoadedProject([task]);
     api.deleteItem.mockRejectedValue(new Error('network'));
     render(() => <Project />);
 
     fireEvent.click(await screen.findByTestId('list-card'));
 
-    await waitFor(() => expect(deleteResult.current).toBe(false));
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith('Could not delete the item. Please try again.'),
+    );
   });
 
   it('keeps list, scratchpad and panels, then activity in DOM order inside the main landmark', async () => {

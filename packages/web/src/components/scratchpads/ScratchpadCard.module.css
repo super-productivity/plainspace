@@ -129,6 +129,22 @@
   box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
+/* `field-sizing: content` above is what lets the compact editor grow, but it
+   only became Baseline in June 2026 (Safari 26.2, Firefox 152). Without it the
+   box is stuck at its floor -- and `resize: none` leaves no way out -- so give
+   those engines the roomier fixed height the compact one replaced. */
+@supports not (field-sizing: content) {
+  .textarea {
+    min-height: 220px;
+  }
+
+  @media (max-width: 720px) {
+    .textarea {
+      min-height: 180px;
+    }
+  }
+}
+
 @media (max-width: 720px) {
   .card {
     padding: 14px 16px 16px;

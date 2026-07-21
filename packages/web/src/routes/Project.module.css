@@ -58,10 +58,24 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  /* Independent floats keep Recent activity directly below the task list even
-     when the Scratchpad is much taller. Their DOM order still matches the
-     row-wise reading order: list, Scratchpad/panels, activity. */
-  display: flow-root;
+  /* Recent activity sits in row 2 of the left column, so it stays directly
+     under the task list however tall the Scratchpad column grows. `start`
+     keeps each cell hugging its own content instead of stretching. DOM order
+     (list, Scratchpad/panels, activity) already matches the row-wise reading
+     order, so nothing is visually reordered here. */
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  /* Row 2 must be flexible, not auto: the Scratchpad column spans both rows, and
+     a spanning item distributes its overflow into the auto rows it crosses --
+     which would stretch row 1 and shove Recent activity away from the list. A
+     flexible row 2 soaks that up instead, so the 40px below the list is exact. */
+  grid-template-rows: auto 1fr;
+  column-gap: 48px;
+  align-items: start;
+  /* `.content` is a flex:1 child of a 100dvh shell, so it is routinely taller
+     than its cards. Without this, grid's default stretch would pad the rows out
+     to fill that slack and tear the stacked cards apart on narrow screens. */
+  align-content: start;
   /* One uniform vertical rhythm for every stacked card (scratchpad, tasks,
      polls, time slots) and the add-panel button. Inherited by `.column` in
      PanelColumn.module.css -- change it here to move all of them at once. */
@@ -71,8 +85,8 @@
 }
 
 .lists {
-  float: left;
-  width: calc(57.45% - 24px);
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
@@ -80,18 +94,19 @@
 }
 
 .scratchpads {
-  float: right;
-  width: calc(42.55% - 24px);
+  grid-column: 2;
+  grid-row: 1 / span 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
 }
 
+/* The gap is well above the `--panel-gap` card rhythm to set recent activity
+   clearly apart from the list above it. */
 .activityPanel {
-  float: left;
-  clear: left;
-  width: calc(57.45% - 24px);
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
   margin-top: 40px;
 }
@@ -180,33 +195,27 @@
 }
 
 @media (max-width: 1020px) {
+  /* One column. The children are already in reading order in the DOM, so
+     dropping the explicit placement stacks them in the right sequence. */
   .content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--panel-gap);
+    grid-template-columns: 1fr;
+    /* Back to plain auto rows -- the desktop `1fr` row would otherwise absorb
+       the container's slack and blow the gap open under the second card. */
+    grid-template-rows: none;
+    row-gap: var(--panel-gap);
     padding: 24px 0 32px;
   }
 
-  /* These are already in reading order in the DOM. Keep every child at the
-     same full column width at the whole tablet/mobile breakpoint range. */
-  .lists {
-    float: none;
-    width: 100%;
+  .lists,
+  .scratchpads,
+  .activityPanel {
+    grid-column: 1;
+    grid-row: auto;
   }
 
-  .scratchpads {
-    float: none;
-    width: 100%;
-    flex: none;
-  }
-
-  /* Extra top margin (stacks on the column gap) sets recent activity apart
+  /* Extra top margin (stacks on the row gap) sets recent activity apart
      from the section above it, mirroring the desktop list gap. */
   .activityPanel {
-    float: none;
-    clear: none;
-    width: 100%;
     margin-top: var(--space-md);
   }
 }
