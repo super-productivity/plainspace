@@ -1,17 +1,17 @@
 import { A } from '@solidjs/router';
-import { onMount } from 'solid-js';
+import { useDocumentTitle } from '../lib/document-title';
 import styles from './Home.module.css';
 
 export default function NotFound() {
-  onMount(() => {
-    document.title = 'Page not found — Plainspace';
-  });
+  useDocumentTitle(() => 'Page not found — Plainspace');
 
   return (
     <main class={styles.container}>
       <div class={styles.hero}>
         <h1 class={styles.title}>Page not found</h1>
-        <p class={styles.subtitle}>Error 404. This Space doesn't exist.</p>
+        {/* Also the fallback for a missing Space, so this has to read right for
+            both a bad Space link and any other unknown path. */}
+        <p class={styles.subtitle}>Error 404. We couldn't find that page.</p>
         <A href="/spaces" style={{ 'margin-top': '16px', display: 'inline-block' }}>
           Browse Spaces
         </A>

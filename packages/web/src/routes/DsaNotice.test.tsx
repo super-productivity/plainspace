@@ -44,6 +44,8 @@ describe('DsaNotice', () => {
     ).toBeTruthy();
     expect(screen.getByLabelText('Your name (optional)').getAttribute('autocomplete')).toBe('name');
     expect(screen.getByLabelText('Your email').getAttribute('autocomplete')).toBe('email');
+    // "url" would offer the submitter's own home page as the reported location.
+    expect(screen.getByLabelText('Where is the content?').getAttribute('autocomplete')).toBe('off');
   });
 
   it('announces a successful notice submission', async () => {

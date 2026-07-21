@@ -99,7 +99,9 @@ export default function DsaNotice() {
           label="Where is the content?"
           helperText="URL or item ID — anything that helps us find it."
           type="text"
-          autocomplete="url"
+          // Not autocomplete="url": that token means the *submitter's* own home
+          // page, so browsers would offer to fill it in as the reported location.
+          autocomplete="off"
           maxLength={500}
           required
           value={contentLocation()}

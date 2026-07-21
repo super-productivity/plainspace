@@ -45,7 +45,10 @@ describe('Join', () => {
     expect(document.title).toBe('Join a Space — Plainspace');
     expect(screen.getByRole('main')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: /opening space/i })).toBeTruthy();
-    expect(screen.getByRole('status').getAttribute('aria-busy')).toBe('true');
+    const status = screen.getByRole('status');
+    expect(status.textContent).toMatch(/loading space details/i);
+    // aria-busy would tell AT to withhold exactly this message.
+    expect(status.getAttribute('aria-busy')).toBeNull();
   });
 
   it('shows the not-found page (no join form) when the Space does not exist', async () => {
@@ -54,7 +57,7 @@ describe('Join', () => {
     render(() => <Join />);
 
     await waitFor(() => {
-      expect(screen.getByText(/this space doesn't exist/i)).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 1, name: /page not found/i })).toBeTruthy();
     });
     expect(screen.queryByTestId('join-form')).toBeNull();
     expect(screen.queryByTestId('join-button')).toBeNull();

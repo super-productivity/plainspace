@@ -57,6 +57,15 @@ describe('Home — first visit', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Plainspace' })).toBeTruthy();
   });
 
+  it('leaves focus at the document start on first paint', async () => {
+    render(() => <Home />);
+
+    // Focus only follows a view *change*; stealing it on load would scroll the
+    // heading into view and undo the browser's scroll restoration.
+    await waitFor(() => expect(screen.getByTestId('onboarding-choice')).toBeTruthy());
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('offers the onboarding choice when no Spaces are known', () => {
     const { container } = render(() => <Home />);
     expect(screen.getByTestId('onboarding-choice')).toBeTruthy();

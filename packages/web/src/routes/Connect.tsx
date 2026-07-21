@@ -14,6 +14,7 @@ import { CODE_EXPIRY_MS, CODE_REQUEST_WINDOW_MS } from '@plainspace/shared';
 import { api, ApiError } from '../lib/api';
 import { addToast } from '../lib/toast';
 import { copyText } from '../lib/clipboard';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   buildClaimUrl,
   clearIdentity,
@@ -118,6 +119,8 @@ export default function Connect() {
   let resendTimer: number | undefined;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
+  useDocumentTitle(() => 'Connect Super Productivity — Plainspace');
+
   createEffect(() => {
     const nextState = state();
     if (nextState === 'resolving') return;
@@ -171,8 +174,6 @@ export default function Connect() {
   }
 
   onMount(async () => {
-    document.title = 'Connect Super Productivity — Plainspace';
-
     // 0. Resume a paused verify first (§ Screen B) so a reload/app-switch doesn't
     // dead-end on the 2-min resend cooldown with a valid code sitting unused.
     const pending = getPendingConnect();
@@ -485,11 +486,10 @@ export default function Connect() {
     setExitNote(true);
   }
 
+  // No aria-busy on the landmark: it would gate the progress live regions
+  // below, which are only mounted while that same busy state holds.
   return (
-    <main
-      class={styles.container}
-      aria-busy={state() === 'resolving' || state() === 'minting' ? 'true' : undefined}
-    >
+    <main class={styles.container}>
       <div class={styles.header}>
         <img src="/favicon.svg" alt="" class={styles.logo} />
         <Show when={state() === 'resolving'}>
@@ -519,7 +519,7 @@ export default function Connect() {
 
       <Switch>
         <Match when={state() === 'resolving'}>
-          <p class={styles.spinner} role="status" aria-live="polite">
+          <p class={styles.spinner} role="status">
             Loading…
           </p>
         </Match>
@@ -688,7 +688,7 @@ export default function Connect() {
         </Match>
 
         <Match when={state() === 'minting'}>
-          <p class={styles.spinner} role="status" aria-live="polite">
+          <p class={styles.spinner} role="status">
             Setting up {spaceName().trim() ? `"${spaceName().trim()}"` : 'your connection'}…
           </p>
         </Match>

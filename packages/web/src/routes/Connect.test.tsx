@@ -74,11 +74,12 @@ describe('Connect — resolver', () => {
     render(() => <Connect />);
 
     expect(document.title).toBe('Connect Super Productivity — Plainspace');
-    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(
       screen.getByRole('heading', { level: 1, name: /connect super productivity/i }),
     ).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Loading…');
+    // The landmark must not be aria-busy: it would gate the status above.
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBeNull();
   });
 
   it('resolves an empty device to the details form', async () => {

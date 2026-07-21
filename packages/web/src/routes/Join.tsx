@@ -1,6 +1,7 @@
 import { createEffect, createSignal, onMount, Show } from 'solid-js';
 import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   getPlainspaceEmail,
   hasIdentity,
@@ -37,9 +38,9 @@ export default function Join() {
   let recoverCodeInput: HTMLInputElement | undefined;
   let pageHeading: HTMLHeadingElement | undefined;
 
-  createEffect(() => {
+  useDocumentTitle(() => {
     const projectName = projectInfo()?.name;
-    document.title = projectName ? `Join ${projectName} — Plainspace` : 'Join a Space — Plainspace';
+    return projectName ? `Join ${projectName} — Plainspace` : 'Join a Space — Plainspace';
   });
 
   onMount(async () => {
@@ -187,8 +188,10 @@ export default function Join() {
       <main class={styles.container}>
         <Show
           when={!loading()}
+          // No aria-busy on this live region: it would tell AT to withhold the
+          // content, which is exactly the message we want announced.
           fallback={
-            <div class={styles.hero} role="status" aria-live="polite" aria-busy="true">
+            <div class={styles.hero} role="status">
               <h1 class={styles.title}>Opening Space…</h1>
               <p class={styles.subtitle}>Loading Space details…</p>
             </div>

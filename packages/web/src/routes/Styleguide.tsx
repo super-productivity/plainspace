@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId, For, onMount, Show } from 'solid-js';
+import { createSignal, createUniqueId, For, Show } from 'solid-js';
 import type {
   ActivityEntry,
   Attachment,
@@ -43,6 +43,7 @@ import MemberChip from '../components/members/MemberChip';
 import AttachmentList from '../components/attachments/AttachmentList';
 import AttachmentUpload from '../components/attachments/AttachmentUpload';
 import Toast from '../components/shared/Toast';
+import { useDocumentTitle } from '../lib/document-title';
 import styles from './Styleguide.module.css';
 
 const NOW = new Date().toISOString();
@@ -457,9 +458,7 @@ export default function Styleguide() {
   const [demoCollapsed, setDemoCollapsed] = createSignal(false);
   const demoCollapseBodyId = createUniqueId();
 
-  onMount(() => {
-    document.title = 'Styleguide — Plainspace';
-  });
+  useDocumentTitle(() => 'Styleguide — Plainspace');
 
   return (
     <main class={styles.page}>

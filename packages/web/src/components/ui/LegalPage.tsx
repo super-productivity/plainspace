@@ -1,6 +1,7 @@
 import { A } from '@solidjs/router';
 import type { JSX } from 'solid-js';
-import { onMount, Show } from 'solid-js';
+import { Show } from 'solid-js';
+import { useDocumentTitle } from '../../lib/document-title';
 import styles from '../../routes/Legal.module.css';
 
 interface LegalPageProps {
@@ -10,9 +11,7 @@ interface LegalPageProps {
 }
 
 export default function LegalPage(props: LegalPageProps) {
-  onMount(() => {
-    document.title = `${props.title} — Plainspace`;
-  });
+  useDocumentTitle(() => `${props.title} — Plainspace`);
 
   return (
     <main class={styles.container}>

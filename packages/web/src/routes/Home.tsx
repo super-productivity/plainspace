@@ -2,6 +2,7 @@ import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } fr
 import { A, useLocation, useNavigate } from '@solidjs/router';
 import type { Member } from '@plainspace/shared';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   clearIdentity,
   getLastOpenSpace,
@@ -91,9 +92,9 @@ export default function Home() {
     return mine ? [mine, ...others] : members;
   }
 
-  onMount(() => {
-    document.title = 'Plainspace — Simple shared spaces';
+  useDocumentTitle(() => 'Plainspace — Simple shared spaces');
 
+  onMount(() => {
     if (location.pathname === '/') {
       const lastOpenSpace = getLastOpenSpace();
       if (lastOpenSpace) {
@@ -126,9 +127,17 @@ export default function Home() {
     if (findCooldownInterval !== undefined) window.clearInterval(findCooldownInterval);
   });
 
+  // Focus follows a *change* of view. The first run is the initial paint, where
+  // focus already sits at the document start — moving it there would only scroll
+  // the heading into view and undo the browser's scroll restoration.
+  let viewSettled = false;
   createEffect(() => {
     const activeView = view();
     const activeStep = step();
+    if (!viewSettled) {
+      viewSettled = true;
+      return;
+    }
     if (activeView === 'create') {
       (activeStep === 'verify' ? verificationCodeInput : projectNameInput)?.focus();
     } else if (activeView === 'login') {
