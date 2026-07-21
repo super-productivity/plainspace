@@ -1,4 +1,4 @@
-import { batch, createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
+import { createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
 import { A, useParams, useNavigate } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
 import { useDocumentTitle } from '../lib/document-title';
@@ -51,10 +51,8 @@ export default function Project() {
   const [showMembers, setShowMembers] = createSignal(false);
   const [focusEmailVerification, setFocusEmailVerification] = createSignal(false);
   const [loadAttempt, setLoadAttempt] = createSignal(0);
-  const [retryFocusPending, setRetryFocusPending] = createSignal(false);
-  // False while a load is in flight. Distinct from `state.loading`, which drops
-  // as soon as the project arrives -- before the activity fetch that follows it.
-  const [loadSettled, setLoadSettled] = createSignal(true);
+  // Marks a load as user-initiated, so only a retry moves focus.
+  let retryFocusPending = false;
 
   // A plain memo on params.slug would miss the localStorage write the #claim=
   // hand-off does inside the effect below (same slug, so nothing re-tracks).
@@ -82,15 +80,26 @@ export default function Project() {
     setShowMembers(true);
   }
 
-  // Batched: the focus effect below runs after every write, so three separate
-  // updates would first show it a torn state (pending, but still not loading)
-  // and send focus to the error heading that is about to be unmounted.
+  function focus(testId: string) {
+    document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus();
+  }
+
+  // Retry owns focus across the reload: onto the loading indicator now, then
+  // onto whatever the finished load put in its place (see `settleRetryFocus`).
   function handleRetry() {
-    batch(() => {
-      setRetryFocusPending(true);
-      setLoading(true);
-      setLoadAttempt((attempt) => attempt + 1);
-    });
+    retryFocusPending = true;
+    setLoadAttempt((attempt) => attempt + 1);
+    focus('project-loading');
+  }
+
+  // Called once the load has fully settled -- not when `state.project` arrives,
+  // which happens while the activity fetch is still able to fail into the error
+  // screen. The terms dialog owns modal focus, so there we only stand down.
+  function settleRetryFocus() {
+    if (!retryFocusPending) return;
+    retryFocusPending = false;
+    if (termsRequired()) return;
+    focus(state.error ? 'project-error-heading' : 'project-name');
   }
 
   // SSE carries no event ids and the server buffers nothing, so a reconnect
@@ -250,33 +259,6 @@ export default function Project() {
   });
 
   createEffect(() => {
-    if (!retryFocusPending()) return;
-
-    // Dialog owns modal focus. Hand off once the terms gate replaces the
-    // loading state instead of racing its initial-focus microtask.
-    if (!state.loading && termsRequired()) {
-      setRetryFocusPending(false);
-      return;
-    }
-
-    // Park on the loading indicator for as long as the reload is running.
-    if (state.loading) {
-      document.querySelector<HTMLElement>('[data-testid="project-loading"]')?.focus();
-      return;
-    }
-
-    // `setProjectData` clears `loading` as soon as the project lands, but the
-    // load is still fetching activity -- and a rejection there swaps in the
-    // error screen. Hold focus until the whole load settles, or a late failure
-    // would strand it on an unmounted heading.
-    if (!loadSettled()) return;
-
-    setRetryFocusPending(false);
-    const testId = state.error ? 'project-error-heading' : 'project-name';
-    document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus();
-  });
-
-  createEffect(() => {
     loadAttempt();
     const slug = params.slug;
 
@@ -287,7 +269,6 @@ export default function Project() {
     auxTimers.clear();
     sessionStarted = false;
     resetState();
-    setLoadSettled(false);
     setTermsRequired(false);
     setTermsProjectName('this Space');
     setAcceptingTerms(false);
@@ -375,8 +356,8 @@ export default function Project() {
         }
       } finally {
         // Guarded: an aborted run settles *after* its replacement has already
-        // started, so only the current load may declare itself finished.
-        if (loadController === controller) setLoadSettled(true);
+        // started, so only the current load may claim the focus hand-off.
+        if (loadController === controller) settleRetryFocus();
       }
     })();
   });
