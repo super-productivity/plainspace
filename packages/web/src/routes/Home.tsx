@@ -1,7 +1,8 @@
-import { createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { A, useLocation, useNavigate } from '@solidjs/router';
 import type { Member } from '@plainspace/shared';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   clearIdentity,
   getLastOpenSpace,
@@ -56,6 +57,7 @@ export default function Home() {
   const [step, setStep] = createSignal<Step>('details');
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [codeError, setCodeError] = createSignal('');
   const [knownSpaces, setKnownSpaces] = createSignal(listKnownSpaces());
   const [membersBySlug, setMembersBySlug] = createSignal<Record<string, Member[]>>({});
 
@@ -75,6 +77,11 @@ export default function Home() {
   const [devSpaces, setDevSpaces] = createSignal<{ slug: string; name: string }[] | undefined>(
     undefined,
   );
+  let pageHeading: HTMLHeadingElement | undefined;
+  let projectNameInput: HTMLInputElement | undefined;
+  let findEmailInput: HTMLInputElement | undefined;
+  let spaceLinkInput: HTMLInputElement | undefined;
+  let verificationCodeInput: HTMLInputElement | undefined;
   let findCooldownInterval: number | undefined;
 
   function orderMembers(slug: string, members: Member[]): Member[] {
@@ -84,6 +91,8 @@ export default function Home() {
     const others = members.filter((m) => m.id !== myId);
     return mine ? [mine, ...others] : members;
   }
+
+  useDocumentTitle(() => 'Plainspace — Simple shared spaces');
 
   onMount(() => {
     if (location.pathname === '/') {
@@ -116,6 +125,28 @@ export default function Home() {
 
   onCleanup(() => {
     if (findCooldownInterval !== undefined) window.clearInterval(findCooldownInterval);
+  });
+
+  // Focus follows a *change* of view. The first run is the initial paint, where
+  // focus already sits at the document start — moving it there would only scroll
+  // the heading into view and undo the browser's scroll restoration.
+  let viewSettled = false;
+  createEffect(() => {
+    const activeView = view();
+    const activeStep = step();
+    if (!viewSettled) {
+      viewSettled = true;
+      return;
+    }
+    if (activeView === 'create') {
+      (activeStep === 'verify' ? verificationCodeInput : projectNameInput)?.focus();
+    } else if (activeView === 'login') {
+      findEmailInput?.focus();
+    } else if (activeView === 'open') {
+      spaceLinkInput?.focus();
+    } else {
+      pageHeading?.focus();
+    }
   });
 
   function startFindCooldown() {
@@ -193,6 +224,7 @@ export default function Home() {
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
 
     // Global account: if this browser already proved this email in another
     // Space, its token stands in for the code. Fall back to the emailed code
@@ -227,17 +259,22 @@ export default function Home() {
   async function handleVerifySubmit(e: Event) {
     e.preventDefault();
     if (!/^\d{6}$/.test(code())) {
-      setError('Enter the 6-digit code we just emailed you.');
+      setError('');
+      setCodeError('Enter the 6-digit code we just emailed you.');
       return;
     }
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
 
     try {
       await createProject({ code: code() });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create Space');
+      // 401 is the "Invalid or expired verification code" branch of
+      // routes/projects.ts; 429/422 are operational and stay global.
+      if (err instanceof ApiError && err.status === 401) setCodeError(err.message);
+      else setError(err instanceof ApiError ? err.message : 'Failed to create Space');
       setSubmitting(false);
     }
   }
@@ -245,6 +282,7 @@ export default function Home() {
   function showCreateView() {
     setStep('details');
     setError('');
+    setCodeError('');
     setCode('');
     setDevCode(undefined);
     if (!email().trim()) setEmail(getPlainspaceEmail());
@@ -259,11 +297,22 @@ export default function Home() {
     setView('login');
   }
 
+  function showOpenView() {
+    setLinkError('');
+    setView('open');
+  }
+
+  function showHomeView() {
+    setView(knownSpaces().length > 0 ? 'none' : 'choice');
+  }
+
   return (
     <main class={styles.container}>
       <div class={styles.hero}>
         <img src="/favicon.svg" alt="" class={styles.logoMark} />
-        <h1 class={styles.title}>Plainspace</h1>
+        <h1 ref={(element) => (pageHeading = element)} class={styles.title} tabindex="-1">
+          Plainspace
+        </h1>
         <p class={styles.subtitle}>
           The simplest way to stay aligned with people who don't use your tools.
         </p>
@@ -348,7 +397,7 @@ export default function Home() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setView('open')}
+                onClick={showOpenView}
                 data-testid="show-open-button"
               >
                 Have a Space link? Open it
@@ -382,7 +431,7 @@ export default function Home() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setView('open')}
+            onClick={showOpenView}
             data-testid="show-open-button"
           >
             Have a Space link? Open it
@@ -414,7 +463,11 @@ export default function Home() {
 
       <Show when={view() === 'login'}>
         <div class={styles.spaces}>
-          <FormCard onSubmit={handleFindSpaces} data-testid="find-email-form">
+          <FormCard
+            onSubmit={handleFindSpaces}
+            aria-busy={findSubmitting() ? 'true' : undefined}
+            data-testid="find-email-form"
+          >
             <h2 class={styles.panelTitle}>Find my Spaces</h2>
             <p class={styles.subtitle}>
               Enter an email you added to a Space. We'll send links to the Spaces connected to it.
@@ -423,15 +476,25 @@ export default function Home() {
               id="find-email"
               label="Your email"
               type="email"
+              autocomplete="email"
               placeholder="e.g. you@example.com"
               value={findEmail()}
               onInput={(e) => setFindEmail(e.currentTarget.value)}
               maxLength={255}
               required
+              ref={(element) => (findEmailInput = element)}
               data-testid="find-email-input"
             />
-            {findError() && <p class={styles.error}>{findError()}</p>}
-            {findInfo() && <p class={styles.subtitle}>{findInfo()}</p>}
+            {findError() && (
+              <p class={styles.error} role="alert">
+                {findError()}
+              </p>
+            )}
+            {findInfo() && (
+              <p class={styles.subtitle} role="status">
+                {findInfo()}
+              </p>
+            )}
             <Show when={devSpaces() && devSpaces()!.length > 0}>
               <ul class={styles.spacesList}>
                 <For each={devSpaces()}>
@@ -462,19 +525,19 @@ export default function Home() {
           </FormCard>
 
           <div class={styles.actions}>
-            <Button type="button" variant="ghost" onClick={() => setView('open')}>
+            <Button type="button" variant="ghost" onClick={showOpenView}>
               Have a Space link? Open it
             </Button>
             <Button type="button" variant="ghost" onClick={showCreateView}>
               Create a Space instead
             </Button>
             <Show when={knownSpaces().length > 0}>
-              <Button type="button" variant="ghost" onClick={() => setView('none')}>
+              <Button type="button" variant="ghost" onClick={showHomeView}>
                 Back to your Spaces
               </Button>
             </Show>
             <Show when={knownSpaces().length === 0}>
-              <Button type="button" variant="ghost" onClick={() => setView('choice')}>
+              <Button type="button" variant="ghost" onClick={showHomeView}>
                 Back
               </Button>
             </Show>
@@ -493,14 +556,15 @@ export default function Home() {
               label="Space link"
               type="text"
               inputMode="url"
+              autocomplete="off"
               placeholder="https://plainspace.org/abc123"
               value={link()}
               onInput={(e) => setLink(e.currentTarget.value)}
               required
+              ref={(element) => (spaceLinkInput = element)}
               data-testid="space-link-input"
+              error={linkError()}
             />
-
-            {linkError() && <p class={styles.error}>{linkError()}</p>}
 
             <Button class={styles.submit} type="submit" data-testid="open-space-button">
               Open Space
@@ -515,12 +579,12 @@ export default function Home() {
               Create a Space instead
             </Button>
             <Show when={knownSpaces().length > 0}>
-              <Button type="button" variant="ghost" onClick={() => setView('none')}>
+              <Button type="button" variant="ghost" onClick={showHomeView}>
                 Back to your Spaces
               </Button>
             </Show>
             <Show when={knownSpaces().length === 0}>
-              <Button type="button" variant="ghost" onClick={() => setView('choice')}>
+              <Button type="button" variant="ghost" onClick={showHomeView}>
                 Back
               </Button>
             </Show>
@@ -529,7 +593,11 @@ export default function Home() {
       </Show>
 
       <Show when={view() === 'create' && step() === 'details'}>
-        <FormCard onSubmit={handleDetailsSubmit} data-testid="create-project-form">
+        <FormCard
+          onSubmit={handleDetailsSubmit}
+          aria-busy={submitting() ? 'true' : undefined}
+          data-testid="create-project-form"
+        >
           <TextField
             id="project-name"
             label="What are you working on?"
@@ -539,6 +607,7 @@ export default function Home() {
             onInput={(e) => setName(e.currentTarget.value)}
             maxLength={100}
             required
+            ref={(element) => (projectNameInput = element)}
             data-testid="project-name-input"
           />
 
@@ -558,6 +627,7 @@ export default function Home() {
             id="display-name"
             label="Your display name"
             type="text"
+            autocomplete="name"
             placeholder="e.g. Johannes"
             value={displayName()}
             onInput={(e) => setDisplayName(e.currentTarget.value)}
@@ -570,6 +640,7 @@ export default function Home() {
             id="email"
             label="Your email"
             type="email"
+            autocomplete="email"
             placeholder="e.g. you@example.com"
             value={email()}
             onInput={(e) => setEmail(e.currentTarget.value)}
@@ -579,7 +650,11 @@ export default function Home() {
             helperText="We'll send a 6-digit code to confirm it's you."
           />
 
-          {error() && <p class={styles.error}>{error()}</p>}
+          {error() && (
+            <p class={styles.error} role="alert">
+              {error()}
+            </p>
+          )}
 
           <LegalNotice action="creating a Space" />
 
@@ -604,7 +679,11 @@ export default function Home() {
       </Show>
 
       <Show when={view() === 'create' && step() === 'verify'}>
-        <FormCard onSubmit={handleVerifySubmit} data-testid="verify-code-form">
+        <FormCard
+          onSubmit={handleVerifySubmit}
+          aria-busy={submitting() ? 'true' : undefined}
+          data-testid="verify-code-form"
+        >
           <TextField
             id="verification-code"
             label={`Enter the code we sent to ${email()}`}
@@ -613,14 +692,23 @@ export default function Home() {
             autocomplete="one-time-code"
             placeholder="123456"
             value={code()}
-            onInput={(e) => setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
+            onInput={(e) => {
+              setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6));
+              setCodeError('');
+            }}
             maxLength={6}
             required
+            ref={(element) => (verificationCodeInput = element)}
             data-testid="verify-code-input"
             helperText={devCode() ? `Dev code: ${devCode()}` : undefined}
+            error={codeError()}
           />
 
-          {error() && <p class={styles.error}>{error()}</p>}
+          {error() && (
+            <p class={styles.error} role="alert">
+              {error()}
+            </p>
+          )}
 
           <LegalNotice action="creating a Space" />
 
@@ -639,6 +727,7 @@ export default function Home() {
             onClick={() => {
               setStep('details');
               setError('');
+              setCodeError('');
               setCode('');
               setDevCode(undefined);
             }}

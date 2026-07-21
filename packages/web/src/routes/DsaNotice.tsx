@@ -82,19 +82,26 @@ export default function DsaNotice() {
 
       <Show when={submittedId()}>
         {(id) => (
-          <p class={styles.formSuccess}>
+          <p class={styles.formSuccess} role="status">
             Notice received. Reference: <code>{id()}</code>. You will receive an acknowledgement
             email if you provided one.
           </p>
         )}
       </Show>
 
-      <form class={styles.form} onSubmit={handleSubmit}>
+      <form
+        class={styles.form}
+        onSubmit={handleSubmit}
+        aria-busy={submitting() ? 'true' : undefined}
+      >
         <TextField
           id="dsa-content-location"
           label="Where is the content?"
           helperText="URL or item ID — anything that helps us find it."
           type="text"
+          // Not autocomplete="url": that token means the *submitter's* own home
+          // page, so browsers would offer to fill it in as the reported location.
+          autocomplete="off"
           maxLength={500}
           required
           value={contentLocation()}
@@ -131,10 +138,11 @@ export default function DsaNotice() {
           maxLength={4000}
           minLength={20}
           required
+          aria-describedby="dsa-reason-hint"
           value={reason()}
           onInput={(e) => setReason(e.currentTarget.value)}
         />
-        <p class={styles.formHint}>
+        <p id="dsa-reason-hint" class={styles.formHint}>
           A substantiated explanation, including any applicable law or right that is being violated.
           Minimum 20 characters.
         </p>
@@ -145,6 +153,7 @@ export default function DsaNotice() {
             label="Your name"
             optionalText="(optional)"
             type="text"
+            autocomplete="name"
             maxLength={100}
             value={submitterName()}
             onInput={(e) => setSubmitterName(e.currentTarget.value)}
@@ -154,6 +163,7 @@ export default function DsaNotice() {
             id="dsa-submitter-email"
             label="Your email"
             type="email"
+            autocomplete="email"
             maxLength={255}
             required={emailRequired()}
             value={submitterEmail()}
@@ -174,7 +184,9 @@ export default function DsaNotice() {
         </label>
 
         <Show when={error()}>
-          <p class={styles.formError}>{error()}</p>
+          <p class={styles.formError} role="alert">
+            {error()}
+          </p>
         </Show>
 
         <Button

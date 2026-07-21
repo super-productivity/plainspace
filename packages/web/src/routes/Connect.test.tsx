@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { CODE_REQUEST_WINDOW_MS } from '@plainspace/shared';
 
 // --- Boundary mocks -------------------------------------------------------
 const { api, addToast, searchParams } = vi.hoisted(() => ({
@@ -40,6 +41,7 @@ function apiTokenMeta() {
 }
 
 beforeEach(() => {
+  document.title = 'Previous page';
   api.getApiToken.mockReset();
   api.createApiToken.mockReset();
   api.requestCreationCode.mockReset();
@@ -65,10 +67,56 @@ async function reachVerifyAndSubmit(devCode = '123456') {
 }
 
 describe('Connect — resolver', () => {
+  it('announces resolution progress inside the main landmark', () => {
+    saveIdentity('abc', 'tok', 'm1', 'Space');
+    api.getApiToken.mockReturnValue(new Promise(() => {}));
+
+    render(() => <Connect />);
+
+    expect(document.title).toBe('Connect Super Productivity — Plainspace');
+    expect(
+      screen.getByRole('heading', { level: 1, name: /connect super productivity/i }),
+    ).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Loading…');
+    // The landmark must not be aria-busy: it would gate the status above.
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBeNull();
+  });
+
   it('resolves an empty device to the details form', async () => {
     render(() => <Connect />);
     expect(await screen.findByTestId('connect-details-form')).toBeTruthy();
+    expect(document.title).toBe('Connect Super Productivity — Plainspace');
+    expect(screen.getByRole('main')).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    const name = screen.getByTestId('connect-name-input');
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(name.getAttribute('autocomplete')).toBe('name');
+    expect(screen.getByTestId('connect-email-input').getAttribute('autocomplete')).toBe('email');
     expect(api.getApiToken).not.toHaveBeenCalled();
+  });
+
+  it('links each explainer toggle to its controlled region', async () => {
+    render(() => <Connect />);
+    await screen.findByTestId('connect-details-form');
+
+    for (const testId of ['how-toggle', 'safe-toggle']) {
+      const toggle = screen.getByTestId(testId);
+      const controls = toggle.getAttribute('aria-controls');
+      expect(controls).toBeTruthy();
+      expect(document.getElementById(controls!)).toBeTruthy();
+    }
+  });
+
+  it('focuses the code field when the verification step opens', async () => {
+    api.requestCreationCode.mockResolvedValue({ message: 'sent' });
+    render(() => <Connect />);
+    await screen.findByTestId('connect-details-form');
+    fill('connect-name-input', 'Jo');
+    fill('connect-email-input', 'jo@example.com');
+    fireEvent.click(screen.getByTestId('connect-details-submit'));
+
+    const code = await screen.findByTestId('connect-code-input');
+    expect(document.activeElement).toBe(code);
   });
 
   it('resumes a pending-connect straight to the verify step', async () => {
@@ -187,7 +235,44 @@ describe('Connect — connect-or-create tail', () => {
 
     // Falls back to the verify screen with an error, never spawns a junk Space.
     await waitFor(() => expect(screen.getByTestId('connect-verify-form')).toBeTruthy());
+    const input = screen.getByTestId('connect-code-input');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/could not connect/i);
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(input.getAttribute('aria-describedby')).toBe('connect-code-helper');
     expect(api.createProject).not.toHaveBeenCalled();
+  });
+
+  it('associates a rejected verification code with the code field', async () => {
+    api.connect.mockRejectedValue(
+      new ApiError(401, { error: 'Invalid or expired verification code' }),
+    );
+
+    render(() => <Connect />);
+    await reachVerifyAndSubmit();
+
+    const input = await screen.findByTestId('connect-code-input');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/invalid or expired verification code/i);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toContain(alert.id);
+  });
+
+  it('announces a resend failure without marking the code invalid', async () => {
+    savePendingConnect({
+      email: 'jo@example.com',
+      step: 'verify',
+      requestedAt: Date.now() - CODE_REQUEST_WINDOW_MS,
+    });
+    api.requestCreationCode.mockRejectedValue(new ApiError(429, { error: 'Too many requests' }));
+
+    render(() => <Connect />);
+    const input = await screen.findByTestId('connect-code-input');
+    fireEvent.click(screen.getByTestId('connect-resend'));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/wait a moment/i);
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(input.getAttribute('aria-describedby')).toBeNull();
   });
 });
 
@@ -202,7 +287,28 @@ describe('Connect — reveal gate', () => {
     render(() => <Connect />);
     await reachVerifyAndSubmit();
     await screen.findByTestId('connect-key');
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { level: 1, name: /connected this to your existing spaces/i }),
+    );
   }
+
+  it('announces a successful copy from an already-mounted live region', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    await reachReveal();
+
+    // Present and empty *before* the copy, so AT sees a text change rather than
+    // a region appearing together with its content.
+    const live = screen.getByTestId('connect-reveal').querySelector('[role="status"]');
+    expect(live).toBeTruthy();
+    expect(live!.textContent).toBe('');
+
+    fireEvent.click(screen.getByTestId('connect-copy'));
+
+    await waitFor(() => expect(live!.textContent).toBe('Key copied.'));
+  });
 
   it('keeps the finish gate closed on a failed copy, and tap-to-select opens it', async () => {
     Object.defineProperty(navigator, 'clipboard', {
@@ -216,7 +322,8 @@ describe('Connect — reveal gate', () => {
 
     fireEvent.click(screen.getByTestId('connect-copy'));
     // §10.3: a rejected writeText must not open the gate.
-    await waitFor(() => expect(screen.getByText(/tap the key above to select it/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toMatch(/tap the key above to select it/);
     expect(finish().disabled).toBe(true);
 
     // Tap-to-select is an equal path that satisfies the gate.

@@ -1,6 +1,7 @@
-import { createSignal, onMount, Show } from 'solid-js';
+import { createEffect, createSignal, onMount, Show } from 'solid-js';
 import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   getPlainspaceEmail,
   hasIdentity,
@@ -24,6 +25,7 @@ export default function Join() {
   const [devCode, setDevCode] = createSignal<string | undefined>(undefined);
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [codeError, setCodeError] = createSignal('');
   const [info, setInfo] = createSignal('');
   const [mode, setMode] = createSignal<Mode>('join');
   const [projectInfo, setProjectInfo] = createSignal<{ name: string; sharingMode: string } | null>(
@@ -31,6 +33,15 @@ export default function Join() {
   );
   const [loading, setLoading] = createSignal(true);
   const [notFound, setNotFound] = createSignal(false);
+  let displayNameInput: HTMLInputElement | undefined;
+  let recoverEmailInput: HTMLInputElement | undefined;
+  let recoverCodeInput: HTMLInputElement | undefined;
+  let pageHeading: HTMLHeadingElement | undefined;
+
+  useDocumentTitle(() => {
+    const projectName = projectInfo()?.name;
+    return projectName ? `Join ${projectName} — Plainspace` : 'Join a Space — Plainspace';
+  });
 
   onMount(async () => {
     // Already a member in this browser — likely re-opened the join link.
@@ -56,8 +67,17 @@ export default function Join() {
 
   const isPrivate = () => projectInfo()?.sharingMode === 'private';
 
+  createEffect(() => {
+    if (loading() || notFound()) return;
+    const activeMode = mode();
+    if (activeMode === 'recover-email') recoverEmailInput?.focus();
+    else if (activeMode === 'recover-verify') recoverCodeInput?.focus();
+    else (isPrivate() ? pageHeading : displayNameInput)?.focus();
+  });
+
   function startRecover() {
     setError('');
+    setCodeError('');
     setInfo('');
     if (!recoverEmail().trim()) setRecoverEmail(getPlainspaceEmail());
     setRecoverCode('');
@@ -67,6 +87,7 @@ export default function Join() {
 
   function backToJoin() {
     setError('');
+    setCodeError('');
     setInfo('');
     setMode('join');
   }
@@ -77,6 +98,7 @@ export default function Join() {
 
   function backToRecoverEmail() {
     setError('');
+    setCodeError('');
     setInfo('');
     setRecoverCode('');
     setDevCode(undefined);
@@ -89,6 +111,7 @@ export default function Join() {
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
     setInfo('');
 
     try {
@@ -128,12 +151,14 @@ export default function Join() {
   async function handleRecoverVerify(e: Event) {
     e.preventDefault();
     if (!/^\d{6}$/.test(recoverCode())) {
-      setError('Enter the 6-digit code we emailed you.');
+      setError('');
+      setCodeError('Enter the 6-digit code we emailed you.');
       return;
     }
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
     setInfo('');
 
     try {
@@ -152,19 +177,26 @@ export default function Join() {
       }
       navigate(`/${params.slug}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to open Space');
+      // 400 is the "Invalid or expired code" branch of verify-login-code
+      // (server routes/auth.ts); 429/422 are operational and stay global.
+      // Note Connect's equivalent uses 401 — a different server route.
+      if (err instanceof ApiError && err.status === 400) setCodeError(err.message);
+      else setError(err instanceof ApiError ? err.message : 'Failed to open Space');
       setSubmitting(false);
     }
   }
 
   return (
     <Show when={!notFound()} fallback={<NotFound />}>
-      <div class={styles.container}>
+      <main class={styles.container}>
         <Show
           when={!loading()}
+          // No aria-busy on this live region: it would tell AT to withhold the
+          // content, which is exactly the message we want announced.
           fallback={
-            <div class={styles.hero}>
-              <p>Loading...</p>
+            <div class={styles.hero} role="status">
+              <h1 class={styles.title}>Opening Space…</h1>
+              <p class={styles.subtitle}>Loading Space details…</p>
             </div>
           }
         >
@@ -181,21 +213,30 @@ export default function Join() {
                     </p>
                   </div>
 
-                  <FormCard onSubmit={handleSubmit} data-testid="join-form">
+                  <FormCard
+                    onSubmit={handleSubmit}
+                    aria-busy={submitting() ? 'true' : undefined}
+                    data-testid="join-form"
+                  >
                     <TextField
                       id="display-name"
                       label="Your display name"
                       type="text"
+                      autocomplete="name"
                       placeholder="e.g. Anna"
                       value={displayName()}
                       onInput={(e) => setDisplayName(e.currentTarget.value)}
                       maxLength={40}
                       required
-                      autofocus
+                      ref={(element) => (displayNameInput = element)}
                       data-testid="join-display-name-input"
                     />
 
-                    {error() && <p class={styles.error}>{error()}</p>}
+                    {error() && (
+                      <p class={styles.error} role="alert">
+                        {error()}
+                      </p>
+                    )}
 
                     <LegalNotice action="joining this Space" />
 
@@ -221,7 +262,9 @@ export default function Join() {
               }
             >
               <div class={styles.hero}>
-                <h1 class={styles.title}>{projectInfo()?.name || 'Space'}</h1>
+                <h1 ref={(element) => (pageHeading = element)} class={styles.title} tabindex="-1">
+                  {projectInfo()?.name || 'Space'}
+                </h1>
                 <p class={styles.subtitle}>Joining is off for this Space.</p>
                 <p class={styles.subtitle} style={{ 'margin-top': '8px' }}>
                   Already in it? Open by email.
@@ -246,21 +289,30 @@ export default function Join() {
               </p>
             </div>
 
-            <FormCard onSubmit={handleRecoverRequest} data-testid="recover-email-form">
+            <FormCard
+              onSubmit={handleRecoverRequest}
+              aria-busy={submitting() ? 'true' : undefined}
+              data-testid="recover-email-form"
+            >
               <TextField
                 id="recover-email"
                 label="Your email"
                 type="email"
+                autocomplete="email"
                 placeholder="e.g. you@example.com"
                 value={recoverEmail()}
                 onInput={(e) => setRecoverEmail(e.currentTarget.value)}
                 maxLength={255}
                 required
-                autofocus
+                ref={(element) => (recoverEmailInput = element)}
                 data-testid="recover-email-input"
               />
 
-              {error() && <p class={styles.error}>{error()}</p>}
+              {error() && (
+                <p class={styles.error} role="alert">
+                  {error()}
+                </p>
+              )}
 
               <Button
                 class={styles.submit}
@@ -280,12 +332,16 @@ export default function Join() {
           <Show when={mode() === 'recover-verify'}>
             <div class={styles.hero}>
               <h1 class={styles.title}>Enter your code</h1>
-              <p class={styles.subtitle}>
+              <p class={styles.subtitle} role="status">
                 {info() || `Check ${recoverEmail()} for a 6-digit code.`}
               </p>
             </div>
 
-            <FormCard onSubmit={handleRecoverVerify} data-testid="recover-verify-form">
+            <FormCard
+              onSubmit={handleRecoverVerify}
+              aria-busy={submitting() ? 'true' : undefined}
+              data-testid="recover-verify-form"
+            >
               <TextField
                 id="recover-code"
                 label="Email code"
@@ -294,17 +350,23 @@ export default function Join() {
                 autocomplete="one-time-code"
                 placeholder="123456"
                 value={recoverCode()}
-                onInput={(e) =>
-                  setRecoverCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6))
-                }
+                onInput={(e) => {
+                  setRecoverCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6));
+                  setCodeError('');
+                }}
                 maxLength={6}
                 required
-                autofocus
+                ref={(element) => (recoverCodeInput = element)}
                 data-testid="recover-code-input"
                 helperText={devCode() ? `Dev code: ${devCode()}` : undefined}
+                error={codeError()}
               />
 
-              {error() && <p class={styles.error}>{error()}</p>}
+              {error() && (
+                <p class={styles.error} role="alert">
+                  {error()}
+                </p>
+              )}
 
               <Button
                 class={styles.submit}
@@ -321,7 +383,7 @@ export default function Join() {
             </FormCard>
           </Show>
         </Show>
-      </div>
+      </main>
     </Show>
   );
 }
