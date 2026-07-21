@@ -176,7 +176,8 @@ test('reorders from the keyboard and keeps focus on the row it moved', async ({ 
   // a mouse click would still pass if keyboard activation regressed.
   await trigger.focus();
   await page.keyboard.press('Enter');
-  await page.getByTestId('menu-move-down').focus();
+  // The menu focuses its first item on open, which for this row is Move down.
+  await expect(page.getByTestId('menu-move-down')).toBeFocused();
   await page.keyboard.press('Enter');
 
   // Mid-flight, with the PATCH still open: the row has already moved

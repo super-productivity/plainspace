@@ -389,11 +389,11 @@ export default function ListCard(props: ListCardProps) {
     () => new Map(reorderableItems().map((item, index) => [item.id, index])),
   );
 
-  // Whether a row offers keyboard reorder, by POSITION only — deliberately not
-  // gated on reorderPending(). Dropping the actions mid-flight would rebuild an
-  // open ⋯ menu without them, destroying the menu item the user is standing on.
-  // -1 = not reorderable (a done row, or a resting recurring task pinned to the
-  // end of the list).
+  // Whether a row offers keyboard reorder, by POSITION only — never gated on
+  // reorderPending(). What a row offers is a property of where it sits; keying
+  // it to invisible network state would make identical rows offer different
+  // actions. -1 = not reorderable (a done row, or a resting recurring task
+  // pinned to the end of the list).
   const reorderIndex = (item: Item, section: 'open' | 'done') =>
     section === 'open' ? (reorderableIndexes().get(item.id) ?? -1) : -1;
   const canMoveDown = (item: Item, section: 'open' | 'done') => {
@@ -401,7 +401,7 @@ export default function ListCard(props: ListCardProps) {
     return index >= 0 && index < reorderableItems().length - 1;
   };
 
-  async function moveByKeyboard(item: Item, direction: -1 | 1) {
+  async function moveByKeyboard(item: Item, direction: -1 | 1, trigger: HTMLButtonElement) {
     const sorted = [...reorderableItems()];
     const index = reorderableIndexes().get(item.id) ?? -1;
     const targetIndex = index + direction;
@@ -411,21 +411,24 @@ export default function ListCard(props: ListCardProps) {
     const prevId = sorted[targetIndex - 1]?.id ?? null;
     const nextId = sorted[targetIndex + 1]?.id ?? null;
     const directionLabel = direction < 0 ? 'up' : 'down';
-    // The menu closed onto this trigger a moment ago. commitReorder writes the
-    // new position synchronously before it awaits, and <For> reorders by
-    // re-inserting the row — which blurs any focused descendant, so by the time
-    // this call returns focus is on <body>. The node itself survives the move,
-    // so hand focus straight back rather than leaving it lost for the whole
-    // network round-trip.
-    const trigger = document.activeElement as HTMLElement | null;
+    // <For> re-inserts the moved row, and re-parenting a node blurs its focused
+    // descendant. The store writes are synchronous, so the row has already moved
+    // by the time each of these runs. Twice, because a failure rolls the position
+    // back — a second write, a second re-parent, a second blur. Only restore from
+    // <body>: after the await the user may have deliberately focused elsewhere.
+    const restoreFocus = () => {
+      if (document.activeElement === document.body && trigger.isConnected) {
+        trigger.focus();
+      }
+    };
     const pending = commitReorder(item, props.list.id, sorted, prevId, nextId);
-    if (document.activeElement === document.body && trigger?.isConnected) {
-      trigger.focus({ preventScroll: true });
-    }
+    restoreFocus();
+    const moved = await pending;
+    restoreFocus();
     // Success only. Every failure and refusal above already raises a toast, and
     // Toast is itself role="status" — announcing here too would read the same
     // event to a screen reader twice.
-    if (await pending) announce(`Moved "${item.text}" ${directionLabel}.`);
+    if (moved) announce(`Moved "${item.text}" ${directionLabel}.`);
   }
 
   async function reorderOne(id: string, prevPos: number, nextPos: number): Promise<boolean> {
@@ -537,9 +540,15 @@ export default function ListCard(props: ListCardProps) {
           leaving={leavingFor(item.id, section)}
           onBeforeToggle={startOutro}
           onMoveUp={
-            reorderIndex(item, section) > 0 ? () => void moveByKeyboard(item, -1) : undefined
+            reorderIndex(item, section) > 0
+              ? (trigger) => void moveByKeyboard(item, -1, trigger)
+              : undefined
           }
-          onMoveDown={canMoveDown(item, section) ? () => void moveByKeyboard(item, 1) : undefined}
+          onMoveDown={
+            canMoveDown(item, section)
+              ? (trigger) => void moveByKeyboard(item, 1, trigger)
+              : undefined
+          }
           onAnnounce={announce}
           onDelete={props.onDeleteItem}
         />

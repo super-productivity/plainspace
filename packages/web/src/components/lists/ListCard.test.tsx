@@ -193,16 +193,25 @@ describe('ListCard accessibility', () => {
   });
 
   // Toast is itself role="status", so a failure that also wrote to the live
-  // region would be read out twice.
-  it('reports a failed keyboard reorder once, through the toast', async () => {
+  // region would be read out twice. The rollback is a second store write, so it
+  // re-parents the row a second time — focus has to survive that too.
+  it('reports a failed keyboard reorder once and keeps focus through the rollback', async () => {
     api.updateItem.mockRejectedValueOnce(new Error('network'));
     renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
 
-    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    const trigger = screen.getByLabelText('Actions for First task');
+    fireEvent.click(trigger);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
 
     await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('status').textContent).toBe('');
+    expect(screen.getAllByTestId('item-text').map((n) => n.textContent)).toEqual([
+      'First task',
+      'Second task',
+    ]);
+    // The toast fires inside commitMove's catch, a microtask before the commit
+    // settles and focus is restored, so this has to wait for it.
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it('refuses a second keyboard reorder while one is still saving', async () => {
@@ -224,8 +233,7 @@ describe('ListCard accessibility', () => {
 
     // The row moved optimistically, so the order is now Second, First, Third.
     // Every row still offers the move actions its POSITION allows while the save
-    // is in flight — availability never depends on pending state.
-    expect(screen.getByLabelText('Actions for First task')).toBeTruthy();
+    // is in flight — finding a live Move up below is what proves it.
     const third = screen.getByLabelText('Actions for Third task');
     fireEvent.click(third);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));

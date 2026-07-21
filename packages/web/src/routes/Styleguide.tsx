@@ -863,10 +863,12 @@ export default function Styleguide() {
                 slug={SLUG}
                 myId="m1"
                 onDelete={() => Promise.resolve(false)}
-                // Availability is positional, exactly as ListCard computes it, so
-                // the ⋯ menu here demos what a real row offers.
-                onMoveUp={index() > 0 ? () => {} : undefined}
-                onMoveDown={index() < demoItems.length - 1 ? () => {} : undefined}
+                // Mirror ListCard: reorder is positional and done rows are
+                // excluded, so the two checked rows below offer no move actions.
+                onMoveUp={!demoItem.checked && index() > 0 ? () => {} : undefined}
+                onMoveDown={
+                  !demoItem.checked && index() < demoItems.length - 1 ? () => {} : undefined
+                }
               />
             )}
           </For>

@@ -50,8 +50,9 @@ interface ListItemProps {
     wasChecked: boolean,
     isRecurring: boolean,
   ) => void | (() => void);
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  /** Receive the ⋯ trigger so the caller can put focus back after the row moves. */
+  onMoveUp?: (trigger: HTMLButtonElement) => void;
+  onMoveDown?: (trigger: HTMLButtonElement) => void;
   onAnnounce?: (message: string) => void;
   onDelete: (itemId: string) => Promise<boolean>;
 }

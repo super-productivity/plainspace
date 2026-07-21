@@ -356,7 +356,7 @@ describe('ListItem reminder', () => {
   });
 });
 
-describe('ListItem mobile actions menu', () => {
+describe('ListItem actions menu', () => {
   it('opens the labelled ⋯ menu and reflects it in aria-expanded', () => {
     renderItem();
     const more = screen.getByTestId('more-actions-button');
