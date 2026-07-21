@@ -52,13 +52,12 @@ interface ListCardProps {
 // for the duration of the drag — otherwise an empty or short list offers almost
 // no area to drop a cross-list row onto, and the drop silently snaps back.
 const [dragActive, setDragActive] = createSignal(false);
-// One reorder commit at a time, across every list. Positions are bisected
-// against the CURRENT order read from the shared store, so a second commit
-// started before the first resolves would compute against stale neighbours —
-// and a cross-list drop renumbers the *destination* card's rows, which is why
-// this is module scope rather than per-card. Refused attempts toast (below);
-// they never change what the row offers, so the ⋯ trigger can't move under a
-// keyboard user mid-reorder.
+// One reorder commit at a time, across every list. Not to avoid stale reads —
+// the optimistic write lands synchronously before the first await, so a second
+// commit always bisects against the current order. It guards the failure path:
+// a rollback can restore a position that a later commit already bisected
+// against. Module scope because a cross-list drop renumbers the *destination*
+// card's rows, which a per-card signal could not see. Refused attempts toast.
 const [reorderPending, setReorderPending] = createSignal(false);
 
 export default function ListCard(props: ListCardProps) {
@@ -391,10 +390,10 @@ export default function ListCard(props: ListCardProps) {
   );
 
   // Whether a row offers keyboard reorder, by POSITION only — deliberately not
-  // gated on reorderPending(). Dropping the actions mid-flight would strip
-  // .reorderAvailable from the ⋯ trigger, which desktop CSS then display:none's
-  // out from under the focus Popover just returned to it. -1 = not reorderable
-  // (a done row, or a resting recurring task pinned to the end of the list).
+  // gated on reorderPending(). Dropping the actions mid-flight would rebuild an
+  // open ⋯ menu without them, destroying the menu item the user is standing on.
+  // -1 = not reorderable (a done row, or a resting recurring task pinned to the
+  // end of the list).
   const reorderIndex = (item: Item, section: 'open' | 'done') =>
     section === 'open' ? (reorderableIndexes().get(item.id) ?? -1) : -1;
   const canMoveDown = (item: Item, section: 'open' | 'done') => {
@@ -412,7 +411,18 @@ export default function ListCard(props: ListCardProps) {
     const prevId = sorted[targetIndex - 1]?.id ?? null;
     const nextId = sorted[targetIndex + 1]?.id ?? null;
     const directionLabel = direction < 0 ? 'up' : 'down';
-    const moved = await commitReorder(item, props.list.id, sorted, prevId, nextId);
+    // The menu closed onto this trigger a moment ago. commitReorder writes the
+    // new position synchronously before it awaits, and <For> reorders by
+    // re-inserting the row — which blurs any focused descendant, so by the time
+    // this call returns focus is on <body>. The node itself survives the move,
+    // so hand focus straight back rather than leaving it lost for the whole
+    // network round-trip.
+    const trigger = document.activeElement as HTMLElement | null;
+    const pending = commitReorder(item, props.list.id, sorted, prevId, nextId);
+    if (document.activeElement === document.body && trigger?.isConnected) {
+      trigger.focus({ preventScroll: true });
+    }
+    const moved = await pending;
     if (moved === null) return;
     announce(
       moved

@@ -320,8 +320,6 @@ export default function ListItem(props: ListItemProps) {
     restoreFocus?.(!deleted);
   }
 
-  const canReorder = () => !!(props.onMoveUp || props.onMoveDown);
-
   return (
     <div
       ref={itemRef}
@@ -571,10 +569,14 @@ export default function ListItem(props: ListItemProps) {
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
           </svg>
         </button>
-        {/* Mobile-only: empty reminder/assign actions and delete collapse into
-            the shared ⋯ menu. Desktop keeps its hover-revealed inline buttons. */}
+        {/* On touch, the empty reminder/assign actions and delete collapse into
+            this ⋯ menu. Desktop keeps its hover-revealed inline buttons and uses
+            the menu for keyboard reorder, which has no inline equivalent.
+            Revealed by opacity like its neighbours, never display:none — an
+            unrendered element cannot hold focus, and this trigger is where the
+            closing menu returns it. */}
         <Menu
-          class={`${styles.moreButton} ${canReorder() ? styles.reorderAvailable : ''}`}
+          class={styles.moreButton}
           label={`Actions for ${props.item.text}`}
           triggerTestId="more-actions-button"
           menuTestId="actions-menu"

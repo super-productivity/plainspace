@@ -144,11 +144,12 @@ test('drag a row to the top and the new order persists across reload', async ({ 
   expect(await orderedTexts(page)).toEqual(['Third', 'First', 'Second']);
 });
 
-// The keyboard path, whose only entry point is the ⋯ menu. The PATCH is held
-// open so the "saving" window survives a style recalc: while it is open the
-// trigger must stay in the layout, or the desktop rule
-// `.moreButton:not(.reorderAvailable) { display: none }` unrenders the very
-// element the closing menu returned focus to, dropping focus to <body>.
+// The keyboard path, whose only entry point is the ⋯ menu. Two ways focus can
+// be lost here, both of which have to stay fixed: the row is re-inserted by
+// <For> when the optimistic write lands (re-parenting a node blurs it), and the
+// trigger must never be display:none'd out from under the focus the closing
+// menu returned to it. The PATCH is held open by a gate the test releases, so
+// the "saving" window is observed without racing a timer.
 test('reorders from the keyboard and keeps focus on the row it moved', async ({ page }) => {
   const { project, token } = await setupProject(page);
   for (const text of ['First', 'Second', 'Third']) {
@@ -159,24 +160,42 @@ test('reorders from the keyboard and keeps focus on the row it moved', async ({ 
   await expect(page.getByTestId('item-text')).toHaveCount(3);
   expect(await orderedTexts(page)).toEqual(['First', 'Second', 'Third']);
 
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
   await page.route('**/projects/*/items/*', async (route) => {
     if (route.request().method() !== 'PATCH') return route.continue();
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await held;
     await route.continue();
   });
 
   const activeLabel = () =>
     page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
   const firstRow = page.getByTestId('list-item').filter({ hasText: 'First' });
-  await firstRow.getByTestId('more-actions-button').click();
-  await page.getByTestId('menu-move-down').click();
+  const trigger = firstRow.getByTestId('more-actions-button');
+  // Drive it from the keyboard, not the mouse — this is the keyboard path, and
+  // a mouse click would still pass if keyboard activation regressed.
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await page.getByTestId('menu-move-down').focus();
+  await page.keyboard.press('Enter');
 
-  // Mid-flight: focus has to still be on the trigger, not on <body>.
-  expect(await activeLabel()).toBe('Actions for First');
-
+  // Mid-flight, with the PATCH still open: the row has already moved
+  // optimistically, and focus has to have followed the trigger rather than
+  // falling to <body>.
   await expect
     .poll(() => orderedTexts(page), { timeout: 5000 })
     .toEqual(['Second', 'First', 'Third']);
+  await expect(trigger).toBeVisible();
+  expect(await activeLabel()).toBe('Actions for First');
+
+  const patch = page.waitForResponse(
+    (response) => response.request().method() === 'PATCH' && response.url().includes('/items/'),
+  );
+  release();
+  await patch;
+
+  // …and it survives the response landing, not just the optimistic window.
+  expect(await orderedTexts(page)).toEqual(['Second', 'First', 'Third']);
   expect(await activeLabel()).toBe('Actions for First');
 });
 

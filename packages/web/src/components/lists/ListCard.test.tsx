@@ -139,7 +139,6 @@ describe('ListCard accessibility', () => {
     ]);
 
     const actions = screen.getByLabelText('Actions for First task');
-    expect(actions.className).toContain('reorderAvailable');
     fireEvent.click(actions);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
 
@@ -151,6 +150,46 @@ describe('ListCard accessibility', () => {
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe('Moved "First task" down.'),
     );
+  });
+
+  // The other reorder tests leave moveItem a no-op, so the row never actually
+  // moves and focus is never at risk. Here the store mock reorders for real —
+  // preserving item identity the way produce() does — because <For> re-inserts
+  // the moved row, and re-inserting a node blurs its focused descendant.
+  it('keeps focus on the trigger after the row actually moves', async () => {
+    const items = [item('i1', 'First task', 1000), item('i2', 'Second task', 2000)];
+    const [rows, setRows] = createSignal(items);
+    moveItem.mockImplementation((itemId: string, _listId: string, position: number) => {
+      const target = items.find((i) => i.id === itemId);
+      if (target) target.position = position;
+      const next = [...items].sort((a, b) => a.position - b.position);
+      state.items = next;
+      setRows(next);
+    });
+    state.items = items;
+    render(() => (
+      <ListCard
+        list={list}
+        items={rows()}
+        members={[]}
+        attachments={[]}
+        slug="abc"
+        myId="m1"
+        onDeleteItem={vi.fn()}
+      />
+    ));
+
+    const trigger = screen.getByLabelText('Actions for First task');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId('item-text').map((n) => n.textContent)).toEqual([
+        'Second task',
+        'First task',
+      ]),
+    );
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('announces that the new order could not be saved when keyboard reorder fails', async () => {
@@ -183,13 +222,10 @@ describe('ListCard accessibility', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
     expect(api.updateItem).toHaveBeenCalledTimes(1);
 
-    // The reorder actions stay offered while the move is in flight. Dropping
-    // them would strip .reorderAvailable from the ⋯ trigger, which desktop CSS
-    // display:none's — pulling the element out from under the focus the menu
-    // just returned to it.
-    expect(screen.getByLabelText('Actions for First task').className).toContain('reorderAvailable');
+    // A row still offers its move actions while a move is in flight — what a row
+    // offers depends on position, never on pending state.
+    expect(screen.getByLabelText('Actions for First task')).toBeTruthy();
     const second = screen.getByLabelText('Actions for Second task');
-    expect(second.className).toContain('reorderAvailable');
     fireEvent.click(second);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
 

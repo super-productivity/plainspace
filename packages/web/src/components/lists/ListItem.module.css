@@ -268,6 +268,12 @@
   .item:focus-within .moreButton {
     opacity: 1;
   }
+  /* The open menu renders in a portal, so focus sits outside .item and
+     :focus-within goes false — without this the trigger fades out from under
+     its own menu for anyone who opened it from the keyboard. */
+  .moreButton[aria-expanded='true'] {
+    opacity: 1;
+  }
 }
 
 .assignButton,
@@ -312,16 +318,6 @@
   .assignButton:not(.hasAssignee),
   .reminderButton:not(.hasReminder),
   .deleteButton {
-    display: none;
-  }
-}
-
-/* Desktop hides the ⋯ menu, whose actions all have inline equivalents there —
-   except keyboard reorder, which has none. So keep the trigger when it carries
-   the reorder actions; it hover/focus-reveals like the other buttons above
-   rather than sitting permanently in the row. */
-@media (hover: hover) {
-  .moreButton:not(.reorderAvailable) {
     display: none;
   }
 }
