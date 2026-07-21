@@ -79,14 +79,14 @@ export default function Header(props: HeaderProps) {
           <div class={styles.titleBlock}>
             <A
               href="/spaces"
-              class={styles.overviewLink}
+              class={styles.backLink}
               aria-label="Spaces overview"
               data-testid="header-spaces-overview-link"
             >
               <span aria-hidden="true">←</span>
               <span>Spaces</span>
             </A>
-            <h1 class={styles.name} tabindex="-1" data-testid="project-name">
+            <h1 class={styles.name} data-testid="project-name">
               {props.project.name}
             </h1>
             <Show when={props.project.purpose}>

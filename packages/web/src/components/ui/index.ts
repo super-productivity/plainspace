@@ -6,6 +6,7 @@ export { default as Chip } from './Chip';
 export { CollapseBody, CollapseToggle, createCollapsed } from './Collapsible';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as Dialog } from './Dialog';
+export { default as DisclosureSection } from './DisclosureSection';
 export { default as FormCard } from './FormCard';
 export { default as IconDeleteButton } from './IconDeleteButton';
 export { default as InlineRename } from './InlineRename';

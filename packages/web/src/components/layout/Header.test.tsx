@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@solidjs/testing-library';
 import type { JSX } from 'solid-js';
 import type { Member, Project } from '@plainspace/shared';
@@ -52,9 +52,14 @@ const member = {
 } as Member;
 
 describe('Header', () => {
-  it('offers a dedicated route back to the Spaces overview', () => {
-    window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as typeof window.matchMedia;
+  beforeEach(() => {
+    // Only `.matches` is read (the scroll handler's mobile check).
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
+  });
 
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('offers a dedicated route back to the Spaces overview', () => {
     render(() => (
       <Header
         project={project}

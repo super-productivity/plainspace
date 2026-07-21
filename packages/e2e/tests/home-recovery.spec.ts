@@ -157,3 +157,20 @@ test('web app root reopens the last Space and people panel links back to overvie
   await expect(page.getByTestId('known-spaces')).toBeVisible();
   await expect(page.getByTestId('known-space-link')).toContainText(['First Space', 'Second Space']);
 });
+
+// The panel route above still works, but it is no longer the only way out: the
+// header carries a plain link so leaving a Space costs one tap, not three.
+test('the Space header links straight back to the Spaces overview', async ({ page }) => {
+  const { project, token, member } = await createProjectViaApi('Header Space', 'Owner');
+
+  await page.goto('/');
+  await seedIdentity(page, project.slug, token, member.id, 'Header Space');
+
+  await page.goto(`/${project.slug}`);
+  await expect(page.getByTestId('project-name')).toHaveText('Header Space');
+
+  await page.getByTestId('header-spaces-overview-link').click();
+  await expect(page).toHaveURL('/spaces');
+  await expect(page.getByTestId('known-spaces')).toBeVisible();
+  await expect(page.getByTestId('known-space-link')).toContainText(['Header Space']);
+});

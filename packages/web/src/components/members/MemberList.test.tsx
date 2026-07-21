@@ -102,10 +102,14 @@ describe('MemberList progressive disclosure', () => {
     renderPanel();
 
     const panel = screen.getByTestId('member-list-panel');
+    // One "People" heading for the whole panel — the roster needs no second one.
+    const peopleHeadings = screen.getAllByRole('heading', { name: /people/i });
+    expect(peopleHeadings).toHaveLength(1);
+    expect(peopleHeadings[0].tagName).toBe('H2');
+    expect(peopleHeadings[0].textContent).toContain('· 1 online');
+    // ...and the roster is still what the panel opens on.
     const firstSection = panel.querySelector('section');
-    expect(
-      within(firstSection as HTMLElement).getByRole('heading', { name: /^people/i }),
-    ).toBeTruthy();
+    expect(within(firstSection as HTMLElement).getByTestId('member-row')).toBeTruthy();
 
     const accountToggle = screen.getByTestId('account-toggle-button');
     const settingsToggle = screen.getByTestId('space-settings-toggle-button');

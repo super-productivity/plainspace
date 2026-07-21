@@ -47,7 +47,7 @@
   flex-direction: column;
 }
 
-.overviewLink {
+.backLink {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
@@ -64,11 +64,11 @@
   text-transform: uppercase;
 }
 
-.overviewLink:hover {
+.backLink:hover {
   color: var(--color-accent-hover);
 }
 
-.overviewLink:focus-visible {
+.backLink:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
@@ -92,7 +92,7 @@
   letter-spacing: var(--tracking-tight);
 }
 
-.header.scrolled .overviewLink {
+.header.scrolled .backLink {
   margin-bottom: 0;
 }
 
@@ -212,6 +212,9 @@
   border-radius: 999px;
   border: 1px dashed var(--color-accent);
   background: transparent;
+  /* Label sits on the page background, so it takes the darker (light theme) /
+     lighter (dark theme) accent for contrast; the border keeps the plain
+     accent so the dashed outline stays quiet next to it. */
   color: var(--color-accent-hover);
   font-size: var(--text-sm);
   font-weight: 500;
