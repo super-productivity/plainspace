@@ -7,6 +7,7 @@ import { ensurePushSubscription } from '../../lib/push';
 import { Avatar, Menu } from '../ui';
 import MemberPicker from './MemberPicker';
 import ReminderPicker, { describeRepeat } from './ReminderPicker';
+import ReminderIcon, { type ReminderState } from './ReminderIcon';
 import styles from './ListItem.module.css';
 
 function formatRemindAt(iso: string): string {
@@ -84,6 +85,12 @@ export default function ListItem(props: ListItemProps) {
     props.item.repeat != null &&
     props.item.remindAt != null &&
     new Date(props.item.remindAt).getTime() < Date.now();
+  const reminderState = (): ReminderState => {
+    if (!props.item.remindAt) return 'empty';
+    if (isOverdue()) return 'overdue';
+    if (isResting()) return 'resting';
+    return props.item.repeat ? 'repeat' : 'once';
+  };
   let itemRef: HTMLDivElement | undefined;
 
   // Drive enter/leave with the Web Animations API on the row element itself.
@@ -420,58 +427,14 @@ export default function ListItem(props: ListItemProps) {
             }
             aria-label={`${props.item.remindAt ? 'Change reminder' : 'Set reminder'} for "${props.item.text}"`}
             data-testid="reminder-button"
+            data-reminder-state={reminderState()}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-            {/* + corner badge on the empty button — an "add a reminder"
-                affordance, keeping the idle button a compact circle. */}
-            <Show when={!props.item.remindAt}>
-              <span class={styles.addGlyph} aria-hidden="true">
-                +
-              </span>
-            </Show>
+            <ReminderIcon state={reminderState()} />
             <Show when={props.item.remindAt}>
               <span class={styles.reminderLabel}>
-                <Show when={props.item.repeat}>
-                  <span class={styles.repeatGlyph} aria-hidden="true">
-                    &#8635;
-                  </span>
-                </Show>
-                <Show
-                  when={isResting()}
-                  fallback={
-                    <>
-                      {/* ! marks an overdue occurrence — a shape signal so
-                          "late" doesn't ride on the amber colour alone. */}
-                      <Show when={isOverdue()}>
-                        <span class={styles.overdueGlyph} aria-hidden="true">
-                          !
-                        </span>
-                      </Show>
-                      {formatRemindAt(props.item.remindAt!)}
-                    </>
-                  }
-                >
-                  {/* › marks the upcoming occurrence of a resting recurring
-                      item (what the "next" word used to say). Resting-only, so
-                      unlike ↻ it distinguishes resting from an active fire. */}
-                  <span class={styles.nextGlyph} aria-hidden="true">
-                    &#8250;
-                  </span>
-                  {formatNextDue(props.item.remindAt!)}
-                </Show>
+                {isResting()
+                  ? formatNextDue(props.item.remindAt!)
+                  : formatRemindAt(props.item.remindAt!)}
               </span>
             </Show>
           </button>

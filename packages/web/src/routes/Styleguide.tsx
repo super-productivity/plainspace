@@ -113,12 +113,50 @@ const demoItems: Item[] = [
     repeat: null,
   },
   {
+    id: 'i5',
+    listId: 'l1',
+    projectId: 'p1',
+    text: 'Call the caterer (one-off reminder)',
+    // remindAt without repeat: the badge icon is a plain clock.
+    checked: false,
+    checkedBy: null,
+    assignedTo: null,
+    columnId: 'todo',
+    position: 2500,
+    createdBy: 'm1',
+    createdAt: NOW,
+    remindAt: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+    repeat: null,
+  },
+  {
+    id: 'i6',
+    listId: 'l1',
+    projectId: 'p1',
+    text: 'Water the herbs (recurring, still due)',
+    // Unchecked + repeat + future remindAt = the active recurring state: the
+    // clock ring closed by an arrowhead, hands still showing.
+    checked: false,
+    checkedBy: null,
+    assignedTo: null,
+    columnId: 'todo',
+    position: 2750,
+    createdBy: 'm1',
+    createdAt: NOW,
+    remindAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+    repeat: {
+      freq: 'weekly',
+      interval: 1,
+      tz: 'Europe/Berlin',
+      anchor: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+    },
+  },
+  {
     id: 'i3',
     listId: 'l1',
     projectId: 'p1',
     text: 'Take meds (recurring reminder)',
     // Checked + repeat = "resting": done for now, waiting to reopen. The badge
-    // shows ↻ and, because it's resting, the › glyph before the next time.
+    // icon is the recurring ring with a check, next to the next occurrence.
     checked: true,
     checkedBy: 'm1',
     assignedTo: null,
@@ -126,8 +164,8 @@ const demoItems: Item[] = [
     position: 3000,
     createdBy: 'm1',
     createdAt: NOW,
-    // Recurring reminder: the badge shows the ↻ glyph next to the time. The
-    // sweep re-arms remindAt, so the badge persists on checked rows too.
+    // Recurring reminder: the badge icon gains the arrowhead ring. The sweep
+    // re-arms remindAt, so the badge persists on checked rows too.
     remindAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     repeat: {
       freq: 'daily',
@@ -142,7 +180,7 @@ const demoItems: Item[] = [
     projectId: 'p1',
     text: 'Water the plants (overdue occurrence)',
     // Unchecked + repeat + past remindAt = "overdue": the fire passed while
-    // still undone. Badge shows ↻ and the ! marker in amber.
+    // still undone. Badge icon is the recurring ring with an amber !.
     checked: false,
     checkedBy: null,
     assignedTo: null,
@@ -884,14 +922,15 @@ export default function Styleguide() {
           badge stays inline because it carries state — so the title keeps the row's width. The ⋯
           trigger is present on pointer devices too, revealed the same way, because it is the only
           route to keyboard reorder (Move up / Move down) — those have no inline equivalent. The
-          schedule button carries a glyph per state so it doesn't lean on colour alone: an empty
-          button shows a <code>+</code> add affordance on hover, a repeating one the ↻ glyph, a
-          resting one (checked, awaiting its next occurrence) a › before the time, and an overdue
-          one (recurring fire passed while undone) a bold amber <code>!</code> — the third task is
-          resting, the fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat /
-          Daily / Weekly / Every 2 weeks / Monthly) lives in the reminder picker;
-          byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
-          the immutable anchor.
+          schedule button carries exactly one icon, whose shape (not colour) says which state it's
+          in: an empty button a clock with a <code>+</code> in the ring gap, a one-off a plain
+          clock, a repeating one a clock ring closed by an arrowhead, a resting one (checked,
+          awaiting its next occurrence) that same ring with a check instead of hands, and an overdue
+          one (recurring fire passed while undone) the ring with an amber <code>!</code> — tasks
+          three to six walk that set: one-off, repeating, resting, overdue. The repeat{' '}
+          <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly / Every 2 weeks / Monthly)
+          lives in the reminder picker; byWeekday/byMonthDay are derived from the chosen fire time
+          at commit, and the server owns the immutable anchor.
         </p>
       </section>
 

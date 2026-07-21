@@ -146,7 +146,7 @@ test.describe('reminders', () => {
     await expect(page.getByTestId('reminder-button')).toHaveClass(/hasReminder/);
   });
 
-  test('setting Daily sends a repeat rule and shows the ↻ badge', async ({ page }) => {
+  test('setting Daily sends a repeat rule and shows the recurring badge', async ({ page }) => {
     const { project } = await setupProject(page);
     await page.goto(`/${project.slug}`);
 
@@ -182,9 +182,13 @@ test.describe('reminders', () => {
     expect(typeof body.repeat.tz).toBe('string');
     expect(body.repeat.anchor).toBeUndefined();
 
-    // The badge shows the recurring ↻ glyph (U+21BB) once the item updates.
+    // The badge switches to the recurring icon (clock ring + arrowhead) once
+    // the item updates — one icon per state, so the state is the attribute.
     await expect(page.getByTestId('reminder-button')).toHaveClass(/hasReminder/);
-    await expect(page.getByTestId('reminder-button')).toContainText('↻');
+    await expect(page.getByTestId('reminder-button')).toHaveAttribute(
+      'data-reminder-state',
+      'repeat',
+    );
   });
 
   test('Mon–Fri repeat sends the full weekday set and reads as "every weekday"', async ({
