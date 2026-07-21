@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import type { Item, List } from '@plainspace/shared';
 import { createSignal } from 'solid-js';
@@ -10,37 +10,47 @@ const {
   moveItem,
   removeItem,
   restoreItem,
-  setItemPosition,
   updateItem,
   addToast,
   sortableCreate,
-} = vi.hoisted(() => ({
-  api: {
-    updateItem: vi.fn(),
-    createItem: vi.fn(),
-    deleteItem: vi.fn(),
+  ApiError,
+} = vi.hoisted(() => {
+  class TestApiError extends Error {
+    constructor(
+      public status: number,
+      public body: { error: string },
+    ) {
+      super(body.error);
+    }
+  }
+  return {
+    api: {
+      updateItem: vi.fn(),
+      reorderItems: vi.fn(),
+      createItem: vi.fn(),
+      deleteItem: vi.fn(),
+      restoreItem: vi.fn(),
+    },
+    state: { items: [] as Item[] },
+    addActivity: vi.fn(),
+    moveItem: vi.fn(),
+    removeItem: vi.fn(),
     restoreItem: vi.fn(),
-  },
-  state: { items: [] as Item[] },
-  addActivity: vi.fn(),
-  moveItem: vi.fn(),
-  removeItem: vi.fn(),
-  restoreItem: vi.fn(),
-  setItemPosition: vi.fn(),
-  updateItem: vi.fn(),
-  addToast: vi.fn(),
-  sortableCreate: vi.fn(() => ({ destroy: vi.fn() })),
-}));
+    updateItem: vi.fn(),
+    addToast: vi.fn(),
+    sortableCreate: vi.fn(() => ({ destroy: vi.fn() })),
+    ApiError: TestApiError,
+  };
+});
 
 vi.mock('sortablejs', () => ({ default: { create: sortableCreate } }));
-vi.mock('../../lib/api', () => ({ api }));
+vi.mock('../../lib/api', () => ({ api, ApiError }));
 vi.mock('../../lib/store', () => ({
   state,
   addActivity,
   moveItem,
   removeItem,
   restoreItem,
-  setItemPosition,
   updateItem,
 }));
 vi.mock('../../lib/toast', () => ({ addToast }));
@@ -75,41 +85,45 @@ function item(id: string, text: string, position: number): Item {
   };
 }
 
+const rejectedReorder = () => new ApiError(422, { error: 'Rejected' });
+
 // The store mocks reposition for real, and the card re-renders from a signal.
 // A reorder test whose row never moves proves almost nothing — that is how a
 // focus bug survived this entire suite. Items are mutated in place so their
 // identity is preserved exactly as produce() does in store.ts, which makes
 // <For> re-insert the existing row rather than remount a new one.
-function renderCard(items: Item[]) {
+function renderCard(initialItems: Item[], options: { slug?: string; list?: List } = {}) {
+  let items = initialItems;
+  const cardList = options.list ?? list;
   const [rows, setRows] = createSignal(items);
-  const reposition = (itemId: string, position: number) => {
-    const target = items.find((i) => i.id === itemId);
-    if (target) target.position = position;
-    const next = [...items].sort((a, b) => a.position - b.position);
+  const publish = (next: Item[]) => {
+    items = next;
     state.items = next;
     setRows(next);
   };
-  moveItem.mockImplementation((itemId: string, _listId: string, position: number) =>
-    reposition(itemId, position),
-  );
-  setItemPosition.mockImplementation(reposition);
+  const reposition = (itemId: string, listId: string, position: number) => {
+    const target = items.find((i) => i.id === itemId);
+    if (target) Object.assign(target, { listId, position });
+    publish([...items].sort((a, b) => a.position - b.position));
+  };
+  moveItem.mockImplementation(reposition);
   state.items = items;
   const rendered = render(() => (
     <ListCard
-      list={list}
+      list={cardList}
       items={rows()}
       members={[]}
       attachments={[]}
-      slug="abc"
+      slug={options.slug ?? 'abc'}
       myId="m1"
       onDeleteItem={vi.fn()}
     />
   ));
-  // Replace an item OBJECT the way a remote update does. <For> keys by
-  // reference, so this remounts the row and destroys the nodes inside it.
+  // Exercise the defensive remount path (for example, when an item crosses a
+  // checked/open boundary while another update is in flight).
   const remoteEdit = (id: string, patch: Partial<Item>) =>
-    setRows((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  return Object.assign(rendered, { remoteEdit });
+    publish(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  return Object.assign(rendered, { remoteEdit, getItems: () => items });
 }
 
 beforeEach(() => {
@@ -118,16 +132,20 @@ beforeEach(() => {
     value: vi.fn(() => ({ addEventListener: vi.fn(), cancel: vi.fn() })),
   });
   api.updateItem.mockReset().mockResolvedValue({});
+  api.reorderItems.mockReset().mockResolvedValue(undefined);
   api.deleteItem.mockReset().mockResolvedValue(undefined);
   api.restoreItem.mockReset();
   moveItem.mockReset();
   removeItem.mockReset();
   restoreItem.mockReset();
-  setItemPosition.mockReset();
   updateItem.mockReset();
   addActivity.mockReset();
   addToast.mockReset();
   sortableCreate.mockClear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('ListCard accessibility', () => {
@@ -165,7 +183,12 @@ describe('ListCard accessibility', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
 
     expect(moveItem).toHaveBeenCalledWith('i1', 'list-1', 2500);
-    expect(api.updateItem).toHaveBeenCalledWith('abc', 'i1', { position: 2500 });
+    expect(api.updateItem).toHaveBeenCalledWith(
+      'abc',
+      'i1',
+      { position: 2500 },
+      expect.any(AbortSignal),
+    );
     expect(screen.getByRole('status').textContent).toBe('');
 
     confirmUpdate({});
@@ -190,15 +213,14 @@ describe('ListCard accessibility', () => {
       ]),
     );
     expect(document.activeElement).toBe(trigger);
-    // Let the commit settle before the test ends: reorderPending is module
-    // scope, so an in-flight move would refuse the next test's reorder.
+    // Let the commit settle before the test ends: the per-Space session is
+    // module scope, so an in-flight move would refuse the next test's reorder.
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe('Moved "First task" down.'),
     );
   });
 
-  // A collaborator editing the same row mid-save remounts it, destroying the
-  // trigger node the restore was holding. Focus has to be re-found by id.
+  // Exercise a worst-case row remount mid-save: focus has to be re-found by id.
   it('keeps focus on the row when a remote edit remounts it mid-reorder', async () => {
     let confirmUpdate!: (value: unknown) => void;
     api.updateItem.mockReturnValueOnce(
@@ -227,7 +249,7 @@ describe('ListCard accessibility', () => {
   // region would be read out twice. The rollback is a second store write, so it
   // re-parents the row a second time — focus has to survive that too.
   it('reports a failed keyboard reorder once and keeps focus through the rollback', async () => {
-    api.updateItem.mockRejectedValueOnce(new Error('network'));
+    api.updateItem.mockRejectedValueOnce(rejectedReorder());
     renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
 
     const trigger = screen.getByLabelText('Actions for First task');
@@ -273,12 +295,211 @@ describe('ListCard accessibility', () => {
     expect(api.updateItem).toHaveBeenCalledTimes(1);
     expect(addToast).toHaveBeenCalledTimes(1);
 
-    rejectUpdate(new Error('network'));
+    rejectUpdate(rejectedReorder());
     await waitFor(() => expect(addToast).toHaveBeenCalledTimes(2));
+    await Promise.resolve();
 
     fireEvent.click(screen.getByLabelText('Actions for Second task'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
     await waitFor(() => expect(api.updateItem).toHaveBeenCalledTimes(2));
+  });
+
+  it('renumbers a gap-exhausted list atomically and rolls the whole batch back once', async () => {
+    api.reorderItems.mockRejectedValueOnce(rejectedReorder());
+    const { getItems } = renderCard([
+      item('i1', 'First task', 1),
+      item('i2', 'Second task', 2),
+      item('i3', 'Third task', 3),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+    expect(api.reorderItems).toHaveBeenCalledWith(
+      'abc',
+      {
+        updates: [
+          { id: 'i2', listId: 'list-1', position: 1000 },
+          { id: 'i1', listId: 'list-1', position: 2000 },
+          { id: 'i3', listId: 'list-1', position: 3000 },
+        ],
+      },
+      expect.any(AbortSignal),
+    );
+    expect(api.updateItem).not.toHaveBeenCalled();
+    expect(
+      getItems()
+        .map(({ id, position }) => ({ id, position }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    ).toEqual([
+      { id: 'i1', position: 1 },
+      { id: 'i2', position: 2 },
+      { id: 'i3', position: 3 },
+    ]);
+  });
+
+  it('does not roll back a newer remote position when a reorder request fails', async () => {
+    let rejectUpdate!: (error: Error) => void;
+    api.updateItem.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectUpdate = reject;
+      }),
+    );
+    const { remoteEdit, getItems } = renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+    rejectUpdate(new Error('network'));
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+    // Authoritative SSE still applies after the uncertain write is blocked.
+    remoteEdit('i1', { position: 9000 });
+
+    expect(getItems().find((candidate) => candidate.id === 'i1')?.position).toBe(9000);
+  });
+
+  it('keeps a committed move when its matching SSE echo precedes a lost response', async () => {
+    let rejectUpdate!: (error: Error) => void;
+    api.updateItem.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectUpdate = reject;
+      }),
+    );
+    const { remoteEdit, getItems } = renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+    remoteEdit('i1', { position: 3000 });
+    rejectUpdate(new Error('response lost'));
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+    expect(getItems().map(({ id }) => id)).toEqual(['i2', 'i1']);
+    expect(getItems().find((candidate) => candidate.id === 'i1')?.position).toBe(3000);
+  });
+
+  it('blocks further moves after an ambiguous failure', async () => {
+    api.updateItem.mockRejectedValueOnce(new Error('network'));
+    renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+      item('i3', 'Third task', 3000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByLabelText('Actions for Third task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
+
+    expect(api.updateItem).toHaveBeenCalledTimes(1);
+    expect(addToast).toHaveBeenCalledTimes(2);
+    expect(addToast).toHaveBeenLastCalledWith('Reload before moving another item.');
+  });
+
+  it('does not announce a move superseded by a remote completion and restores adjacent focus', async () => {
+    let confirmUpdate!: (value: unknown) => void;
+    api.updateItem.mockReturnValueOnce(
+      new Promise((resolve) => {
+        confirmUpdate = resolve;
+      }),
+    );
+    const { remoteEdit } = renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+    remoteEdit('i1', { checked: true });
+    confirmUpdate({});
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Actions for Second task')),
+    );
+    expect(screen.getByRole('status').textContent).toBe('');
+  });
+
+  it('aborts an unmounted Space reorder without blocking a different Space', async () => {
+    let firstSignal: AbortSignal | undefined;
+    let rejectFirst!: (error: Error) => void;
+    api.updateItem.mockImplementationOnce(
+      (_slug: string, _id: string, _data: unknown, signal?: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          firstSignal = signal;
+          rejectFirst = reject;
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        }),
+    );
+    const first = renderCard([item('a1', 'Alpha task', 1000), item('a2', 'Alpha second', 2000)], {
+      slug: 'space-a',
+    });
+
+    fireEvent.click(screen.getByLabelText('Actions for Alpha task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+    first.unmount();
+
+    const second = renderCard([item('b1', 'Beta task', 1000), item('b2', 'Beta second', 2000)], {
+      slug: 'space-b',
+    });
+    fireEvent.click(screen.getByLabelText('Actions for Beta task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+
+    try {
+      expect(firstSignal?.aborted).toBe(true);
+      await waitFor(() => expect(api.updateItem).toHaveBeenCalledTimes(2));
+    } finally {
+      if (!firstSignal?.aborted) rejectFirst(new Error('cleanup'));
+      second.unmount();
+      await Promise.resolve();
+    }
+  });
+
+  it('times out a stalled reorder, preserves its state, and blocks another move', async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    let rejectUpdate!: (error: Error) => void;
+    api.updateItem.mockImplementationOnce(
+      (_slug: string, _id: string, _data: unknown, requestSignal?: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          signal = requestSignal;
+          rejectUpdate = reject;
+          requestSignal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        }),
+    );
+    const { getItems } = renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+
+    try {
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(signal?.aborted).toBe(true);
+      expect(addToast).toHaveBeenCalledTimes(1);
+      expect(getItems().map(({ id }) => id)).toEqual(['i2', 'i1']);
+
+      fireEvent.click(screen.getByLabelText('Actions for Second task'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(api.updateItem).toHaveBeenCalledTimes(1);
+      expect(addToast).toHaveBeenLastCalledWith('Reload before moving another item.');
+    } finally {
+      if (!signal?.aborted) rejectUpdate(new Error('cleanup'));
+      await Promise.resolve();
+    }
   });
 
   it('refreshes the live region when the same announcement occurs consecutively', async () => {

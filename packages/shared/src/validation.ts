@@ -4,6 +4,7 @@ import {
   MAX_PURPOSE_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_ITEM_TEXT_LENGTH,
+  MAX_ITEMS_PER_PROJECT,
   MAX_POLL_QUESTION_LENGTH,
   MAX_POLL_OPTION_LENGTH,
   MIN_POLL_OPTIONS,
@@ -102,6 +103,32 @@ export const CreateItemSchema = z.object({
   listId: z.string().uuid().optional(),
 });
 
+const ItemPositionSchema = z.number().int().positive().max(2_147_483_647);
+
+// Atomic position rewrites used only when a list's midpoint gaps are exhausted.
+// Every row carries its effective list so the server can validate the complete
+// target state before changing any item.
+export const ReorderItemsSchema = z
+  .object({
+    updates: z
+      .array(
+        z.object({
+          id: z.string().uuid(),
+          listId: z.string().uuid(),
+          position: ItemPositionSchema,
+        }),
+      )
+      .min(1)
+      .max(MAX_ITEMS_PER_PROJECT),
+  })
+  .refine(
+    (input) => new Set(input.updates.map((update) => update.id)).size === input.updates.length,
+    {
+      message: 'Item ids must be unique',
+      path: ['updates'],
+    },
+  );
+
 const WEEKDAY_TOKENS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 
 // Reject unknown IANA zones by construction. ICU canonicalization differs
@@ -167,7 +194,7 @@ export const UpdateItemSchema = z
     // The server validates the target list belongs to this project.
     listId: z.string().uuid().optional(),
     columnId: z.string().min(1).max(50).optional(),
-    position: z.number().int().positive().optional(),
+    position: ItemPositionSchema.optional(),
     // ISO 8601 with required offset (Z or ±HH:MM). The client must convert
     // `<input type="datetime-local">` via `new Date(v).toISOString()` so the
     // server always interprets reminders in UTC.
@@ -298,6 +325,7 @@ export type ConnectRequestInput = z.infer<typeof ConnectRequestSchema>;
 export type JoinProjectInput = z.infer<typeof JoinProjectSchema>;
 export type UpdateListInput = z.infer<typeof UpdateListSchema>;
 export type CreateItemInput = z.infer<typeof CreateItemSchema>;
+export type ReorderItemsInput = z.infer<typeof ReorderItemsSchema>;
 export type CreateTaskViaTokenInput = z.infer<typeof CreateTaskViaTokenSchema>;
 export type UpdateItemInput = z.infer<typeof UpdateItemSchema>;
 export type UpdateMemberInput = z.infer<typeof UpdateMemberSchema>;

@@ -139,10 +139,12 @@ describe('item mutations', () => {
     expect(state.items[0].text).toBe('first');
   });
 
-  it('updateItem replaces in place and is a no-op for unknown ids', () => {
+  it('updateItem mutates the existing item identity and is a no-op for unknown ids', () => {
     addItem(item('i1', { text: 'old' }));
+    const existing = state.items[0];
     updateItem(item('i1', { text: 'new' }));
     expect(state.items[0].text).toBe('new');
+    expect(state.items[0]).toBe(existing);
 
     updateItem(item('ghost', { text: 'nope' }));
     expect(state.items).toHaveLength(1);
@@ -347,6 +349,16 @@ describe('setProjectData / resetState', () => {
     expect(state.error).toBeNull();
     expect(state.attachments).toEqual([]);
     expect(state.items).toHaveLength(1);
+  });
+
+  it('reconciles a resync snapshot without remounting existing items', () => {
+    setProjectData(data);
+    const existing = state.items[0];
+
+    setProjectData({ ...data, items: [item('i1', { text: 'fresh from resync' })] });
+
+    expect(state.items[0]).toBe(existing);
+    expect(state.items[0].text).toBe('fresh from resync');
   });
 
   it('resetState returns to the empty loading state', () => {

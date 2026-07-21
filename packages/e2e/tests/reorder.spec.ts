@@ -172,6 +172,30 @@ test('reorders from the keyboard and keeps focus on the row it moved', async ({ 
     page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
   const firstRow = page.getByTestId('list-item').filter({ hasText: 'First' });
   const trigger = firstRow.getByTestId('more-actions-button');
+  // Native Tab traversal cannot be simulated by the component test's
+  // fireEvent. Capture the trigger's real neighbours, then prove closing the
+  // portalled menu continues in the same direction instead of landing on body.
+  await trigger.focus();
+  await page.keyboard.press('Tab');
+  const nextLabel = await activeLabel();
+  await trigger.focus();
+  await page.keyboard.press('Shift+Tab');
+  const previousLabel = await activeLabel();
+  expect(nextLabel).not.toBeNull();
+  expect(previousLabel).not.toBeNull();
+
+  for (const [key, expectedLabel] of [
+    ['Tab', nextLabel],
+    ['Shift+Tab', previousLabel],
+  ] as const) {
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('menu-move-down')).toBeFocused();
+    await page.keyboard.press(key);
+    await expect(page.getByTestId('menu-move-down')).toHaveCount(0);
+    expect(await activeLabel()).toBe(expectedLabel);
+  }
+
   // Drive it from the keyboard, not the mouse — this is the keyboard path, and
   // a mouse click would still pass if keyboard activation regressed.
   await trigger.focus();

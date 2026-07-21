@@ -1,6 +1,7 @@
 import {
   For,
   Show,
+  batch,
   createEffect,
   createMemo,
   createSignal,
@@ -11,8 +12,8 @@ import {
 } from 'solid-js';
 import Sortable, { type SortableEvent } from 'sortablejs';
 import type { List, Item, Member, Attachment } from '@plainspace/shared';
-import { api } from '../../lib/api';
-import { moveItem, setItemPosition, state } from '../../lib/store';
+import { api, ApiError } from '../../lib/api';
+import { moveItem, state } from '../../lib/store';
 import { addToast } from '../../lib/toast';
 import { byPosition, computeReorderPosition } from '../../lib/reorder';
 import {
@@ -52,13 +53,21 @@ interface ListCardProps {
 // for the duration of the drag — otherwise an empty or short list offers almost
 // no area to drop a cross-list row onto, and the drop silently snaps back.
 const [dragActive, setDragActive] = createSignal(false);
-// One reorder commit at a time, across every list. Not to avoid stale reads —
-// the optimistic write lands synchronously before the first await, so a second
-// commit always bisects against the current order. It guards the failure path:
-// a rollback can restore a position that a later commit already bisected
-// against. Module scope because a cross-list drop renumbers the *destination*
-// card's rows, which a per-card signal could not see. Refused attempts toast.
-const [reorderPending, setReorderPending] = createSignal(false);
+const REORDER_TIMEOUT_MS = 20_000;
+interface ReorderSession {
+  slug: string;
+  controller: AbortController;
+  timeout: ReturnType<typeof setTimeout>;
+  blocked?: boolean;
+}
+interface ItemMove {
+  id: string;
+  listId: string;
+  position: number;
+}
+// Lists within one Space share this guard because cross-list renumbering writes
+// destination rows too. Keying by slug keeps an unrelated Space independent.
+const reorderSessions = new Map<string, ReorderSession>();
 
 export default function ListCard(props: ListCardProps) {
   // Item ids seen by this list. Initial items are seeded at mount; later ids
@@ -68,6 +77,8 @@ export default function ListCard(props: ListCardProps) {
   // once in Solid): do NOT wrap in createMemo/createEffect — that would make
   // it track props.items and re-include later adds, breaking the animation.
   const seenIds = untrack(() => new Set(props.items.map((i) => i.id)));
+  let disposed = false;
+  const ownedReorders = new Set<ReorderSession>();
 
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
@@ -205,6 +216,13 @@ export default function ListCard(props: ListCardProps) {
   );
 
   onCleanup(() => {
+    disposed = true;
+    for (const session of ownedReorders) {
+      clearTimeout(session.timeout);
+      if (reorderSessions.get(session.slug) === session) reorderSessions.delete(session.slug);
+      session.controller.abort();
+    }
+    ownedReorders.clear();
     if (outroAnimTimer) clearTimeout(outroAnimTimer);
     if (outroLeaveTimer) clearTimeout(outroLeaveTimer);
     for (const t of leaveTimers.values()) clearTimeout(t);
@@ -357,32 +375,36 @@ export default function ListCard(props: ListCardProps) {
     // Refusing silently would leave a dropped row snapping back (the DOM was
     // already reverted) with no explanation. The toast is role="status", so it
     // reaches the keyboard path's screen-reader users too.
-    if (reorderPending()) {
-      addToast('Still saving the previous move. Please try again.');
+    const slug = props.slug;
+    const pendingSession = reorderSessions.get(slug);
+    if (pendingSession) {
+      addToast(
+        pendingSession.blocked
+          ? 'Reload before moving another item.'
+          : 'Still saving the previous move. Please try again.',
+      );
       return false;
     }
-    setReorderPending(true);
+    const controller = new AbortController();
+    const session: ReorderSession = {
+      slug,
+      controller,
+      timeout: setTimeout(() => controller.abort(), REORDER_TIMEOUT_MS),
+    };
+    reorderSessions.set(slug, session);
+    ownedReorders.add(session);
     try {
       const result = computeReorderPosition(sorted, prevId, nextId);
       if (result.kind === 'single') {
-        return await commitMove(dragged, targetListId, result.position);
+        return await commitMove(dragged, targetListId, result.position, session);
       }
-
-      const updates: Promise<boolean>[] = [];
-      for (const [itemId, pos] of result.positions) {
-        const item = state.items.find((i) => i.id === itemId);
-        if (!item) continue;
-        // Only the dragged row can change lists; the renumbered siblings already
-        // live in the target list, so they just shift position.
-        updates.push(
-          itemId === dragged.id
-            ? commitMove(dragged, targetListId, pos)
-            : reorderOne(itemId, item.position, pos),
-        );
-      }
-      return (await Promise.all(updates)).every(Boolean);
+      return await commitRenumber(dragged, targetListId, result.positions, session);
     } finally {
-      setReorderPending(false);
+      clearTimeout(session.timeout);
+      if (!session.blocked) {
+        ownedReorders.delete(session);
+        if (reorderSessions.get(slug) === session) reorderSessions.delete(slug);
+      }
     }
   }
 
@@ -394,10 +416,10 @@ export default function ListCard(props: ListCardProps) {
   );
 
   // Whether a row offers keyboard reorder, by POSITION only — never gated on
-  // reorderPending(). What a row offers is a property of where it sits; keying
-  // it to invisible network state would make identical rows offer different
-  // actions. -1 = not reorderable (a done row, or a resting recurring task
-  // pinned to the end of the list).
+  // an in-flight session. What a row offers is a property of where it sits;
+  // keying it to invisible network state would make identical rows offer
+  // different actions. -1 = not reorderable (a done row, or a resting recurring
+  // task pinned to the end of the list).
   const reorderIndex = (item: Item, section: 'open' | 'done') =>
     section === 'open' ? (reorderableIndexes().get(item.id) ?? -1) : -1;
   const canMoveDown = (item: Item, section: 'open' | 'done') => {
@@ -406,6 +428,7 @@ export default function ListCard(props: ListCardProps) {
   };
 
   async function moveByKeyboard(item: Item, direction: -1 | 1, trigger: HTMLButtonElement) {
+    const slug = props.slug;
     const sorted = [...reorderableItems()];
     const index = reorderableIndexes().get(item.id) ?? -1;
     const targetIndex = index + direction;
@@ -419,55 +442,126 @@ export default function ListCard(props: ListCardProps) {
     // each of these runs. Twice, because a failure rolls the position back — a
     // second write, a second blur. Only from <body>, so a deliberate focus move
     // during the request wins. The trigger node itself survives a reorder, but a
-    // concurrent remote edit remounts the row and destroys it, so fall back to
-    // re-querying by item id (same approach as ListItem#captureFocusFromRow).
+    // concurrent completion can move/remount the row, so fall back to querying
+    // by item id (the same approach as ListItem#captureFocusFromRow).
+    const isAvailable = (element: HTMLElement | null | undefined): element is HTMLElement =>
+      Boolean(element?.isConnected && !element.closest('[inert], [aria-hidden="true"]'));
+    const findItemAction = (itemId: string) => {
+      for (const row of document.querySelectorAll<HTMLElement>('[data-item-id]')) {
+        if (row.getAttribute('data-item-id') !== itemId || !isAvailable(row)) continue;
+        const action = row.querySelector<HTMLElement>('[data-testid="more-actions-button"]');
+        if (isAvailable(action)) return action;
+      }
+    };
     const restoreFocus = () => {
       if (document.activeElement !== document.body) return;
-      const target = trigger.isConnected
+      const target = isAvailable(trigger)
         ? trigger
-        : itemsRef?.querySelector<HTMLElement>(
-            `[data-item-id="${item.id}"] [data-testid="more-actions-button"]`,
-          );
+        : (findItemAction(item.id) ??
+          (nextId ? findItemAction(nextId) : undefined) ??
+          (prevId ? findItemAction(prevId) : undefined) ??
+          itemsRef?.parentElement?.querySelector<HTMLElement>('[data-testid="add-item-input"]'));
       target?.focus();
     };
     const pending = commitReorder(item, props.list.id, sorted, prevId, nextId);
     restoreFocus();
     const moved = await pending;
+    if (disposed || props.slug !== slug) return;
     restoreFocus();
     // Success only. Every failure and refusal above already raises a toast, and
     // Toast is itself role="status" — announcing here too would read the same
     // event to a screen reader twice.
-    if (moved) announce(`Moved "${item.text}" ${directionLabel}.`);
+    if (moved && reorderableIndexes().get(item.id) === targetIndex) {
+      announce(`Moved "${item.text}" ${directionLabel}.`);
+    }
   }
 
-  async function reorderOne(id: string, prevPos: number, nextPos: number): Promise<boolean> {
-    if (prevPos === nextPos) return true;
-    setItemPosition(id, nextPos); // optimistic path write — keeps the row mounted
+  async function commitRenumber(
+    dragged: Item,
+    targetListId: string,
+    positions: Map<string, number>,
+    session: ReorderSession,
+  ): Promise<boolean> {
+    const updates: ItemMove[] = [];
+    const previous: ItemMove[] = [];
+    for (const [id, position] of positions) {
+      const item = state.items.find((candidate) => candidate.id === id);
+      if (!item) continue;
+      const listId = id === dragged.id ? targetListId : item.listId;
+      if (item.listId === listId && item.position === position) continue;
+      previous.push({ id, listId: item.listId, position: item.position });
+      updates.push({ id, listId, position });
+    }
+    if (updates.length === 0) return true;
+    batch(() => updates.forEach((update) => moveItem(update.id, update.listId, update.position)));
     try {
-      await api.updateItem(props.slug, id, { position: nextPos });
+      await api.reorderItems(session.slug, { updates }, session.controller.signal);
       return true;
-    } catch {
-      setItemPosition(id, prevPos); // roll back on failure
-      addToast('Could not reorder the item. Please try again.');
+    } catch (error) {
+      recoverFailedReorder(error, session, () =>
+        batch(() => {
+          updates.forEach((expected, index) => {
+            const item = state.items.find((candidate) => candidate.id === expected.id);
+            if (item?.listId === expected.listId && item.position === expected.position) {
+              const prior = previous[index];
+              moveItem(prior.id, prior.listId, prior.position);
+            }
+          });
+        }),
+      );
       return false;
     }
+  }
+
+  // A known application rejection proves the server rejected the write, so the
+  // optimistic state can be rolled back. A timeout/network/5xx response is
+  // ambiguous: the transaction may have committed before the response was
+  // lost, and its SSE echo can be byte-identical to the optimistic values.
+  // Preserve that state and require an authoritative reload.
+  function recoverFailedReorder(
+    error: unknown,
+    session: ReorderSession,
+    rollback: () => void,
+  ): void {
+    if (disposed || props.slug !== session.slug) return;
+    if (error instanceof ApiError && [400, 401, 403, 404, 422, 429].includes(error.status)) {
+      rollback();
+      addToast('Could not reorder the item. Please try again.');
+      return;
+    }
+    // The browser abort cannot cancel server-side database work, so even a new
+    // GET could race the original transaction and return the old order. Keep
+    // the optimistic/SSE state intact and block further position writes until
+    // the next page load provides an authoritative snapshot.
+    session.blocked = true;
+    addToast('Could not confirm the move. Reload before trying again.');
   }
 
   // Commit the dragged row's new (list, position). A same-list drop only sends
   // position (byte-identical to a plain reorder); a cross-list drop also sends
   // listId. Optimistic, with rollback to the prior list + position on failure.
-  async function commitMove(item: Item, listId: string, position: number): Promise<boolean> {
-    const prevListId = item.listId;
-    const prevPos = item.position;
+  async function commitMove(
+    item: Item,
+    listId: string,
+    position: number,
+    session: ReorderSession,
+  ): Promise<boolean> {
+    const current = state.items.find((candidate) => candidate.id === item.id) ?? item;
+    const prevListId = current.listId;
+    const prevPos = current.position;
     if (prevListId === listId && prevPos === position) return true;
     moveItem(item.id, listId, position);
     try {
       const payload = prevListId === listId ? { position } : { listId, position };
-      await api.updateItem(props.slug, item.id, payload);
+      await api.updateItem(session.slug, item.id, payload, session.controller.signal);
       return true;
-    } catch {
-      moveItem(item.id, prevListId, prevPos);
-      addToast('Could not move the item. Please try again.');
+    } catch (error) {
+      recoverFailedReorder(error, session, () => {
+        const latest = state.items.find((candidate) => candidate.id === item.id);
+        if (latest?.listId === listId && latest.position === position) {
+          moveItem(item.id, prevListId, prevPos);
+        }
+      });
       return false;
     }
   }
