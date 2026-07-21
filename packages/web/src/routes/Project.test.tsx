@@ -11,7 +11,7 @@ import type { TermsStatusResponse } from '../lib/api';
 
 type Api = (typeof import('../lib/api'))['api'];
 
-const { api, navigate, addToast } = vi.hoisted(() => ({
+const { api, navigate, addToast, hasIdentity } = vi.hoisted(() => ({
   api: {
     getTermsStatus: vi.fn<Api['getTermsStatus']>(),
     getProject: vi.fn<Api['getProject']>(),
@@ -23,6 +23,7 @@ const { api, navigate, addToast } = vi.hoisted(() => ({
   },
   navigate: vi.fn(),
   addToast: vi.fn(),
+  hasIdentity: vi.fn(() => true),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -40,7 +41,7 @@ vi.mock('../lib/api', async () => {
   return { ApiError: actual.ApiError, api };
 });
 vi.mock('../lib/identity', () => ({
-  hasIdentity: () => true,
+  hasIdentity,
   savePlainspaceEmail: vi.fn(),
   saveVerifiedWitnessSlug: vi.fn(),
   parseClaim: () => null,
@@ -113,7 +114,7 @@ vi.mock('../components/ui', async () => {
 });
 
 import Project from './Project';
-import { resetState } from '../lib/store';
+import { resetState, setError } from '../lib/store';
 
 const project: SpaceProject = {
   id: 'project-1',
@@ -229,6 +230,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   for (const mock of Object.values(api)) mock.mockReset();
   resetState();
+  hasIdentity.mockReturnValue(true);
   document.title = 'Previous page';
   api.getTermsStatus.mockReturnValue(new Promise(() => {}));
   // Dialog's focus trap skips elements with no client rects, which jsdom always
@@ -394,5 +396,24 @@ describe('Project page structure', () => {
     ).map((element) => element.getAttribute('data-testid'));
     expect(ordered).toEqual(['list-card', 'scratchpad-card', 'panel-column', 'activity-feed']);
     expect(document.title).toBe('Weekend — Plainspace');
+  });
+
+  // The no-identity branch returns before any `await`, so the load's `finally`
+  // runs synchronously inside the effect body. Reading `state.error` tracked
+  // there would subscribe the *load* effect to it, and the next failure would
+  // re-run the whole teardown -- aborting, disconnecting and navigating twice.
+  it('does not subscribe the load effect to the store while settling retry focus', async () => {
+    api.getTermsStatus.mockRejectedValueOnce(new Error('network'));
+    render(() => <Project />);
+
+    const retry = await screen.findByRole('button', { name: /try again/i });
+    hasIdentity.mockReturnValue(false);
+    fireEvent.click(retry);
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+
+    setError('boom');
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(navigate).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
+import { createEffect, onCleanup, Show, For, createSignal, createMemo, untrack } from 'solid-js';
 import { A, useParams, useNavigate } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
 import { useDocumentTitle } from '../lib/document-title';
@@ -357,7 +357,11 @@ export default function Project() {
       } finally {
         // Guarded: an aborted run settles *after* its replacement has already
         // started, so only the current load may claim the focus hand-off.
-        if (loadController === controller) settleRetryFocus();
+        // Untracked: the no-identity branch returns before any `await`, so this
+        // runs synchronously inside the effect body -- reading `state.error`
+        // there would subscribe the *load* effect to it and re-run the whole
+        // teardown on the next failure.
+        if (loadController === controller) untrack(settleRetryFocus);
       }
     })();
   });

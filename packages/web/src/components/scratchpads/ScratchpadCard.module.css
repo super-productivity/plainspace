@@ -41,8 +41,11 @@
   min-height: 24px;
 }
 
-/* `font: inherit` keeps the h2's UA size/weight off the toggle, which global.css
-   gives `font: inherit` -- otherwise a collapsed card's "· N" count renders bold. */
+/* Block box, so the h2's own font sizes its line box: at the UA 1.5em/bold that
+   strut is 36px and the header grows 9px (measured). `font: inherit` also stops
+   global.css's `button { font: inherit }` pulling 24px/700 into the toggle.
+   PanelCard needs `display: flex` on top of this for its rename input; there is
+   no rename here, so a block box is enough. */
 .heading {
   min-width: 0;
   margin: 0;
