@@ -24,10 +24,16 @@
   gap: var(--space-sm);
 }
 
+/* `display: flex` is load-bearing: the rename input below is `flex: 1`, which a
+   block h2 would silently ignore, dropping it to its intrinsic width. `font`
+   keeps the h2's UA size/weight from reaching the toggle, which global.css
+   gives `font: inherit`. */
 .heading {
+  display: flex;
   flex: 1;
   min-width: 0;
   margin: 0;
+  font: inherit;
 }
 
 .title {

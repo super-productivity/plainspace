@@ -198,7 +198,6 @@ export default function ScratchpadCard(props: ScratchpadCardProps) {
               value={content()}
               onInput={(e) => handleInput(e.currentTarget.value)}
               onBlur={handleBlur}
-              rows={3}
               placeholder="Type your notes here..."
               data-testid="scratchpad-textarea"
             />

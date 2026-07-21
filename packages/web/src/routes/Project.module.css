@@ -47,7 +47,6 @@
 .backLink {
   color: var(--color-accent-hover);
   font-weight: 600;
-  text-underline-offset: 3px;
 }
 
 .backLink:focus-visible {

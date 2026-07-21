@@ -294,6 +294,25 @@ describe('Project page structure', () => {
     );
   });
 
+  // The project lands before the activity fetch, so `loading` drops while the
+  // load is still running. Focus must not commit to the Space title until the
+  // whole load settles, or a late activity failure strands it on a removed node.
+  it('moves retry focus to the error when the load fails after the project arrives', async () => {
+    api.getTermsStatus
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(acceptedTermsStatus);
+    api.getProject.mockResolvedValueOnce(projectData());
+    api.getActivity.mockRejectedValueOnce(new Error('activity down'));
+
+    render(() => <Project />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /try again/i }));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId('project-error-heading')),
+    );
+  });
+
   it('leaves retry focus ownership with the terms dialog', async () => {
     let resolveTerms!: (value: typeof requiredTermsStatus) => void;
     api.getTermsStatus.mockRejectedValueOnce(new Error('network')).mockReturnValueOnce(

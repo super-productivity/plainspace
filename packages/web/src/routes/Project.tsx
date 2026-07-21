@@ -1,6 +1,7 @@
-import { createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
+import { batch, createEffect, onCleanup, Show, For, createSignal, createMemo } from 'solid-js';
 import { A, useParams, useNavigate } from '@solidjs/router';
 import { api, ApiError } from '../lib/api';
+import { useDocumentTitle } from '../lib/document-title';
 import {
   hasIdentity,
   savePlainspaceEmail,
@@ -51,6 +52,9 @@ export default function Project() {
   const [focusEmailVerification, setFocusEmailVerification] = createSignal(false);
   const [loadAttempt, setLoadAttempt] = createSignal(0);
   const [retryFocusPending, setRetryFocusPending] = createSignal(false);
+  // False while a load is in flight. Distinct from `state.loading`, which drops
+  // as soon as the project arrives -- before the activity fetch that follows it.
+  const [loadSettled, setLoadSettled] = createSignal(true);
 
   // A plain memo on params.slug would miss the localStorage write the #claim=
   // hand-off does inside the effect below (same slug, so nothing re-tracks).
@@ -78,10 +82,15 @@ export default function Project() {
     setShowMembers(true);
   }
 
+  // Batched: the focus effect below runs after every write, so three separate
+  // updates would first show it a torn state (pending, but still not loading)
+  // and send focus to the error heading that is about to be unmounted.
   function handleRetry() {
-    setRetryFocusPending(true);
-    setLoading(true);
-    setLoadAttempt((attempt) => attempt + 1);
+    batch(() => {
+      setRetryFocusPending(true);
+      setLoading(true);
+      setLoadAttempt((attempt) => attempt + 1);
+    });
   }
 
   // SSE carries no event ids and the server buffers nothing, so a reconnect
@@ -233,48 +242,38 @@ export default function Project() {
     );
   }
 
-  createEffect(() => {
-    if (state.loading) {
-      document.title = 'Opening Space — Plainspace';
-    } else if (state.error) {
-      document.title = 'Couldn’t open Space — Plainspace';
-    } else if (termsRequired()) {
-      document.title = 'Accept updated legal terms — Plainspace';
-    } else if (state.project) {
-      document.title = `${state.project.name} — Plainspace`;
-    } else {
-      document.title = 'Opening Space — Plainspace';
-    }
+  useDocumentTitle(() => {
+    if (state.loading) return 'Opening Space — Plainspace';
+    if (state.error) return 'Couldn’t open Space — Plainspace';
+    if (termsRequired()) return 'Accept updated legal terms — Plainspace';
+    return state.project ? `${state.project.name} — Plainspace` : 'Opening Space — Plainspace';
   });
 
   createEffect(() => {
     if (!retryFocusPending()) return;
-    const loading = state.loading;
-    const error = state.error;
-    const project = state.project;
-    const waitingForTerms = termsRequired();
 
     // Dialog owns modal focus. Hand off once the terms gate replaces the
     // loading state instead of racing its initial-focus microtask.
-    if (!loading && waitingForTerms) {
+    if (!state.loading && termsRequired()) {
       setRetryFocusPending(false);
       return;
     }
 
-    queueMicrotask(() => {
-      const selector = loading
-        ? '[data-testid="project-loading"]'
-        : error
-          ? '[data-testid="project-error-heading"]'
-          : project
-            ? '[data-testid="project-name"]'
-            : null;
-      if (!selector) return;
-      const target = document.querySelector<HTMLElement>(selector);
-      if (!target) return;
-      target.focus();
-      if (!loading) setRetryFocusPending(false);
-    });
+    // Park on the loading indicator for as long as the reload is running.
+    if (state.loading) {
+      document.querySelector<HTMLElement>('[data-testid="project-loading"]')?.focus();
+      return;
+    }
+
+    // `setProjectData` clears `loading` as soon as the project lands, but the
+    // load is still fetching activity -- and a rejection there swaps in the
+    // error screen. Hold focus until the whole load settles, or a late failure
+    // would strand it on an unmounted heading.
+    if (!loadSettled()) return;
+
+    setRetryFocusPending(false);
+    const testId = state.error ? 'project-error-heading' : 'project-name';
+    document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus();
   });
 
   createEffect(() => {
@@ -288,6 +287,7 @@ export default function Project() {
     auxTimers.clear();
     sessionStarted = false;
     resetState();
+    setLoadSettled(false);
     setTermsRequired(false);
     setTermsProjectName('this Space');
     setAcceptingTerms(false);
@@ -373,6 +373,10 @@ export default function Project() {
           disconnectSSE();
           setError(err instanceof ApiError ? err.message : 'Failed to load Space');
         }
+      } finally {
+        // Guarded: an aborted run settles *after* its replacement has already
+        // started, so only the current load may declare itself finished.
+        if (loadController === controller) setLoadSettled(true);
       }
     })();
   });
