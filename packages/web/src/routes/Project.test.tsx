@@ -258,7 +258,7 @@ describe('Project page structure', () => {
 
     render(() => <Project />);
 
-    expect((await screen.findByRole('alert')).textContent).toContain('Failed to load Space');
+    expect((await screen.findByRole('alert')).textContent).toBe('Failed to load Space');
     expect(document.title).toBe('Couldn’t open Space — Plainspace');
     expect(screen.getByRole('link', { name: /back to spaces/i }).getAttribute('href')).toBe(
       '/spaces',

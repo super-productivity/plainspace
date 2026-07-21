@@ -425,11 +425,11 @@ export default function Project() {
         when={!state.error}
         fallback={
           <main class={styles.statePage}>
-            <div class={styles.error} role="alert">
+            <div class={styles.error}>
               <h1 tabindex="-1" data-testid="project-error-heading">
                 Couldn’t open this Space
               </h1>
-              <p>{state.error}</p>
+              <p role="alert">{state.error}</p>
               <div class={styles.errorActions}>
                 <Button onClick={handleRetry}>Try again</Button>
                 <A href="/spaces" class={styles.backLink}>
