@@ -56,6 +56,7 @@ export default function Home() {
   const [step, setStep] = createSignal<Step>('details');
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [codeError, setCodeError] = createSignal('');
   const [knownSpaces, setKnownSpaces] = createSignal(listKnownSpaces());
   const [membersBySlug, setMembersBySlug] = createSignal<Record<string, Member[]>>({});
 
@@ -214,6 +215,7 @@ export default function Home() {
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
 
     // Global account: if this browser already proved this email in another
     // Space, its token stands in for the code. Fall back to the emailed code
@@ -248,17 +250,20 @@ export default function Home() {
   async function handleVerifySubmit(e: Event) {
     e.preventDefault();
     if (!/^\d{6}$/.test(code())) {
-      setError('Enter the 6-digit code we just emailed you.');
+      setError('');
+      setCodeError('Enter the 6-digit code we just emailed you.');
       return;
     }
 
     setSubmitting(true);
     setError('');
+    setCodeError('');
 
     try {
       await createProject({ code: code() });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create Space');
+      if (err instanceof ApiError && err.status === 401) setCodeError(err.message);
+      else setError(err instanceof ApiError ? err.message : 'Failed to create Space');
       setSubmitting(false);
     }
   }
@@ -266,6 +271,7 @@ export default function Home() {
   function showCreateView() {
     setStep('details');
     setError('');
+    setCodeError('');
     setCode('');
     setDevCode(undefined);
     if (!email().trim()) setEmail(getPlainspaceEmail());
@@ -467,8 +473,12 @@ export default function Home() {
               required
               ref={(element) => (findEmailInput = element)}
               data-testid="find-email-input"
-              error={findError()}
             />
+            {findError() && (
+              <p class={styles.error} role="alert">
+                {findError()}
+              </p>
+            )}
             {findInfo() && (
               <p class={styles.subtitle} role="status">
                 {findInfo()}
@@ -671,14 +681,23 @@ export default function Home() {
             autocomplete="one-time-code"
             placeholder="123456"
             value={code()}
-            onInput={(e) => setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
+            onInput={(e) => {
+              setCode(e.currentTarget.value.replace(/\D/g, '').slice(0, 6));
+              setCodeError('');
+            }}
             maxLength={6}
             required
             ref={(element) => (verificationCodeInput = element)}
             data-testid="verify-code-input"
             helperText={devCode() ? `Dev code: ${devCode()}` : undefined}
-            error={error()}
+            error={codeError()}
           />
+
+          {error() && (
+            <p class={styles.error} role="alert">
+              {error()}
+            </p>
+          )}
 
           <LegalNotice action="creating a Space" />
 
@@ -697,6 +716,7 @@ export default function Home() {
             onClick={() => {
               setStep('details');
               setError('');
+              setCodeError('');
               setCode('');
               setDevCode(undefined);
             }}

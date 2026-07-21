@@ -210,6 +210,47 @@ describe('Home — create flow', () => {
     );
     expect(api.requestCreationCode).toHaveBeenCalledWith({ email: 'jo@example.com' });
   });
+
+  it('associates a rejected verification code with the code field', async () => {
+    api.requestCreationCode.mockResolvedValue({ message: 'sent' });
+    api.createProject.mockRejectedValue(
+      new ApiError(401, { error: 'Invalid or expired verification code' }),
+    );
+    render(() => <Home />);
+    fireEvent.click(screen.getByTestId('show-create-button'));
+    fill('project-name-input', 'Summer Trip');
+    fill('display-name-input', 'Jo');
+    fill('email-input', 'jo@example.com');
+    fireEvent.click(screen.getByTestId('create-project-button'));
+
+    const input = await screen.findByTestId('verify-code-input');
+    fill('verify-code-input', '654321');
+    fireEvent.click(screen.getByTestId('verify-code-button'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Invalid or expired verification code');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toContain(alert.id);
+  });
+
+  it('announces a creation failure without marking the code invalid', async () => {
+    api.requestCreationCode.mockResolvedValue({ message: 'sent' });
+    api.createProject.mockRejectedValue(new ApiError(500, { error: 'Please try again later.' }));
+    render(() => <Home />);
+    fireEvent.click(screen.getByTestId('show-create-button'));
+    fill('project-name-input', 'Summer Trip');
+    fill('display-name-input', 'Jo');
+    fill('email-input', 'jo@example.com');
+    fireEvent.click(screen.getByTestId('create-project-button'));
+
+    const input = await screen.findByTestId('verify-code-input');
+    fill('verify-code-input', '654321');
+    fireEvent.click(screen.getByTestId('verify-code-button'));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Please try again later.');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(input.getAttribute('aria-describedby')).toBeNull();
+  });
 });
 
 describe('Home — find my Spaces', () => {
@@ -227,6 +268,20 @@ describe('Home — find my Spaces', () => {
     const button = screen.getByTestId('find-email-button') as HTMLButtonElement;
     await waitFor(() => expect(button.textContent).toMatch(/Send again in/));
     expect(button.disabled).toBe(true);
+  });
+
+  it('announces a lookup failure without marking the email invalid', async () => {
+    api.findSpaces.mockRejectedValue(new ApiError(429, { error: 'Please wait and try again.' }));
+    render(() => <Home />);
+    fireEvent.click(screen.getByTestId('show-login-button'));
+
+    const input = screen.getByTestId('find-email-input');
+    fill('find-email-input', 'jo@example.com');
+    fireEvent.click(screen.getByTestId('find-email-button'));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Please wait and try again.');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(input.getAttribute('aria-describedby')).toBeNull();
   });
 });
 
