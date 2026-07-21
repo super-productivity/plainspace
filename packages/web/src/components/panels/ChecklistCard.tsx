@@ -43,7 +43,7 @@ export default function ChecklistCard(props: ChecklistCardProps) {
   async function handleDeleteItem(itemId: string) {
     const slug = props.slug; // capture so the undo closure doesn't read a tracked prop
     const item = state.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item) return false;
     try {
       await api.deleteItem(slug, itemId);
       // Apply the confirmed result directly (same as Project.tsx) instead of
@@ -58,8 +58,10 @@ export default function ChecklistCard(props: ChecklistCardProps) {
         },
         'Undo',
       );
+      return true;
     } catch {
       addToast('Could not delete the item. Please try again.');
+      return false;
     }
   }
 

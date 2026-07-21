@@ -8,6 +8,8 @@ const {
   state,
   addActivity,
   moveItem,
+  removeItem,
+  restoreItem,
   setItemPosition,
   updateItem,
   addToast,
@@ -16,10 +18,14 @@ const {
   api: {
     updateItem: vi.fn(),
     createItem: vi.fn(),
+    deleteItem: vi.fn(),
+    restoreItem: vi.fn(),
   },
   state: { items: [] as Item[] },
   addActivity: vi.fn(),
   moveItem: vi.fn(),
+  removeItem: vi.fn(),
+  restoreItem: vi.fn(),
   setItemPosition: vi.fn(),
   updateItem: vi.fn(),
   addToast: vi.fn(),
@@ -32,6 +38,8 @@ vi.mock('../../lib/store', () => ({
   state,
   addActivity,
   moveItem,
+  removeItem,
+  restoreItem,
   setItemPosition,
   updateItem,
 }));
@@ -39,6 +47,7 @@ vi.mock('../../lib/toast', () => ({ addToast }));
 vi.mock('../../lib/push', () => ({ ensurePushSubscription: vi.fn() }));
 
 import ListCard from './ListCard';
+import ChecklistCard from '../panels/ChecklistCard';
 
 const list: List = {
   id: 'list-1',
@@ -87,7 +96,11 @@ beforeEach(() => {
     value: vi.fn(() => ({ addEventListener: vi.fn(), cancel: vi.fn() })),
   });
   api.updateItem.mockReset().mockResolvedValue({});
+  api.deleteItem.mockReset().mockResolvedValue(undefined);
+  api.restoreItem.mockReset();
   moveItem.mockReset();
+  removeItem.mockReset();
+  restoreItem.mockReset();
   setItemPosition.mockReset();
   updateItem.mockReset();
   addActivity.mockReset();
@@ -295,5 +308,53 @@ describe('ListCard accessibility', () => {
     expect(sourceRow.style.overflow).toBe('');
     expect(sourceRow.getAttribute('aria-hidden')).toBeNull();
     expect(document.activeElement).toBe(first);
+  });
+});
+
+describe('ChecklistCard item deletion', () => {
+  function renderChecklist() {
+    const items = [item('i1', 'First task', 1000), item('i2', 'Second task', 2000)];
+    state.items = items;
+    render(() => (
+      <ChecklistCard
+        panel={{
+          id: 'panel-1',
+          projectId: 'p1',
+          type: 'checklist',
+          createdBy: 'm1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          listId: list.id,
+          title: 'Packing',
+        }}
+        items={items}
+        members={[]}
+        slug="abc"
+        myId="m1"
+      />
+    ));
+  }
+
+  it('moves focus after the checklist owner confirms deletion', async () => {
+    renderChecklist();
+    const source = screen.getAllByTestId('delete-item-button')[0]!;
+    source.focus();
+
+    fireEvent.click(source);
+
+    await waitFor(() => expect(removeItem).toHaveBeenCalledWith('i1'));
+    expect(document.activeElement).toBe(screen.getAllByTestId('item-checkbox')[1]);
+  });
+
+  it('keeps focus on the checklist row when its owner reports failure', async () => {
+    api.deleteItem.mockRejectedValueOnce(new Error('network'));
+    renderChecklist();
+    const source = screen.getAllByTestId('delete-item-button')[0]!;
+    source.focus();
+
+    fireEvent.click(source);
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(source);
   });
 });

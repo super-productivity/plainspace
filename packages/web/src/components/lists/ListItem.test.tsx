@@ -452,4 +452,75 @@ describe('ListItem delete', () => {
     fireEvent.click(screen.getByTestId('delete-item-button'));
     expect(onDelete).toHaveBeenCalledWith('i1');
   });
+
+  it('moves focus only after a focused row deletion is confirmed', async () => {
+    let confirmDelete!: (deleted: boolean) => void;
+    const onDelete = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          confirmDelete = resolve;
+        }),
+    );
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={onDelete}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const deleteButton = screen.getAllByTestId('delete-item-button')[0]!;
+    const nextCheckbox = screen.getAllByTestId('item-checkbox')[1]!;
+    deleteButton.focus();
+
+    fireEvent.click(deleteButton);
+
+    expect(document.activeElement).toBe(deleteButton);
+    expect(onDelete).toHaveBeenCalledWith('i1');
+    confirmDelete(true);
+    await waitFor(() => expect(document.activeElement).toBe(nextCheckbox));
+  });
+
+  it('restores focus to the source control when deleting a focused row fails', async () => {
+    const onDelete = vi.fn().mockResolvedValue(false);
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={onDelete}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const deleteButton = screen.getAllByTestId('delete-item-button')[0]!;
+    deleteButton.focus();
+
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith('i1'));
+    expect(document.activeElement).toBe(deleteButton);
+  });
 });

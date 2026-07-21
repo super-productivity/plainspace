@@ -53,7 +53,7 @@ interface ListItemProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onAnnounce?: (message: string) => void;
-  onDelete: (itemId: string) => void;
+  onDelete: (itemId: string) => Promise<boolean>;
 }
 
 export default function ListItem(props: ListItemProps) {
@@ -312,8 +312,10 @@ export default function ListItem(props: ListItemProps) {
     }
   }
 
-  function deleteItem() {
-    props.onDelete(props.item.id);
+  async function deleteItem() {
+    const restoreFocus = captureFocusFromRow();
+    const deleted = await props.onDelete(props.item.id);
+    restoreFocus?.(!deleted);
   }
 
   const canReorder = () => !!(props.onMoveUp || props.onMoveDown);
