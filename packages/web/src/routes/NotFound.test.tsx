@@ -17,7 +17,8 @@ describe('NotFound', () => {
     expect(document.title).toBe('Page not found — Plainspace');
     expect(screen.getByRole('main')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: /page not found/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Browse Spaces' }).getAttribute('href')).toBe(
+    // /spaces, not /: the root bounces back into the last open Space.
+    expect(screen.getByRole('link', { name: 'Go to Plainspace' }).getAttribute('href')).toBe(
       '/spaces',
     );
   });

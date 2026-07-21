@@ -271,6 +271,8 @@ export default function Home() {
     try {
       await createProject({ code: code() });
     } catch (err) {
+      // 401 is the "Invalid or expired verification code" branch of
+      // routes/projects.ts; 429/422 are operational and stay global.
       if (err instanceof ApiError && err.status === 401) setCodeError(err.message);
       else setError(err instanceof ApiError ? err.message : 'Failed to create Space');
       setSubmitting(false);

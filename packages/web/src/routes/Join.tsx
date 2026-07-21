@@ -177,6 +177,9 @@ export default function Join() {
       }
       navigate(`/${params.slug}`);
     } catch (err) {
+      // 400 is the "Invalid or expired code" branch of verify-login-code
+      // (server routes/auth.ts); 429/422 are operational and stay global.
+      // Note Connect's equivalent uses 401 — a different server route.
       if (err instanceof ApiError && err.status === 400) setCodeError(err.message);
       else setError(err instanceof ApiError ? err.message : 'Failed to open Space');
       setSubmitting(false);

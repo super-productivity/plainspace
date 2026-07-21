@@ -457,6 +457,7 @@ export default function Styleguide() {
   const [renameValue, setRenameValue] = createSignal('Packing list');
   const [demoCollapsed, setDemoCollapsed] = createSignal(false);
   const demoCollapseBodyId = createUniqueId();
+  let focusDemoHeading: HTMLHeadingElement | undefined;
 
   useDocumentTitle(() => 'Styleguide — Plainspace');
 
@@ -546,6 +547,25 @@ export default function Styleguide() {
           <Button variant="danger">Danger</Button>
           <Button disabled>Disabled</Button>
           <IconDeleteButton label="Delete (demo)" onClick={() => undefined} />
+        </div>
+      </section>
+
+      <section class={styles.section}>
+        <h2 class={styles.sectionTitle}>Managed focus</h2>
+        <p class={styles.helperText}>
+          Routes that swap a view in place move focus to their <code>h1</code>, so the change is
+          announced and keyboard users land at the top of the new content. Give the heading{' '}
+          <code>tabindex="-1"</code>; the ring is global. Activate the button by keyboard to see it
+          — a mouse click focuses the heading without a ring, because the rule keys off{' '}
+          <code>:focus-visible</code>.
+        </p>
+        <div class={styles.row}>
+          <h3 ref={(element) => (focusDemoHeading = element)} tabindex="-1">
+            Demo heading
+          </h3>
+          <Button variant="secondary" onClick={() => focusDemoHeading?.focus()}>
+            Move focus to heading
+          </Button>
         </div>
       </section>
 

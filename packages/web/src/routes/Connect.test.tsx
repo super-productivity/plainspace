@@ -292,6 +292,24 @@ describe('Connect — reveal gate', () => {
     );
   }
 
+  it('announces a successful copy from an already-mounted live region', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    await reachReveal();
+
+    // Present and empty *before* the copy, so AT sees a text change rather than
+    // a region appearing together with its content.
+    const live = screen.getByTestId('connect-reveal').querySelector('[role="status"]');
+    expect(live).toBeTruthy();
+    expect(live!.textContent).toBe('');
+
+    fireEvent.click(screen.getByTestId('connect-copy'));
+
+    await waitFor(() => expect(live!.textContent).toBe('Key copied.'));
+  });
+
   it('keeps the finish gate closed on a failed copy, and tap-to-select opens it', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockRejectedValue(new Error('blocked')) },

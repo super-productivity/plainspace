@@ -305,6 +305,9 @@ export default function Connect() {
       if (e instanceof ApiError && e.body?.code === 'no-account') {
         await createFirstSpace(verifyCode);
       } else {
+        // 401 is the "Invalid or expired verification code" branch of
+        // routes/public-auth.ts; 429/422 are operational and stay global.
+        // Note Join's equivalent uses 400 — a different server route.
         if (e instanceof ApiError && e.status === 401) setCodeError(e.message);
         else setError('Could not connect. Please try again.');
         setState('verify');
@@ -718,11 +721,13 @@ export default function Connect() {
               <Button size="sm" onClick={handleCopy} data-testid="connect-copy">
                 {copied() ? 'Copied ✓' : copyFailed() ? 'Copy failed' : 'Copy key'}
               </Button>
-              <Show when={copied()}>
-                <span class="visually-hidden" role="status">
-                  Key copied.
-                </span>
-              </Show>
+              {/* Stays mounted so AT sees the text *change*: a live region that
+                  appears together with its content is announced unreliably.
+                  Free to keep here because .visually-hidden is positioned out of
+                  flow, so it costs no gap in the flex column. */}
+              <span class="visually-hidden" role="status">
+                {copied() ? 'Key copied.' : ''}
+              </span>
               <Show when={copyFailed()}>
                 <p class={styles.warn} role="alert">
                   Copy failed – tap the key above to select it.

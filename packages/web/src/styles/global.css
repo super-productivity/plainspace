@@ -283,6 +283,18 @@ code {
   background: var(--color-primary-soft);
 }
 
+/* A heading made programmatically focusable is a focus target — routes move
+   focus to it when they swap a view — so it needs a ring like any other.
+   Scoped to headings on purpose: it must not catch Dialog's tabindex="-1"
+   panel, which would draw an outline around the whole modal.
+   :focus-visible is what makes this safe: programmatic focus only matches it
+   when the user was already navigating by keyboard, so a mouse click that
+   swaps the view never draws a ring. */
+:is(h1, h2, h3, h4, h5, h6)[tabindex='-1']:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 4px;
+}
+
 /* Utility classes */
 .visually-hidden {
   position: absolute;

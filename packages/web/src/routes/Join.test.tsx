@@ -61,7 +61,7 @@ describe('Join', () => {
     });
     expect(screen.queryByTestId('join-form')).toBeNull();
     expect(screen.queryByTestId('join-button')).toBeNull();
-    expect(screen.getByRole('link', { name: /browse spaces/i }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: /go to plainspace/i }).getAttribute('href')).toBe(
       '/spaces',
     );
   });
