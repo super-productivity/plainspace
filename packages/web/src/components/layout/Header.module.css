@@ -322,6 +322,24 @@
     padding-bottom: 12px;
   }
 
+  /* Phones can't spend a whole line on a back-link: in flow it made the header
+     21% taller, pushing content below the fold on a 851px viewport. Out of flow
+     it rides in the padding .inner already reserves, so the header keeps the
+     exact height it had before the link existed. Hit height is unchanged from
+     the in-flow version; the negative inline margin widens it a little. */
+  .titleBlock {
+    position: relative;
+  }
+
+  .backLink {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 1px;
+    padding-inline: 6px;
+    margin-left: -6px;
+  }
+
   .name {
     display: -webkit-box;
     overflow: hidden;
