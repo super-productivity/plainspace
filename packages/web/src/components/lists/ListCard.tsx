@@ -4,7 +4,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  createUniqueId,
   on,
   onCleanup,
   onMount,
@@ -55,7 +54,6 @@ interface ListCardProps {
 const [dragActive, setDragActive] = createSignal(false);
 
 export default function ListCard(props: ListCardProps) {
-  const bodyId = createUniqueId();
   // Item ids seen by this list. Initial items are seeded at mount; later ids
   // animate only on their first render, not on updates that replace the item
   // object (assignee, checked state, text edits, etc.).
@@ -391,7 +389,11 @@ export default function ListCard(props: ListCardProps) {
   // Collapse hides the card body (rows, add, done) but keeps the header. Every
   // card folds — the hero list included — keyed by the backing list id (stable
   // for the instance, so the read is untracked).
-  const { collapsed, toggle: toggleCollapsed } = createCollapsed(untrack(() => props.list.id));
+  const {
+    collapsed,
+    toggle: toggleCollapsed,
+    bodyId,
+  } = createCollapsed(untrack(() => props.list.id));
   // Shown next to the title when collapsed — count only open (not-done) items so
   // the number matches what the card is hiding (mirrors the "Done · N" disclosure).
   const itemCount = () => props.items.filter(inOpen).length;

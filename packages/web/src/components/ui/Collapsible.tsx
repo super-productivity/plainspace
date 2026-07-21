@@ -1,4 +1,4 @@
-import { Show, createSignal, untrack, type JSX } from 'solid-js';
+import { Show, createSignal, createUniqueId, untrack, type JSX } from 'solid-js';
 import styles from './Collapsible.module.css';
 
 // Per-device collapse state, persisted in localStorage. Panels are shared
@@ -6,6 +6,9 @@ import styles from './Collapsible.module.css';
 // keyed by the panel's stable id rather than in the DB. The read is one-time at
 // init (ids are stable), so untrack it.
 export function createCollapsed(id: string) {
+  // Handed out with the state so a card can't wire its toggle to a body it
+  // doesn't own -- pass it to CollapseToggle's `controls` and CollapseBody's `id`.
+  const bodyId = createUniqueId();
   const key = `panel-collapsed:${id}`;
   const [collapsed, setCollapsed] = createSignal(
     untrack(() => typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1'),
@@ -19,7 +22,7 @@ export function createCollapsed(id: string) {
       // Storage can be unavailable (private mode); collapse just won't persist.
     }
   }
-  return { collapsed, toggle };
+  return { collapsed, toggle, bodyId };
 }
 
 // One-tap collapse on the whole title row. An expanded card shows just the

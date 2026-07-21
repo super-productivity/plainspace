@@ -1,4 +1,4 @@
-import { Show, createSignal, createUniqueId, untrack, type JSX } from 'solid-js';
+import { Show, createSignal, untrack, type JSX } from 'solid-js';
 import { api } from '../../lib/api';
 import { addToast } from '../../lib/toast';
 import {
@@ -32,8 +32,7 @@ interface PanelCardProps {
 // the controls. Per-type cards (PollCard, TimeSlotCard) supply only their body
 // -- the options / slots list -- as children.
 export default function PanelCard(props: PanelCardProps) {
-  const { collapsed, toggle } = createCollapsed(untrack(() => props.panelId));
-  const bodyId = createUniqueId();
+  const { collapsed, toggle, bodyId } = createCollapsed(untrack(() => props.panelId));
   const [confirming, setConfirming] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   const [renaming, setRenaming] = createSignal(false);

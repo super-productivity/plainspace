@@ -1,4 +1,4 @@
-import { createMemo, createSignal, createUniqueId, Show, onCleanup, untrack } from 'solid-js';
+import { createMemo, createSignal, Show, onCleanup, untrack } from 'solid-js';
 import type { Scratchpad, Member } from '@plainspace/shared';
 import { api } from '../../lib/api';
 import { addToast } from '../../lib/toast';
@@ -18,8 +18,7 @@ interface ScratchpadCardProps {
 }
 
 export default function ScratchpadCard(props: ScratchpadCardProps) {
-  const { collapsed, toggle } = createCollapsed(untrack(() => props.pad.id));
-  const bodyId = createUniqueId();
+  const { collapsed, toggle, bodyId } = createCollapsed(untrack(() => props.pad.id));
   const [editing, setEditing] = createSignal(false);
   // Snapshot initial content; live updates flow in through props and are read in JSX/startEdit.
   // eslint-disable-next-line solid/reactivity

@@ -120,13 +120,6 @@
   border-bottom: 1px solid var(--color-warning-border);
 }
 
-.emptyState {
-  text-align: center;
-  padding: var(--space-xl) var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-base);
-}
-
 .toasts {
   position: fixed;
   bottom: calc(var(--space-md) + var(--safe-bottom));

@@ -1,6 +1,9 @@
 .card {
   /* One floor for the display button and the editor that replaces it -- they
-     swap in place, so any divergence shows up as the card jumping on click. */
+     swap in place, so any divergence shows up as the card jumping on click.
+     Exact parity also relies on global.css's `* { box-sizing: border-box }`:
+     under the UA default a button is border-box and a textarea content-box, so
+     the same floor would still leave the two ~8px apart. */
   --pad-min-h: calc(var(--space-xl) * 2);
   position: relative;
   /* Same sheet of paper as ListCard: no outline, gently rounded, defined by
