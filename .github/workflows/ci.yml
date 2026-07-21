@@ -15,9 +15,13 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Audit high-severity dependency advisories
-        run: npm audit --audit-level=high
       - run: npm run check
+      # Last, and never short-circuiting the checks above: a fresh advisory can
+      # go public at any time and turn this red without a code change. Typecheck
+      # / lint / format must still report on that run.
+      - name: Audit high-severity dependency advisories
+        if: always()
+        run: npm audit --audit-level=high
 
   unit-test:
     runs-on: ubuntu-latest
