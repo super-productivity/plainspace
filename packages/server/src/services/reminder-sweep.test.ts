@@ -356,9 +356,14 @@ describe('runReminderSweep', () => {
     expect(row.remindAt?.getTime()).toBe(item.remindAt!.getTime());
     expect(row.notifiedAt).toBeNull();
 
-    sendEmail.mockClear();
+    // Tick 2: the push rejection was mocked once, so this delivery succeeds.
+    // A second push attempt is the proof the row was re-claimed.
     await runReminderSweep(new Date(now.getTime() + 60_000));
-    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendNotification).toHaveBeenCalledTimes(2);
+
+    const [retried] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(retried.remindAt?.getTime()).toBe(item.remindAt!.getTime());
+    expect(retried.notifiedAt).not.toBeNull();
   });
 
   it('skips email fallback for display-name-only members (no email on file)', async () => {
@@ -662,8 +667,10 @@ describe('runReminderSweep — recurring items', () => {
     await runReminderSweep();
 
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
-    // One-shot reminder fired and cleared; never re-armed.
-    expect(row.remindAt).toBeNull();
+    // The fire never moves a one-off's reminder or grows it a schedule — it
+    // stays where the user set it and reads as overdue, suppressed by the stamp.
+    expect(row.remindAt?.getTime()).toBe(item.remindAt!.getTime());
+    expect(row.notifiedAt).not.toBeNull();
     expect(row.repeat).toBeNull();
   });
 
