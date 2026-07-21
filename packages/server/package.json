@@ -21,7 +21,7 @@
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.25",
     "nanoid": "^5.1.5",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "^9.0.3",
     "postgres": "^3.4.7",
     "tsx": "^4.23.0",
     "web-push": "^3.6.7"
