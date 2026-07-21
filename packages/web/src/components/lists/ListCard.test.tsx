@@ -94,7 +94,7 @@ function renderCard(items: Item[]) {
   );
   setItemPosition.mockImplementation(reposition);
   state.items = items;
-  return render(() => (
+  const rendered = render(() => (
     <ListCard
       list={list}
       items={rows()}
@@ -105,6 +105,11 @@ function renderCard(items: Item[]) {
       onDeleteItem={vi.fn()}
     />
   ));
+  // Replace an item OBJECT the way a remote update does. <For> keys by
+  // reference, so this remounts the row and destroys the nodes inside it.
+  const remoteEdit = (id: string, patch: Partial<Item>) =>
+    setRows((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  return Object.assign(rendered, { remoteEdit });
 }
 
 beforeEach(() => {
@@ -189,6 +194,32 @@ describe('ListCard accessibility', () => {
     // scope, so an in-flight move would refuse the next test's reorder.
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe('Moved "First task" down.'),
+    );
+  });
+
+  // A collaborator editing the same row mid-save remounts it, destroying the
+  // trigger node the restore was holding. Focus has to be re-found by id.
+  it('keeps focus on the row when a remote edit remounts it mid-reorder', async () => {
+    let confirmUpdate!: (value: unknown) => void;
+    api.updateItem.mockReturnValueOnce(
+      new Promise((resolve) => {
+        confirmUpdate = resolve;
+      }),
+    );
+    const { remoteEdit } = renderCard([
+      item('i1', 'First task', 1000),
+      item('i2', 'Second task', 2000),
+    ]);
+
+    fireEvent.click(screen.getByLabelText('Actions for First task'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
+
+    remoteEdit('i1', { assignedTo: 'm2' });
+    expect(document.activeElement).toBe(document.body);
+
+    confirmUpdate({});
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Actions for First task')),
     );
   });
 

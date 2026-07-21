@@ -137,10 +137,14 @@ export default function ListCard(props: ListCardProps) {
     }, animateMs);
 
     return () => {
+      // Unconditional and idempotent: a toggle that fails AFTER its outro has
+      // already finished still has to drop the marker. Leaving it behind replays
+      // the entrance animation the next time an SSE echo remounts the row —
+      // the exact thing justArrived exists to prevent.
+      justArrived.delete(itemId);
       if (untrack(outro)?.run !== run) return;
       if (outroAnimTimer) clearTimeout(outroAnimTimer);
       if (outroLeaveTimer) clearTimeout(outroLeaveTimer);
-      justArrived.delete(itemId);
       setOutro(null);
     };
   }
@@ -411,15 +415,20 @@ export default function ListCard(props: ListCardProps) {
     const prevId = sorted[targetIndex - 1]?.id ?? null;
     const nextId = sorted[targetIndex + 1]?.id ?? null;
     const directionLabel = direction < 0 ? 'up' : 'down';
-    // <For> re-inserts the moved row, and re-parenting a node blurs its focused
-    // descendant. The store writes are synchronous, so the row has already moved
-    // by the time each of these runs. Twice, because a failure rolls the position
-    // back — a second write, a second re-parent, a second blur. Only restore from
-    // <body>: after the await the user may have deliberately focused elsewhere.
+    // The store writes are synchronous, so the row has already moved by the time
+    // each of these runs. Twice, because a failure rolls the position back — a
+    // second write, a second blur. Only from <body>, so a deliberate focus move
+    // during the request wins. The trigger node itself survives a reorder, but a
+    // concurrent remote edit remounts the row and destroys it, so fall back to
+    // re-querying by item id (same approach as ListItem#captureFocusFromRow).
     const restoreFocus = () => {
-      if (document.activeElement === document.body && trigger.isConnected) {
-        trigger.focus();
-      }
+      if (document.activeElement !== document.body) return;
+      const target = trigger.isConnected
+        ? trigger
+        : itemsRef?.querySelector<HTMLElement>(
+            `[data-item-id="${item.id}"] [data-testid="more-actions-button"]`,
+          );
+      target?.focus();
     };
     const pending = commitReorder(item, props.list.id, sorted, prevId, nextId);
     restoreFocus();

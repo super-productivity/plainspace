@@ -62,11 +62,11 @@ export default function ListItem(props: ListItemProps) {
   const [editText, setEditText] = createSignal('');
   const [showPicker, setShowPicker] = createSignal(false);
   const [showReminderPicker, setShowReminderPicker] = createSignal(false);
-  // Mobile: the non-state actions (empty assign, empty reminder, delete) move
-  // into a ⋯ popover menu so the title reclaims the row width (a CSS media
-  // query hides the inline buttons on touch; desktop keeps its hover-reveal).
-  // The picker it opens anchors to whichever element was tapped — the inline
-  // badge on desktop, the ⋯ trigger on mobile.
+  // On touch the non-state actions (empty assign, empty reminder, delete) move
+  // into the ⋯ popover menu so the title reclaims the row width (a CSS media
+  // query hides the inline buttons there; desktop keeps its hover-reveal and
+  // uses the menu for keyboard reorder). The picker anchors to whichever
+  // control opened it — the inline badge or the ⋯ trigger.
   const [reminderAnchor, setReminderAnchor] = createSignal<HTMLButtonElement>();
   const [assignAnchor, setAssignAnchor] = createSignal<HTMLButtonElement>();
   const prefersReducedMotion =
@@ -180,12 +180,12 @@ export default function ListItem(props: ListItemProps) {
     // Used when the row is STAYING (its update failed): put focus back on the
     // control the user was actually on — the original node if it survived the
     // render, else the same control re-queried on the replacement instance.
+    // Every focusable control in a row carries a data-testid, so the re-query
+    // always has something to look for.
     const sourceControlIn = (row: Element | undefined) => {
-      if (!row) return undefined;
+      if (!row || !sourceControlTestId) return undefined;
       if (sourceControl?.isConnected && row.contains(sourceControl)) return sourceControl;
-      return sourceControlTestId
-        ? row.querySelector<HTMLElement>(`[data-testid="${sourceControlTestId}"]`)
-        : checkboxIn(row);
+      return row.querySelector<HTMLElement>(`[data-testid="${sourceControlTestId}"]`);
     };
 
     // The focused row can be remounted by an SSE echo while its PATCH is in
@@ -212,9 +212,8 @@ export default function ListItem(props: ListItemProps) {
   );
 
   // Open a picker anchored to `anchor`. Both pickers are Popovers positioned
-  // against a live element, so the
-  // anchor must stay mounted while open — the inline badge (visible on desktop,
-  // or on mobile when it carries state) or the ⋯ trigger (visible on mobile).
+  // against a live element, so the anchor must stay mounted while open —
+  // whichever control opened it, the inline badge or the ⋯ trigger.
   function openReminderPicker(anchor: HTMLButtonElement) {
     setReminderAnchor(anchor);
     setShowReminderPicker(true);
@@ -572,10 +571,7 @@ export default function ListItem(props: ListItemProps) {
         </button>
         {/* On touch, the empty reminder/assign actions and delete collapse into
             this ⋯ menu. Desktop keeps its hover-revealed inline buttons and uses
-            the menu for keyboard reorder, which has no inline equivalent.
-            Revealed by opacity like its neighbours, never display:none — an
-            unrendered element cannot hold focus, and this trigger is where the
-            closing menu returns it. */}
+            the menu for keyboard reorder, which has no inline equivalent. */}
         <Menu
           class={styles.moreButton}
           label={`Actions for ${props.item.text}`}

@@ -549,7 +549,13 @@ export default function Project() {
               </Show>
             </main>
 
-            <div class={styles.toasts}>
+            {/* The live region is this always-mounted host, not the individual
+                toasts: a region inserted in the same tick as its content is
+                unreliably announced (VoiceOver in particular). Toasts are the
+                only channel for some failures, so they have to be dependable.
+                aria-atomic is explicit because role="status" implies true, which
+                would re-read every visible toast each time one is added. */}
+            <div class={styles.toasts} role="status" aria-atomic="false">
               <For each={toasts()}>
                 {(toast) => (
                   <Toast

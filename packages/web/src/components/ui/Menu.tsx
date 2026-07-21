@@ -40,6 +40,14 @@ export default function Menu(props: MenuProps) {
   }
 
   function handleMenuKeyDown(event: KeyboardEvent) {
+    // The menu is portalled to the end of <body>, so Tab would walk out of the
+    // document entirely — leaving focus on <body> and the menu still open, with
+    // its backdrop silently eating every click. Close instead; Popover's cleanup
+    // hands focus back to the trigger.
+    if (event.key === 'Tab') {
+      setOpen(false);
+      return;
+    }
     const items = itemRefs.slice(0, props.items.length);
     if (!items.length) return;
     const current = items.indexOf(document.activeElement as HTMLButtonElement);
@@ -87,6 +95,9 @@ export default function Menu(props: MenuProps) {
                   ref={(element) => (itemRefs[index()] = element)}
                   type="button"
                   role="menuitem"
+                  // Arrow keys move between items (APG); only the trigger is in
+                  // the tab sequence.
+                  tabindex="-1"
                   class={`${styles.item} ${item.danger ? styles.danger : ''}`}
                   onClick={() => {
                     // Close first so the popover's focus-return runs before the

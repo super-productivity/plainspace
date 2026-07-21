@@ -883,16 +883,15 @@ export default function Styleguide() {
           popover menu (Set reminder / Assign / Delete), while an assignee avatar or active reminder
           badge stays inline because it carries state — so the title keeps the row's width. The ⋯
           trigger is present on pointer devices too, revealed the same way, because it is the only
-          route to keyboard reorder (Move up / Move down) — those have no inline equivalent. It is
-          revealed by opacity and never <code>display: none</code>: an unrendered element cannot
-          hold focus, and this trigger is where the closing menu returns it. The schedule button
-          carries a glyph per state so it doesn't lean on colour alone: an empty button shows a{' '}
-          <code>+</code> add affordance on hover, a repeating one the ↻ glyph, a resting one
-          (checked, awaiting its next occurrence) a › before the time, and an overdue one (recurring
-          fire passed while undone) a bold amber <code>!</code> — the third task is resting, the
-          fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat / Daily / Weekly /
-          Every 2 weeks / Monthly) lives in the reminder picker; byWeekday/byMonthDay are derived
-          from the chosen fire time at commit, and the server owns the immutable anchor.
+          route to keyboard reorder (Move up / Move down) — those have no inline equivalent. The
+          schedule button carries a glyph per state so it doesn't lean on colour alone: an empty
+          button shows a <code>+</code> add affordance on hover, a repeating one the ↻ glyph, a
+          resting one (checked, awaiting its next occurrence) a › before the time, and an overdue
+          one (recurring fire passed while undone) a bold amber <code>!</code> — the third task is
+          resting, the fourth overdue. The repeat <code>&lt;select&gt;</code> (Doesn't repeat /
+          Daily / Weekly / Every 2 weeks / Monthly) lives in the reminder picker;
+          byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
+          the immutable anchor.
         </p>
       </section>
 

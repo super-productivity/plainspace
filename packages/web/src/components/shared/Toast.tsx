@@ -53,7 +53,6 @@ export default function Toast(props: ToastProps) {
     <div
       class={styles.toast}
       data-testid="toast"
-      role="status"
       onMouseEnter={pause}
       onMouseLeave={resume}
       onFocusIn={pause}

@@ -268,9 +268,8 @@
   .item:focus-within .moreButton {
     opacity: 1;
   }
-  /* The open menu renders in a portal, so focus sits outside .item and
-     :focus-within goes false — without this the trigger fades out from under
-     its own menu for anyone who opened it from the keyboard. */
+  /* The open menu is portalled, so :focus-within goes false and its scrim
+     covers the row — without this the trigger fades out under its own menu. */
   .moreButton[aria-expanded='true'] {
     opacity: 1;
   }
