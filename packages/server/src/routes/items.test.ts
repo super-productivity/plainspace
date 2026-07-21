@@ -58,6 +58,18 @@ async function patchItem(
   });
 }
 
+async function patchItems(
+  slug: string,
+  token: string,
+  updates: Array<{ id: string; listId: string; position: number }>,
+): Promise<Response> {
+  return app.request(`/api/projects/${slug}/items`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ updates }),
+  });
+}
+
 async function createItem(slug: string, token: string, text: string): Promise<Response> {
   return app.request(`/api/projects/${slug}/items`, {
     method: 'POST',
@@ -83,6 +95,103 @@ describe('PATCH item — request validation', () => {
 
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ error: 'Validation failed' });
+  });
+
+  it('rejects a position outside PostgreSQL integer range', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const item = await addItem(listId, project.id);
+
+    const res = await patchItem(project.slug, item.id, token, { position: 2_147_483_648 });
+
+    expect(res.status).toBe(422);
+  });
+});
+
+describe('PATCH items — atomic reorder', () => {
+  async function addChecklistList(projectId: string): Promise<string> {
+    const [panel] = await db.insert(panels).values({ projectId, type: 'checklist' }).returning();
+    const [list] = await db
+      .insert(lists)
+      .values({ projectId, panelId: panel.id, columns: null })
+      .returning();
+    return list.id;
+  }
+
+  async function reloadItem(itemId: string) {
+    return db.query.items.findFirst({ where: eq(items.id, itemId) });
+  }
+
+  it('updates every position and list in one request', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const targetListId = await addChecklistList(project.id);
+    const first = await addItem(listId, project.id, { position: 1 });
+    const second = await addItem(listId, project.id, { position: 2 });
+
+    const res = await patchItems(project.slug, token, [
+      { id: second.id, listId, position: 1000 },
+      { id: first.id, listId: targetListId, position: 2000 },
+    ]);
+
+    expect(res.status).toBe(204);
+    expect(await reloadItem(second.id)).toMatchObject({ listId, position: 1000 });
+    expect(await reloadItem(first.id)).toMatchObject({ listId: targetListId, position: 2000 });
+  });
+
+  it('allows only one whole-Space rewrite per member each minute', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const task = await addItem(listId, project.id, { position: 1 });
+    const updates = [{ id: task.id, listId, position: 1000 }];
+
+    expect((await patchItems(project.slug, token, updates)).status).toBe(204);
+    expect((await patchItems(project.slug, token, updates)).status).toBe(429);
+  });
+
+  it('rejects an item outside the Space without partially updating valid rows', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const item = await addItem(listId, project.id, { position: 1000 });
+    const other = await createProject();
+    const outsider = await addItem(other.listId, other.project.id, { position: 1000 });
+
+    const res = await patchItems(project.slug, token, [
+      { id: item.id, listId, position: 2000 },
+      { id: outsider.id, listId, position: 3000 },
+    ]);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Item not found' });
+    expect(await reloadItem(item.id)).toMatchObject({ listId, position: 1000 });
+  });
+
+  it('rejects a target list outside the Space without changing any row', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const item = await addItem(listId, project.id, { position: 1000 });
+    const other = await createProject();
+
+    const res = await patchItems(project.slug, token, [
+      { id: item.id, listId: other.listId, position: 2000 },
+    ]);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'List not found' });
+    expect(await reloadItem(item.id)).toMatchObject({ listId, position: 1000 });
+  });
+
+  it('rejects duplicate item ids at the request boundary', async () => {
+    const { project, listId } = await createProject();
+    const { token } = await authedMember(project.id);
+    const item = await addItem(listId, project.id, { position: 1000 });
+
+    const res = await patchItems(project.slug, token, [
+      { id: item.id, listId, position: 1000 },
+      { id: item.id, listId, position: 2000 },
+    ]);
+
+    expect(res.status).toBe(422);
   });
 });
 

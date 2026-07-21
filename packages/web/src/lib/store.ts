@@ -1,4 +1,5 @@
-import { createStore, produce } from 'solid-js/store';
+import { batch } from 'solid-js';
+import { createStore, produce, reconcile } from 'solid-js/store';
 import type {
   Project,
   Member,
@@ -71,16 +72,18 @@ export function setProjectData(data: {
   attachments?: Attachment[];
   panels: PanelView[];
 }) {
-  setState({
-    project: data.project,
-    list: data.list,
-    items: data.items,
-    members: data.members,
-    scratchpad: data.scratchpad,
-    attachments: data.attachments ?? [],
-    panels: data.panels,
-    loading: false,
-    error: null,
+  batch(() => {
+    setState({
+      project: data.project,
+      list: data.list,
+      members: data.members,
+      scratchpad: data.scratchpad,
+      attachments: data.attachments ?? [],
+      panels: data.panels,
+      loading: false,
+      error: null,
+    });
+    setState('items', reconcile(data.items, { key: 'id' }));
   });
 }
 
@@ -118,28 +121,17 @@ export function updateItem(item: Item) {
     produce((s) => {
       const idx = s.items.findIndex((i) => i.id === item.id);
       if (idx === -1) return;
-      // Skip byte-identical updates: the actor applies its PATCH response and
-      // then receives the SSE echo of the same item — replacing the object
-      // twice would remount the <For>-keyed row twice and restart in-flight
-      // check/strike animations. Both sides come from serializeItem, so the
-      // JSON key order is stable.
-      if (JSON.stringify(s.items[idx]) === JSON.stringify(item)) return;
-      s.items[idx] = item;
+      // Keep the keyed row mounted across ordinary SSE edits. Assigning an
+      // unchanged value is already a no-op in the Solid store, so the actor's
+      // PATCH response and its byte-identical SSE echo remain cheap.
+      Object.assign(s.items[idx], item);
     }),
   );
 }
 
-// Optimistic reorder write. A path write (not whole-object replacement) so
-// the item keeps its object reference and <For> reconciles the move instead
-// of remounting the row (which would re-trigger the entrance animation).
-export function setItemPosition(itemId: string, position: number) {
-  setState('items', (i) => i.id === itemId, 'position', position);
-}
-
-// Optimistic move between lists: rewrite listId + position together, preserving
-// the item's object reference. Each list's <For> filters on listId, so the
-// source card drops the row and the destination card mounts it — a drag-and-
-// drop hand-off — without touching unrelated rows.
+// Optimistic reorder/move: rewrite listId + position together, preserving the
+// item's object reference. A cross-list move makes the source card drop the row
+// and the destination card mount it without touching unrelated rows.
 export function moveItem(itemId: string, listId: string, position: number) {
   setState(
     'items',

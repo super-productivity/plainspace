@@ -59,13 +59,36 @@ function renderItem(
 }
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'animate', {
+    configurable: true,
+    value: vi.fn(() => ({ addEventListener: vi.fn(), cancel: vi.fn() })),
+  });
   api.updateItem.mockReset().mockResolvedValue({ item: item(), activity: { id: 'a1' } });
   addActivity.mockReset();
   addToast.mockReset();
   ensurePushSubscription.mockReset().mockResolvedValue(undefined);
 });
 
+describe('ListItem animation', () => {
+  it('keeps the row clipped while its enter animation is running', () => {
+    renderItem({}, { animateIn: true });
+
+    expect(screen.getByTestId('list-item').style.overflow).toBe('hidden');
+  });
+});
+
 describe('ListItem checkbox', () => {
+  it('names the checkbox after the task', () => {
+    renderItem({ text: 'Buy milk', checked: false });
+    expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeTruthy();
+  });
+
+  // The name must not flip with the state — aria-checked already carries it.
+  it('keeps the checkbox name stable once the task is complete', () => {
+    renderItem({ text: 'Buy milk', checked: true });
+    expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeTruthy();
+  });
+
   it('reflects the checked state via aria-checked', () => {
     renderItem({ checked: true });
     expect(screen.getByTestId('item-checkbox').getAttribute('aria-checked')).toBe('true');
@@ -94,13 +117,171 @@ describe('ListItem checkbox', () => {
   it('toasts when the toggle request fails', async () => {
     api.updateItem.mockRejectedValueOnce(new Error('network'));
     renderItem();
-    fireEvent.click(screen.getByTestId('item-checkbox'));
+    const checkbox = screen.getByTestId('item-checkbox');
+    checkbox.focus();
+    fireEvent.click(checkbox);
     await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
     expect(addActivity).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(checkbox);
+  });
+
+  it('moves focus to the next task and announces a completed focused task', async () => {
+    const onAnnounce = vi.fn();
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+          onAnnounce={onAnnounce}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const checkboxes = screen.getAllByTestId('item-checkbox');
+    checkboxes[0]!.focus();
+
+    fireEvent.click(checkboxes[0]!);
+
+    await waitFor(() => expect(document.activeElement).toBe(checkboxes[1]));
+    expect(onAnnounce).toHaveBeenCalledWith('Completed "Buy milk".');
+  });
+
+  it('does not steal focus when the user moves on before completion finishes', async () => {
+    let resolveUpdate!: (value: unknown) => void;
+    api.updateItem.mockImplementationOnce(
+      () => new Promise((resolve) => (resolveUpdate = resolve)),
+    );
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+        <button type="button">Elsewhere</button>
+      </div>
+    ));
+    const first = screen.getAllByTestId('item-checkbox')[0]!;
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    first.focus();
+    fireEvent.click(first);
+    elsewhere.focus();
+
+    resolveUpdate({ item: item({ checked: true }), activity: { id: 'a1' } });
+
+    await waitFor(() => expect(addActivity).toHaveBeenCalledWith({ id: 'a1' }));
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it('moves focus and announces when a focused completed task is reopened', async () => {
+    const onAnnounce = vi.fn();
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk', checked: true })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+          onAnnounce={onAnnounce}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', checked: true, position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const checkboxes = screen.getAllByTestId('item-checkbox');
+    checkboxes[0]!.focus();
+
+    fireEvent.click(checkboxes[0]!);
+
+    await waitFor(() => expect(document.activeElement).toBe(checkboxes[1]));
+    expect(onAnnounce).toHaveBeenCalledWith('Marked "Buy milk" incomplete.');
+  });
+
+  it('hides a leaving task from interaction and assistive technology', () => {
+    renderItem({}, { leaving: true });
+
+    const row = screen.getByTestId('list-item') as HTMLDivElement;
+    expect(row.getAttribute('aria-hidden')).toBe('true');
+    expect(row.inert).toBe(true);
+  });
+
+  it('skips an adjacent leaving task when moving focus after completion', async () => {
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Leaving task', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          leaving
+          onDelete={vi.fn()}
+        />
+        <ListItem
+          item={item({ id: 'i3', text: 'Buy oats', position: 2 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const checkboxes = screen.getAllByTestId('item-checkbox');
+    checkboxes[0]!.focus();
+
+    fireEvent.click(checkboxes[0]!);
+
+    await waitFor(() => expect(document.activeElement).toBe(checkboxes[2]));
   });
 });
 
 describe('ListItem inline edit', () => {
+  it('names the inline editor after the task being edited', () => {
+    renderItem({ text: 'Buy milk' });
+    fireEvent.click(screen.getByTestId('item-text'));
+
+    expect(screen.getByRole('textbox', { name: 'Edit item: Buy milk' })).toBeTruthy();
+  });
+
   it('exposes the full title in the native hover tooltip', () => {
     const title =
       'A task title long enough to wrap across several lines while keeping the complete text available';
@@ -146,6 +327,14 @@ describe('ListItem inline edit', () => {
 });
 
 describe('ListItem reminder', () => {
+  it('gives each repeated task action a task-specific name', () => {
+    renderItem({ text: 'Buy milk' });
+
+    expect(screen.getByRole('button', { name: 'Set reminder for "Buy milk"' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Assign someone to "Buy milk"' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Delete "Buy milk"' })).toBeTruthy();
+  });
+
   it('saves a reminder via a preset and subscribes to push in parallel', async () => {
     renderItem();
     // Open the picker, then pick the always-present "In 1 hour" preset, which
@@ -167,7 +356,7 @@ describe('ListItem reminder', () => {
   });
 });
 
-describe('ListItem mobile actions menu', () => {
+describe('ListItem actions menu', () => {
   it('opens the labelled ⋯ menu and reflects it in aria-expanded', () => {
     renderItem();
     const more = screen.getByTestId('more-actions-button');
@@ -263,5 +452,76 @@ describe('ListItem delete', () => {
     const { onDelete } = renderItem();
     fireEvent.click(screen.getByTestId('delete-item-button'));
     expect(onDelete).toHaveBeenCalledWith('i1');
+  });
+
+  it('moves focus only after a focused row deletion is confirmed', async () => {
+    let confirmDelete!: (deleted: boolean) => void;
+    const onDelete = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          confirmDelete = resolve;
+        }),
+    );
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={onDelete}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const deleteButton = screen.getAllByTestId('delete-item-button')[0]!;
+    const nextCheckbox = screen.getAllByTestId('item-checkbox')[1]!;
+    deleteButton.focus();
+
+    fireEvent.click(deleteButton);
+
+    expect(document.activeElement).toBe(deleteButton);
+    expect(onDelete).toHaveBeenCalledWith('i1');
+    confirmDelete(true);
+    await waitFor(() => expect(document.activeElement).toBe(nextCheckbox));
+  });
+
+  it('restores focus to the source control when deleting a focused row fails', async () => {
+    const onDelete = vi.fn().mockResolvedValue(false);
+    render(() => (
+      <div>
+        <ListItem
+          item={item({ id: 'i1', text: 'Buy milk' })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={onDelete}
+        />
+        <ListItem
+          item={item({ id: 'i2', text: 'Buy oats', position: 1 })}
+          members={members}
+          attachments={[]}
+          slug="abc"
+          myId="m1"
+          onDelete={vi.fn()}
+        />
+      </div>
+    ));
+    const deleteButton = screen.getAllByTestId('delete-item-button')[0]!;
+    deleteButton.focus();
+
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith('i1'));
+    expect(document.activeElement).toBe(deleteButton);
   });
 });

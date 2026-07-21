@@ -45,8 +45,16 @@ interface ListItemProps {
    *  from the live list. Owned by the parent (ListCard) so it can keep the
    *  row rendered for the leave window. */
   leaving?: boolean;
-  onBeforeToggle?: (itemId: string, wasChecked: boolean, isRecurring: boolean) => void;
-  onDelete: (itemId: string) => void;
+  onBeforeToggle?: (
+    itemId: string,
+    wasChecked: boolean,
+    isRecurring: boolean,
+  ) => void | (() => void);
+  /** Receive the ⋯ trigger so the caller can put focus back after the row moves. */
+  onMoveUp?: (trigger: HTMLButtonElement) => void;
+  onMoveDown?: (trigger: HTMLButtonElement) => void;
+  onAnnounce?: (message: string) => void;
+  onDelete: (itemId: string) => Promise<boolean>;
 }
 
 export default function ListItem(props: ListItemProps) {
@@ -54,11 +62,11 @@ export default function ListItem(props: ListItemProps) {
   const [editText, setEditText] = createSignal('');
   const [showPicker, setShowPicker] = createSignal(false);
   const [showReminderPicker, setShowReminderPicker] = createSignal(false);
-  // Mobile: the non-state actions (empty assign, empty reminder, delete) move
-  // into a ⋯ popover menu so the title reclaims the row width (a CSS media
-  // query hides the inline buttons on touch; desktop keeps its hover-reveal).
-  // The picker it opens anchors to whichever element was tapped — the inline
-  // badge on desktop, the ⋯ trigger on mobile.
+  // On touch the non-state actions (empty assign, empty reminder, delete) move
+  // into the ⋯ popover menu so the title reclaims the row width (a CSS media
+  // query hides the inline buttons there; desktop keeps its hover-reveal and
+  // uses the menu for keyboard reorder). The picker anchors to whichever
+  // control opened it — the inline badge or the ⋯ trigger.
   const [reminderAnchor, setReminderAnchor] = createSignal<HTMLButtonElement>();
   const [assignAnchor, setAssignAnchor] = createSignal<HTMLButtonElement>();
   const prefersReducedMotion =
@@ -113,14 +121,23 @@ export default function ListItem(props: ListItemProps) {
     onCleanup(() => anim.cancel());
   });
 
+  let leaveAnimation: Animation | undefined;
+  function resetLeaveAnimation() {
+    if (!leaveAnimation) return;
+    leaveAnimation.cancel();
+    leaveAnimation = undefined;
+    if (itemRef) itemRef.style.overflow = '';
+  }
+
   createEffect(
     on(
       () => props.leaving,
       (leaving) => {
+        resetLeaveAnimation();
         if (!leaving || !itemRef) return;
         const start = itemRef.offsetHeight;
         itemRef.style.overflow = 'hidden';
-        itemRef.animate(
+        leaveAnimation = itemRef.animate(
           [
             { height: `${start}px`, opacity: 1 },
             { height: '0px', opacity: 0 },
@@ -130,19 +147,73 @@ export default function ListItem(props: ListItemProps) {
       },
     ),
   );
+  onCleanup(resetLeaveAnimation);
 
   let inputRef: HTMLInputElement | undefined;
   let assignButtonRef: HTMLButtonElement | undefined;
   let reminderButtonRef: HTMLButtonElement | undefined;
+
+  // Completing or deleting a row can remove its focused control from the
+  // current section. Capture the next task (then previous, then the add field)
+  // before that happens, so focus can be restored to the current DOM node.
+  function captureFocusFromRow() {
+    if (!itemRef?.contains(document.activeElement)) return;
+    const activeAtCapture = document.activeElement;
+    const container = itemRef.parentElement;
+    const section = itemRef.closest('section');
+    const rows = [...(container?.children ?? [])].filter((element) =>
+      element.hasAttribute('data-item-id'),
+    );
+    const sourceId = props.item.id;
+    const index = rows.indexOf(itemRef);
+    const sourceControl = activeAtCapture instanceof HTMLElement ? activeAtCapture : undefined;
+    const sourceControlTestId = sourceControl?.dataset.testid;
+    const canReceiveFocus = (element: Element) =>
+      !element.hasAttribute('inert') && element.getAttribute('aria-hidden') !== 'true';
+    const targetRow =
+      rows.slice(index + 1).find(canReceiveFocus) ??
+      rows.slice(0, index).reverse().find(canReceiveFocus);
+    const targetId = targetRow?.getAttribute('data-item-id');
+
+    const checkboxIn = (row: Element | undefined) =>
+      row?.querySelector<HTMLElement>('[data-testid="item-checkbox"]');
+    // Used when the row is STAYING (its update failed): put focus back on the
+    // control the user was actually on — the original node if it survived the
+    // render, else the same control re-queried on the replacement instance.
+    // Every focusable control in a row carries a data-testid, so the re-query
+    // always has something to look for.
+    const sourceControlIn = (row: Element | undefined) => {
+      if (!row || !sourceControlTestId) return undefined;
+      if (sourceControl?.isConnected && row.contains(sourceControl)) return sourceControl;
+      return row.querySelector<HTMLElement>(`[data-testid="${sourceControlTestId}"]`);
+    };
+
+    // The focused row can be remounted by an SSE echo while its PATCH is in
+    // flight. Resolve the destination by item id when the request finishes,
+    // instead of retaining a checkbox node that may have been replaced too.
+    return (preferSource = false) => {
+      const active = document.activeElement;
+      if (active !== activeAtCapture && active !== document.body) return;
+      const currentRows = [...(container?.children ?? [])];
+      const rowById = (id: string) =>
+        currentRows.find(
+          (element) => element.getAttribute('data-item-id') === id && canReceiveFocus(element),
+        );
+      const target =
+        (preferSource ? sourceControlIn(rowById(sourceId)) : undefined) ??
+        (targetId ? checkboxIn(rowById(targetId)) : undefined) ??
+        section?.querySelector<HTMLElement>('[data-testid="add-item-input"]');
+      target?.focus();
+    };
+  }
 
   const assignedMember = createMemo(() =>
     props.members.find((m) => m.id === props.item.assignedTo),
   );
 
   // Open a picker anchored to `anchor`. Both pickers are Popovers positioned
-  // against a live element, so the
-  // anchor must stay mounted while open — the inline badge (visible on desktop,
-  // or on mobile when it carries state) or the ⋯ trigger (visible on mobile).
+  // against a live element, so the anchor must stay mounted while open —
+  // whichever control opened it, the inline badge or the ⋯ trigger.
   function openReminderPicker(anchor: HTMLButtonElement) {
     setReminderAnchor(anchor);
     setShowReminderPicker(true);
@@ -155,16 +226,30 @@ export default function ListItem(props: ListItemProps) {
   async function toggleChecked() {
     const wasChecked = props.item.checked;
     const checked = !wasChecked;
+    const restoreFocus = captureFocusFromRow();
     // Let the parent (ListCard) pin this item in its current section and
     // own the justToggled window so the mark-down animation has time to
     // play across the <For> remount that fires when the item ref changes.
-    props.onBeforeToggle?.(props.item.id, wasChecked, props.item.repeat != null);
+    const cancelOutro = props.onBeforeToggle?.(
+      props.item.id,
+      wasChecked,
+      props.item.repeat != null,
+    );
     const result = await api
       .updateItem(props.slug, props.item.id, {
         checked,
       })
       .catch(() => void addToast('Could not update the item. Please try again.'));
     applyResult(result);
+    if (result) {
+      restoreFocus?.();
+      props.onAnnounce?.(
+        checked ? `Completed "${props.item.text}".` : `Marked "${props.item.text}" incomplete.`,
+      );
+    } else {
+      cancelOutro?.();
+      restoreFocus?.(true);
+    }
   }
 
   // Apply a confirmed PATCH response directly instead of waiting for the SSE
@@ -229,6 +314,12 @@ export default function ListItem(props: ListItemProps) {
     }
   }
 
+  async function deleteItem() {
+    const restoreFocus = captureFocusFromRow();
+    const deleted = await props.onDelete(props.item.id);
+    restoreFocus?.(!deleted);
+  }
+
   return (
     <div
       ref={itemRef}
@@ -241,12 +332,17 @@ export default function ListItem(props: ListItemProps) {
       data-just-toggled={props.justToggled ?? undefined}
       data-testid="list-item"
       aria-hidden={props.leaving ? 'true' : undefined}
+      inert={props.leaving}
     >
       <button
         class={styles.checkbox}
         onClick={toggleChecked}
         role="checkbox"
         aria-checked={props.item.checked}
+        // Name the checkbox after the task, not the action — role + aria-checked
+        // already convey "checkbox, not checked", so "Mark X complete" would
+        // both duplicate the state and flip the name as the row toggles.
+        aria-label={props.item.text}
         data-testid="item-checkbox"
       >
         <Show when={props.item.checked} fallback={<span class={styles.unchecked} />}>
@@ -292,6 +388,7 @@ export default function ListItem(props: ListItemProps) {
           onKeyDown={handleEditKeyDown}
           onBlur={commitEdit}
           maxLength={500}
+          aria-label={`Edit item: ${props.item.text}`}
           data-testid="item-edit-input"
         />
       </Show>
@@ -321,7 +418,7 @@ export default function ListItem(props: ListItemProps) {
                   }`
                 : 'Set reminder'
             }
-            aria-label={props.item.remindAt ? 'Change reminder' : 'Set reminder'}
+            aria-label={`${props.item.remindAt ? 'Change reminder' : 'Set reminder'} for "${props.item.text}"`}
             data-testid="reminder-button"
           >
             <svg
@@ -404,8 +501,8 @@ export default function ListItem(props: ListItemProps) {
             }
             aria-label={
               assignedMember()
-                ? `Change assignee (currently ${assignedMember()!.displayName})`
-                : 'Assign someone'
+                ? `Change assignee for "${props.item.text}" (currently ${assignedMember()!.displayName})`
+                : `Assign someone to "${props.item.text}"`
             }
             data-testid="assign-button"
           >
@@ -451,9 +548,9 @@ export default function ListItem(props: ListItemProps) {
         </div>
         <button
           class={styles.deleteButton}
-          onClick={() => props.onDelete(props.item.id)}
-          title="Delete item"
-          aria-label="Delete item"
+          onClick={deleteItem}
+          title={`Delete "${props.item.text}"`}
+          aria-label={`Delete "${props.item.text}"`}
           data-testid="delete-item-button"
         >
           <svg
@@ -472,8 +569,9 @@ export default function ListItem(props: ListItemProps) {
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
           </svg>
         </button>
-        {/* Mobile-only: empty reminder/assign actions and delete collapse into
-            the shared ⋯ menu. Desktop keeps its hover-revealed inline buttons. */}
+        {/* On touch, the empty reminder/assign actions and delete collapse into
+            this ⋯ menu. Desktop keeps its hover-revealed inline buttons and uses
+            the menu for keyboard reorder, which has no inline equivalent. */}
         <Menu
           class={styles.moreButton}
           label={`Actions for ${props.item.text}`}
@@ -485,6 +583,54 @@ export default function ListItem(props: ListItemProps) {
           }}
           onTriggerPointerDown={(event) => event.stopPropagation()}
           items={[
+            ...(props.onMoveUp
+              ? [
+                  {
+                    label: 'Move up',
+                    onSelect: props.onMoveUp,
+                    testId: 'menu-move-up',
+                    icon: (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="m18 15-6-6-6 6" />
+                      </svg>
+                    ),
+                  },
+                ]
+              : []),
+            ...(props.onMoveDown
+              ? [
+                  {
+                    label: 'Move down',
+                    onSelect: props.onMoveDown,
+                    testId: 'menu-move-down',
+                    icon: (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    ),
+                  },
+                ]
+              : []),
             {
               label: props.item.remindAt ? 'Edit reminder' : 'Set reminder',
               onSelect: openReminderPicker,
@@ -531,7 +677,7 @@ export default function ListItem(props: ListItemProps) {
             },
             {
               label: 'Delete',
-              onSelect: () => props.onDelete(props.item.id),
+              onSelect: deleteItem,
               danger: true,
               testId: 'menu-delete',
               icon: (

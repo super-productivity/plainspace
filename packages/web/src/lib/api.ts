@@ -18,6 +18,7 @@ import type {
   Project,
   ProjectLoadResponse,
   PushSubscriptionInput,
+  ReorderItemsInput,
   Scratchpad,
   UpdateItemInput,
   UpdateProjectSettingsInput,
@@ -251,10 +252,17 @@ export const api = {
       slug,
     ),
 
-  updateItem: (slug: string, itemId: string, data: UpdateItemInput) =>
+  updateItem: (slug: string, itemId: string, data: UpdateItemInput, signal?: AbortSignal) =>
     request<ItemWithActivityResponse>(
       `/projects/${slug}/items/${itemId}`,
-      { method: 'PATCH', body: JSON.stringify(data) },
+      { method: 'PATCH', body: JSON.stringify(data), signal },
+      slug,
+    ),
+
+  reorderItems: (slug: string, data: ReorderItemsInput, signal?: AbortSignal) =>
+    request<void>(
+      `/projects/${slug}/items`,
+      { method: 'PATCH', body: JSON.stringify(data), signal },
       slug,
     ),
 

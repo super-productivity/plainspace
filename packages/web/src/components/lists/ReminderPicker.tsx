@@ -512,7 +512,10 @@ export default function ReminderPicker(props: ReminderPickerProps) {
           value={selected() ? isoToLocalInput(selected()!.toISOString()) : ''}
           onInput={(e) => onExactInput(e.currentTarget.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && selected() && !isPast()) commit();
+            if (e.key === 'Enter' && selected() && !isPast()) {
+              e.preventDefault();
+              commit();
+            }
           }}
           data-testid="reminder-input"
         />

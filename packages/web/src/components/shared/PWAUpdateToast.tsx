@@ -10,8 +10,12 @@ export default function PWAUpdateToast() {
     if (updateReady()) setDismissed(false);
   });
   return (
-    <Show when={updateReady() && !dismissed()}>
-      <div class={styles.host}>
+    // The host stays mounted and carries the live region: a region inserted in
+    // the same tick as its content is unreliably announced. It is fixed,
+    // pointer-events:none and has no box of its own, so an empty one costs
+    // nothing. aria-atomic is explicit because role="status" implies true.
+    <div class={styles.host} role="status" aria-atomic="false">
+      <Show when={updateReady() && !dismissed()}>
         <Toast
           message="A new version is available."
           actionLabel="Reload"
@@ -19,7 +23,7 @@ export default function PWAUpdateToast() {
           onDismiss={() => setDismissed(true)}
           duration={60_000}
         />
-      </div>
-    </Show>
+      </Show>
+    </div>
   );
 }

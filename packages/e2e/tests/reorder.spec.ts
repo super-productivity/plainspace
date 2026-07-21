@@ -144,6 +144,86 @@ test('drag a row to the top and the new order persists across reload', async ({ 
   expect(await orderedTexts(page)).toEqual(['Third', 'First', 'Second']);
 });
 
+// The keyboard path, whose only entry point is the ⋯ menu. Two ways focus can
+// be lost here, both of which have to stay fixed: the row is re-inserted by
+// <For> when the optimistic write lands (re-parenting a node blurs it), and the
+// trigger must never be display:none'd out from under the focus the closing
+// menu returned to it. The PATCH is held open by a gate the test releases, so
+// the "saving" window is observed without racing a timer.
+test('reorders from the keyboard and keeps focus on the row it moved', async ({ page }) => {
+  const { project, token } = await setupProject(page);
+  for (const text of ['First', 'Second', 'Third']) {
+    await createItemViaApi(project.slug, token, text);
+  }
+
+  await page.goto(`/${project.slug}`);
+  await expect(page.getByTestId('item-text')).toHaveCount(3);
+  expect(await orderedTexts(page)).toEqual(['First', 'Second', 'Third']);
+
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/projects/*/items/*', async (route) => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    await held;
+    await route.continue();
+  });
+
+  const activeLabel = () =>
+    page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+  const firstRow = page.getByTestId('list-item').filter({ hasText: 'First' });
+  const trigger = firstRow.getByTestId('more-actions-button');
+  // Native Tab traversal cannot be simulated by the component test's
+  // fireEvent. Capture the trigger's real neighbours, then prove closing the
+  // portalled menu continues in the same direction instead of landing on body.
+  await trigger.focus();
+  await page.keyboard.press('Tab');
+  const nextLabel = await activeLabel();
+  await trigger.focus();
+  await page.keyboard.press('Shift+Tab');
+  const previousLabel = await activeLabel();
+  expect(nextLabel).not.toBeNull();
+  expect(previousLabel).not.toBeNull();
+
+  for (const [key, expectedLabel] of [
+    ['Tab', nextLabel],
+    ['Shift+Tab', previousLabel],
+  ] as const) {
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('menu-move-down')).toBeFocused();
+    await page.keyboard.press(key);
+    await expect(page.getByTestId('menu-move-down')).toHaveCount(0);
+    expect(await activeLabel()).toBe(expectedLabel);
+  }
+
+  // Drive it from the keyboard, not the mouse — this is the keyboard path, and
+  // a mouse click would still pass if keyboard activation regressed.
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  // The menu focuses its first item on open, which for this row is Move down.
+  await expect(page.getByTestId('menu-move-down')).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  // Mid-flight, with the PATCH still open: the row has already moved
+  // optimistically, and focus has to have followed the trigger rather than
+  // falling to <body>.
+  await expect
+    .poll(() => orderedTexts(page), { timeout: 5000 })
+    .toEqual(['Second', 'First', 'Third']);
+  await expect(trigger).toBeVisible();
+  expect(await activeLabel()).toBe('Actions for First');
+
+  const patch = page.waitForResponse(
+    (response) => response.request().method() === 'PATCH' && response.url().includes('/items/'),
+  );
+  release();
+  await patch;
+
+  // …and it survives the response landing, not just the optimistic window.
+  expect(await orderedTexts(page)).toEqual(['Second', 'First', 'Third']);
+  expect(await activeLabel()).toBe('Actions for First');
+});
+
 test('drag a row into another list moves it there and persists', async ({ page }) => {
   const { project, token } = await setupProject(page);
   await createItemViaApi(project.slug, token, 'Move me');

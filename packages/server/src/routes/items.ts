@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and, inArray, isNull, max } from 'drizzle-orm';
+import { eq, and, asc, inArray, isNull, max } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import {
   activity,
@@ -8,9 +8,11 @@ import {
   items,
   lists,
   members,
+  projects,
 } from '../db/schema.js';
 import {
   CreateItemSchema,
+  ReorderItemsSchema,
   UpdateItemSchema,
   POSITION_GAP,
   type RepeatRule,
@@ -168,16 +170,99 @@ itemRoutes.post('/', authMiddleware, async (c) => {
   return c.json({ item: serialized, activity: activityEntry }, 201);
 });
 
+// PATCH /api/projects/:slug/items - Atomically renumber item positions
+itemRoutes.patch('/', authMiddleware, async (c) => {
+  const project = c.get('project');
+  const member = c.get('member');
+
+  // Gap exhaustion is rare, and one request can rewrite every active item.
+  // Keep this separate from ordinary item edits so a client cannot amplify the
+  // 240/min single-row allowance into an unbounded write multiplier. One full
+  // rewrite per minute is enough for this rare recovery path and caps it at
+  // the Space's 500 active items.
+  if (!checkRateLimit(`item-reorder:${member.id}`, 1, 60_000)) {
+    return c.json({ error: 'Too many item reorders, slow down a moment' }, 429);
+  }
+
+  const body = await readJson(c);
+  if (body === null) {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+  const parsed = ReorderItemsSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
+  }
+
+  const result = await db.transaction(async (tx) => {
+    // KEY SHARE conflicts with create/restore's project UPDATE lock, so neither
+    // can append from a stale pre-renumber maximum. It remains compatible with
+    // activity FK checks made by ordinary item writes while this batch waits on
+    // their item locks. Destination lists likewise need only KEY SHARE: it
+    // prevents deletion without conflicting with cross-list PATCH FK locks.
+    await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.id, project.id))
+      .for('key share');
+
+    const listIds = [...new Set(parsed.data.updates.map((update) => update.listId))];
+    const ownedLists = await tx
+      .select({ id: lists.id })
+      .from(lists)
+      .where(and(eq(lists.projectId, project.id), inArray(lists.id, listIds)))
+      .orderBy(asc(lists.id))
+      .for('key share');
+    if (ownedLists.length !== listIds.length) return { error: 'list_not_found' as const };
+
+    const itemIds = parsed.data.updates.map((update) => update.id);
+    const ownedItems = await tx
+      .select({ id: items.id })
+      .from(items)
+      .where(
+        and(eq(items.projectId, project.id), inArray(items.id, itemIds), isNull(items.deletedAt)),
+      )
+      .orderBy(asc(items.id))
+      .for('update');
+    if (ownedItems.length !== itemIds.length) return { error: 'item_not_found' as const };
+
+    const updated = [];
+    for (const update of parsed.data.updates) {
+      const [item] = await tx
+        .update(items)
+        .set({ listId: update.listId, position: update.position })
+        .where(
+          and(eq(items.id, update.id), eq(items.projectId, project.id), isNull(items.deletedAt)),
+        )
+        .returning();
+      updated.push(item);
+    }
+    return { updated };
+  });
+
+  if ('error' in result) {
+    return result.error === 'list_not_found'
+      ? c.json({ error: 'List not found' }, 404)
+      : c.json({ error: 'Item not found' }, 404);
+  }
+
+  for (const item of result.updated) {
+    void sseManager.broadcast(project.id, 'item.updated', {
+      item: serializeItem(item),
+      memberId: member.id,
+    });
+  }
+  return c.body(null, 204);
+});
+
 // PATCH /api/projects/:slug/items/:itemId - Update item
 itemRoutes.patch('/:itemId', authMiddleware, uuidParam('itemId'), async (c) => {
   const project = c.get('project');
   const member = c.get('member');
   const itemId = c.req.param('itemId');
 
-  // Much higher than item-create: a drag that exhausts the position gap
-  // triggers the client's renumber fallback (lib/reorder.ts), which PATCHes
-  // every open item in the list as one gesture — the cap must clear that
-  // burst on a large list, or the 429'd rows desync until the next resync.
+  // Higher than item-create because ordinary edits and single-row moves share
+  // this route. Whole-list gap-exhaustion rewrites use the bounded collection
+  // PATCH above instead of spending one request per row.
   if (!checkRateLimit(`item-update:${member.id}`, 240, 60_000)) {
     return c.json({ error: 'Too many item updates, slow down a moment' }, 429);
   }

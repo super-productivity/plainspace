@@ -382,7 +382,7 @@ export default function Project() {
 
   async function handleDeleteItem(itemId: string) {
     const item = state.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item) return false;
     try {
       await api.deleteItem(params.slug, itemId);
       // Apply the confirmed result directly instead of waiting for the SSE
@@ -398,9 +398,11 @@ export default function Project() {
         },
         'Undo',
       );
+      return true;
     } catch {
       // SSE will resync if the delete actually went through.
       addToast('Could not delete the item. Please try again.');
+      return false;
     }
   }
 
@@ -547,7 +549,13 @@ export default function Project() {
               </Show>
             </main>
 
-            <div class={styles.toasts}>
+            {/* The live region is this always-mounted host, not the individual
+                toasts: a region inserted in the same tick as its content is
+                unreliably announced (VoiceOver in particular). Toasts are the
+                only channel for some failures, so they have to be dependable.
+                aria-atomic is explicit because role="status" implies true, which
+                would re-read every visible toast each time one is added. */}
+            <div class={styles.toasts} role="status" aria-atomic="false">
               <For each={toasts()}>
                 {(toast) => (
                   <Toast
