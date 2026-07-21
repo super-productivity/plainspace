@@ -129,6 +129,23 @@ const demoItems: Item[] = [
     repeat: null,
   },
   {
+    id: 'i7',
+    listId: 'l1',
+    projectId: 'p1',
+    text: 'Send the deposit (one-off, overdue)',
+    // Unchecked + past remindAt, no repeat: the sweep leaves remind_at in place
+    // after firing, so a missed one-off keeps a closed ring with an amber !.
+    checked: false,
+    checkedBy: null,
+    assignedTo: null,
+    columnId: 'todo',
+    position: 2600,
+    createdBy: 'm1',
+    createdAt: NOW,
+    remindAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+    repeat: null,
+  },
+  {
     id: 'i6',
     listId: 'l1',
     projectId: 'p1',
@@ -179,8 +196,9 @@ const demoItems: Item[] = [
     listId: 'l1',
     projectId: 'p1',
     text: 'Water the plants (overdue occurrence)',
-    // Unchecked + repeat + past remindAt = "overdue": the fire passed while
-    // still undone. Badge icon is the recurring ring with an amber !.
+    // Unchecked + repeat + past remindAt: the occurrence passed while still
+    // undone. Badge icon keeps the arrowhead ring and takes an amber !, so it
+    // stays distinct from the one-off overdue above.
     checked: false,
     checkedBy: null,
     assignedTo: null,
@@ -923,12 +941,13 @@ export default function Styleguide() {
           trigger is present on pointer devices too, revealed the same way, because it is the only
           route to keyboard reorder (Move up / Move down) — those have no inline equivalent. The
           schedule button carries exactly one icon, whose shape (not colour) says which state it's
-          in: an empty button a clock with a <code>+</code> in the ring gap, a one-off a plain
-          clock, a repeating one a clock ring closed by an arrowhead, a resting one (checked,
-          awaiting its next occurrence) that same ring with a check instead of hands, and an overdue
-          one (recurring fire passed while undone) the ring with an amber <code>!</code> — tasks
-          three to six walk that set: one-off, repeating, resting, overdue. The repeat chips (Once /
-          Daily / Mon–Fri / Weekly / 2 weeks / Monthly) live in the reminder picker;
+          in. Two things compose it: the ring says whether the task repeats — closed for a one-off,
+          closed by an arrowhead for a recurring one — and the mark inside says where it stands:
+          hands for still-to-come, an amber <code>!</code> for a fire time that passed while undone,
+          a check for a recurring task resting until its next occurrence. An empty button is the
+          exception, a clock with a <code>+</code> in the ring gap. Tasks three to seven walk the
+          set: one-off, one-off overdue, repeating, resting, overdue occurrence. The repeat chips
+          (Once / Daily / Mon–Fri / Weekly / 2 weeks / Monthly) live in the reminder picker;
           byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
           the immutable anchor.
         </p>

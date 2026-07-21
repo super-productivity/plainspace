@@ -55,10 +55,10 @@ export async function runReminderSweep(now = new Date()): Promise<void> {
   await reopenDueRecurringItems(now);
 
   // Atomic claim so a row can't be claimed twice by an overlapping tick or
-  // process restart. One-shot rows are claimed by nulling remind_at; recurring
-  // rows keep remind_at (the current occurrence) and are claimed by stamping
-  // notified_at, so an undone occurrence keeps reading as due → overdue instead
-  // of jumping to the next day. A plain `RETURNING *` still carries the current
+  // process restart. Rows are claimed by stamping notified_at and keep
+  // remind_at, so an undone reminder keeps reading as due → overdue instead of
+  // vanishing (one-shot) or jumping to the next day (recurring). A plain
+  // `RETURNING *` still carries the current
   // text/assignment, so edits between set-time and fire-time are honoured.
   // Soft-deleted items are excluded so a deletion before fire time silently
   // cancels the reminder (and restoring the item preserves it). Side effect: if
@@ -66,17 +66,19 @@ export async function runReminderSweep(now = new Date()): Promise<void> {
   // it immediately — closer to "what they wanted" than silently dropping it.
   const claimed = await claimDueReminders(now);
 
-  await Promise.allSettled(claimed.map((row) => deliverForItem(row, now)));
+  await Promise.allSettled(claimed.map((row) => deliverForItem(row)));
 }
 
 // Claim due reminders via one atomic UPDATE … RETURNING (CTE) so no row can be
-// claimed twice. One-shot rows are cleared (remind_at → NULL); recurring rows
-// keep remind_at and are stamped notified_at = now. The recurring guard
+// claimed twice. Every claimed row keeps remind_at and is stamped
+// notified_at = now, so a fired reminder stays on the row and reads as overdue
+// until it's checked off — one-shot and recurring alike. The guard
 // `notified_at IS NULL OR notified_at < remind_at` makes a fire happen once per
-// occurrence: after a successful fire notified_at >= remind_at suppresses the
+// fire time: after a successful fire notified_at >= remind_at suppresses the
 // row, and a transient failure clears notified_at (see writeBackReminder) so it
-// retries next tick. The returned rows are mapped back to the drizzle ItemRow
-// shape.
+// retries next tick. Re-setting a reminder moves remind_at forward past the old
+// notified_at, which re-arms the row. The returned rows are mapped back to the
+// drizzle ItemRow shape.
 async function claimDueReminders(now: Date): Promise<ItemRow[]> {
   // Bind `now` as an ISO string cast to timestamptz; the raw postgres-js path
   // (via db.execute) doesn't serialize a JS Date parameter the way the query
@@ -88,12 +90,11 @@ async function claimDueReminders(now: Date): Promise<ItemRow[]> {
       FROM items
       WHERE deleted_at IS NULL AND remind_at IS NOT NULL
         AND remind_at <= ${nowIso}::timestamptz
-        AND (repeat IS NULL OR notified_at IS NULL OR notified_at < remind_at)
+        AND (notified_at IS NULL OR notified_at < remind_at)
       FOR UPDATE SKIP LOCKED
     )
     UPDATE items
-    SET remind_at = CASE WHEN repeat IS NULL THEN NULL ELSE remind_at END,
-        notified_at = CASE WHEN repeat IS NULL THEN notified_at ELSE ${nowIso}::timestamptz END
+    SET notified_at = ${nowIso}::timestamptz
     FROM due
     WHERE items.id = due.id
     RETURNING items.*
@@ -118,7 +119,7 @@ async function claimDueReminders(now: Date): Promise<ItemRow[]> {
   }));
 }
 
-async function deliverForItem(item: ItemRow, now: Date): Promise<void> {
+async function deliverForItem(item: ItemRow): Promise<void> {
   const targetMembers = item.assignedTo
     ? await db.query.members.findMany({
         where: and(eq(members.id, item.assignedTo), eq(members.projectId, item.projectId)),
@@ -176,21 +177,13 @@ async function deliverForItem(item: ItemRow, now: Date): Promise<void> {
 
   const anyDelivered = deliveryResults.some((r) => r.delivered);
   const needsRetry = !anyDelivered && deliveryResults.some((r) => r.transientFailure);
-  // Jitter the retry by ±SWEEP_INTERVAL_MS/2 so a sustained downstream outage
-  // doesn't cause every failed item to re-fire in the same tick. Without
-  // jitter the cohort marches in lockstep and hammers SMTP/push the moment
-  // they come back up.
-  const retryAt = new Date(
-    now.getTime() + SWEEP_INTERVAL_MS + Math.floor(Math.random() * SWEEP_INTERVAL_MS),
-  );
-  const broadcastItem = await writeBackReminder(item, { needsRetry, retryAt });
+  const broadcastItem = needsRetry ? await clearNotified(item) : item;
   if (!broadcastItem) return;
 
-  // SSE for online observers — the existing item.updated handler in the web
-  // store reconciles a cleared one-shot reminder or a transient-failure retry.
-  // For a recurring fire nothing on the row changed (remind_at stays put,
-  // notified_at isn't serialized), but the broadcast still lands so the new
-  // item reference re-renders and the now-passed occurrence reads as overdue.
+  // SSE for online observers. Nothing serialized on the row actually changed
+  // (remind_at stays put, notified_at isn't serialized), but the broadcast
+  // still lands so the new item reference re-renders and the now-passed fire
+  // time reads as overdue.
   // memberId is null because the sweep is system-triggered, not user-initiated.
   void sseManager.broadcast(item.projectId, 'item.updated', {
     item: serializeItem(broadcastItem),
@@ -198,63 +191,14 @@ async function deliverForItem(item: ItemRow, now: Date): Promise<void> {
   });
 }
 
-// Post-delivery write. Delivery-only — it never touches `checked`:
-//   - non-recurring: re-arm `retryAt` on transient failure, else stay cleared;
-//   - recurring occurrence fire (delivered): nothing to write — the claim
-//     already stamped notified_at, and the schedule advances on check-off, not
-//     here, so an undone occurrence stays put and reads as due → overdue;
-//   - recurring retry fire (delivery failed transiently): clear notified_at so
-//     the next tick re-claims and retries this same occurrence. remind_at is
-//     untouched, so the occurrence — and its overdue display — is preserved.
-// Reactivating a completed recurring task is decoupled from the fire: it happens
-// when its occurrence DAY begins, in reopenDueRecurringItems.
-async function writeBackReminder(
-  item: ItemRow,
-  opts: { needsRetry: boolean; retryAt: Date },
-): Promise<ItemRow | null> {
-  const { needsRetry, retryAt } = opts;
-
-  if (!item.repeat) {
-    if (!needsRetry) return item; // stays cleared
-    return requeueOrReload(item, { remindAt: retryAt });
-  }
-
-  if (needsRetry) return clearNotified(item);
-  return item; // delivered; notified_at already stamped by the claim
-}
-
-// Apply a compare-and-set keyed on `remind_at IS NULL` (so a concurrent claim
-// can't clobber it), returning the updated row. If the row was re-claimed or
-// deleted out from under us, fall back to the current row for the broadcast.
-async function requeueOrReload(
-  item: ItemRow,
-  updates: Partial<typeof items.$inferInsert>,
-): Promise<ItemRow | null> {
-  const [updated] = await db
-    .update(items)
-    .set(updates)
-    .where(
-      and(
-        eq(items.id, item.id),
-        eq(items.projectId, item.projectId),
-        isNull(items.remindAt),
-        isNull(items.deletedAt),
-      ),
-    )
-    .returning();
-  if (updated) return updated;
-
-  const current = await db.query.items.findFirst({
-    where: and(eq(items.id, item.id), eq(items.projectId, item.projectId)),
-  });
-  if (!current || current.deletedAt) return null;
-  return current;
-}
-
-// Recurring transient-failure path: clear notified_at so the next tick
-// re-claims and retries the same occurrence (remind_at stays put). Returns the
-// updated row for the broadcast, or null if the item was deleted out from under
-// us (nothing to broadcast).
+// Transient-failure path: clear notified_at so the next tick re-claims and
+// retries this same fire (remind_at stays put, so the reminder — and its
+// overdue display — is preserved). Returns the updated row for the broadcast,
+// or null if the item was deleted out from under us (nothing to broadcast).
+// A delivered fire needs no write-back at all: the claim already stamped
+// notified_at, and nothing here touches `checked` — reactivating a completed
+// recurring task happens when its occurrence DAY begins, in
+// reopenDueRecurringItems.
 async function clearNotified(item: ItemRow): Promise<ItemRow | null> {
   const [updated] = await db
     .update(items)

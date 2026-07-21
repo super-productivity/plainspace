@@ -223,29 +223,29 @@ export const items = pgTable(
     // integration `?updatedSince=` poll — the trigger also covers raw-SQL
     // writers (the reminder sweep) that a drizzle-level $onUpdate would miss.
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    // Reminder fire time. For one-shot reminders the sweep claims due rows by
-    // nulling this column. For recurring items it is the CURRENT occurrence and
-    // is advanced only when the task is checked off (not by the fire), so an
-    // undone occurrence stays put and reads as due → overdue.
+    // Reminder fire time. The sweep never clears it — a fired reminder stays on
+    // the row and reads as due → overdue until the task is checked off. For
+    // recurring items it is the CURRENT occurrence, advanced only on check-off
+    // (not by the fire).
     remindAt: timestamp('remind_at', { withTimezone: true }),
     // Recurrence rule (RepeatRule). NULL ⇒ one-shot reminder. For repeating
     // items remind_at is the current occurrence; the immutable `anchor` inside
     // this jsonb is the series' DTSTART (time-of-day + interval phase).
     repeat: jsonb('repeat').$type<RepeatRule>(),
-    // When the sweep last delivered a push for the occurrence in remind_at.
-    // Recurring only — fires once per occurrence (claim suppresses a row once
-    // notified_at >= remind_at) and is cleared when remind_at advances on
-    // check-off. NULL for one-shot reminders.
+    // When the sweep last delivered a push for the fire time in remind_at.
+    // Fires once per fire time (the claim suppresses a row once
+    // notified_at >= remind_at); cleared when remind_at moves — on check-off
+    // for a recurring item, on re-scheduling for either kind.
     notifiedAt: timestamp('notified_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
     index('idx_items_list').on(table.listId),
     index('idx_items_project').on(table.projectId),
-    // Partial index for the sweep's per-tick claim (due reminders). Overdue
-    // recurring rows keep remind_at and stay in this index until checked off;
-    // the claim filters out already-notified ones by notified_at — acceptable
-    // at single-node scale (the hot set is bounded by undone recurring tasks).
+    // Partial index for the sweep's per-tick claim (due reminders). Fired rows
+    // keep remind_at and stay in this index until checked off; the claim filters
+    // out already-notified ones by notified_at — acceptable at single-node scale
+    // (the hot set is bounded by items that have ever had a reminder set).
     index('idx_items_remind_due')
       .on(table.remindAt)
       .where(sql`remind_at IS NOT NULL AND deleted_at IS NULL`),

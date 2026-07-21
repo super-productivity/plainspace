@@ -364,9 +364,12 @@ describe('ListItem reminder', () => {
   it.each([
     [{}, 'empty'],
     [{ remindAt: SOON }, 'once'],
+    [{ remindAt: PAST }, 'once-overdue'],
     [{ remindAt: SOON, repeat: daily }, 'repeat'],
     [{ remindAt: SOON, repeat: daily, checked: true }, 'resting'],
-    [{ remindAt: PAST, repeat: daily }, 'overdue'],
+    [{ remindAt: PAST, repeat: daily }, 'repeat-overdue'],
+    // Checked one-off: done is done, so a passed fire time is not overdue.
+    [{ remindAt: PAST, checked: true }, 'once'],
   ])('picks the %o badge icon state: %s', (over, state) => {
     renderItem(over);
     expect(screen.getByTestId('reminder-button').dataset.reminderState).toBe(state);

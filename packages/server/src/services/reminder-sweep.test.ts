@@ -66,7 +66,7 @@ async function addPushSub(
 }
 
 describe('runReminderSweep', () => {
-  it('claims due reminders, fires push, and nulls remind_at', async () => {
+  it('claims due reminders, fires push, and keeps remind_at for the overdue read', async () => {
     const { project, listId } = await createProject();
     const member = await addMember(project.id);
     await addPushSub(member.id);
@@ -87,8 +87,11 @@ describe('runReminderSweep', () => {
       recurring: false,
     });
 
+    // The fire no longer consumes remind_at: the row keeps it (and so keeps
+    // reading as overdue) and is claimed by the notified_at stamp instead.
     const [updated] = await db.select().from(items).where(eq(items.id, item.id));
-    expect(updated.remindAt).toBeNull();
+    expect(updated.remindAt?.getTime()).toBe(past.getTime());
+    expect(updated.notifiedAt).not.toBeNull();
   });
 
   it('does not re-fire on the next tick (atomic claim)', async () => {
@@ -158,7 +161,7 @@ describe('runReminderSweep', () => {
     await runReminderSweep();
     expect(sendNotification).toHaveBeenCalledTimes(1);
 
-    // A second sweep should NOT re-fire — remind_at was nulled by the claim.
+    // A second sweep should NOT re-fire — the claim stamped notified_at.
     await runReminderSweep();
     expect(sendNotification).toHaveBeenCalledTimes(1);
   });
@@ -291,7 +294,8 @@ describe('runReminderSweep', () => {
       projectName: project.name,
     });
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
-    expect(row.remindAt).toBeNull();
+    expect(row.remindAt).not.toBeNull();
+    expect(row.notifiedAt).not.toBeNull();
   });
 
   it('falls back to email after removing stale push subscriptions', async () => {
@@ -319,7 +323,7 @@ describe('runReminderSweep', () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
-  it('requeues when push and email fallback both fail transiently', async () => {
+  it('retries next tick when push and email fallback both fail transiently', async () => {
     const now = new Date('2026-01-01T12:00:00.000Z');
     const { WebPushError } = await import('web-push');
     const { project, listId } = await createProject();
@@ -345,13 +349,16 @@ describe('runReminderSweep', () => {
     await runReminderSweep(now);
 
     expect(sendEmail).toHaveBeenCalledTimes(1);
+    // remind_at is the reminder itself now, so a failed delivery must not move
+    // it. The retry is re-armed by clearing notified_at: the next tick re-claims
+    // this same row and tries again.
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
-    // Jittered to ±SWEEP_INTERVAL_MS (60s) past the base retry: range is
-    // [now + 60s, now + 120s). Tightening to exact equality re-introduces
-    // the thundering-herd shape the jitter is there to break.
-    expect(row.remindAt).not.toBeNull();
-    expect(row.remindAt!.getTime()).toBeGreaterThanOrEqual(now.getTime() + 60_000);
-    expect(row.remindAt!.getTime()).toBeLessThan(now.getTime() + 120_000);
+    expect(row.remindAt?.getTime()).toBe(item.remindAt!.getTime());
+    expect(row.notifiedAt).toBeNull();
+
+    sendEmail.mockClear();
+    await runReminderSweep(new Date(now.getTime() + 60_000));
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it('skips email fallback for display-name-only members (no email on file)', async () => {
@@ -481,11 +488,11 @@ describe('runReminderSweep', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it('counts as pending only rows with remind_at IS NOT NULL', async () => {
+  it('claims every due row once, leaving them stamped as notified', async () => {
     const { project, listId } = await createProject();
     const member = await addMember(project.id);
     await addPushSub(member.id);
-    // Two pending, one already-fired (remind_at = null).
+    // Two due, one with no reminder at all.
     await addItem(listId, project.id, {
       remindAt: new Date(Date.now() - 60_000),
       assignedTo: member.id,
@@ -501,8 +508,13 @@ describe('runReminderSweep', () => {
     await runReminderSweep();
     expect(sendNotification).toHaveBeenCalledTimes(2);
 
-    const pending = await db.select().from(items).where(isNotNull(items.remindAt));
-    expect(pending).toHaveLength(0);
+    // Both keep remind_at (they read as overdue until checked off) and are
+    // suppressed from re-firing by notified_at instead.
+    const withReminder = await db.select().from(items).where(isNotNull(items.remindAt));
+    expect(withReminder).toHaveLength(2);
+    expect(withReminder.every((r) => r.notifiedAt != null)).toBe(true);
+    await runReminderSweep();
+    expect(sendNotification).toHaveBeenCalledTimes(2);
   });
 });
 

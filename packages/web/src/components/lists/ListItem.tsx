@@ -77,18 +77,18 @@ export default function ListItem(props: ListItemProps) {
   // A completed recurring task "rests" in place in the open list (it reopens
   // when its reminder next fires) instead of dropping into Done.
   const isResting = () => props.item.checked && props.item.repeat != null;
-  // An active recurring task whose current occurrence has passed without being
-  // checked off. The fire only notifies; the schedule advances on completion,
-  // not on the clock — so a missed occurrence reads as overdue until done.
+  // A task whose fire time has passed without being checked off. The fire only
+  // notifies — it never clears remind_at, and a recurring schedule advances on
+  // completion, not on the clock — so a missed reminder reads as overdue until
+  // the task is done.
   const isOverdue = () =>
     !props.item.checked &&
-    props.item.repeat != null &&
     props.item.remindAt != null &&
     new Date(props.item.remindAt).getTime() < Date.now();
   const reminderState = (): ReminderState => {
     if (!props.item.remindAt) return 'empty';
-    if (isOverdue()) return 'overdue';
     if (isResting()) return 'resting';
+    if (isOverdue()) return props.item.repeat ? 'repeat-overdue' : 'once-overdue';
     return props.item.repeat ? 'repeat' : 'once';
   };
   let itemRef: HTMLDivElement | undefined;

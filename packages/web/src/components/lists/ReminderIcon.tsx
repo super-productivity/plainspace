@@ -1,9 +1,16 @@
 import { Switch, Match } from 'solid-js';
 
-/** The five states a schedule button can be in. */
-export type ReminderState = 'empty' | 'once' | 'repeat' | 'resting' | 'overdue';
+/** The six states a schedule button can be in. */
+export type ReminderState =
+  | 'empty'
+  | 'once'
+  | 'once-overdue'
+  | 'repeat'
+  | 'resting'
+  | 'repeat-overdue';
 
-/** Gapped ring + arrowhead: the recurring frame shared by repeat/resting/overdue. */
+/** Gapped ring + arrowhead: the recurring frame, so a repeating item stays
+ *  distinguishable from a one-off in every state it shares with one. */
 const RepeatRing = () => (
   <>
     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1.03 6.74 2.74L21 8" />
@@ -12,6 +19,14 @@ const RepeatRing = () => (
 );
 
 const Hands = () => <path d="M12 7v5l3 2" />;
+
+/** Replaces the hands when the fire time has passed and the task isn't done. */
+const Bang = () => (
+  <>
+    <path d="M12 8v4.5" />
+    <path d="M12 16.2h.01" />
+  </>
+);
 
 /**
  * One icon per schedule state — the state rides on the icon's shape (ring and
@@ -58,11 +73,15 @@ export default function ReminderIcon(props: { state: ReminderState }) {
           <RepeatRing />
           <path d="M8.5 12.5l2.5 2.5 4.5-5" />
         </Match>
-        {/* Overdue (fire passed while undone): the hands become a bang. */}
-        <Match when={props.state === 'overdue'}>
+        {/* Overdue keeps its ring — closed for a one-off, arrowheaded for a
+            recurring occurrence — so "late" doesn't erase "repeats". */}
+        <Match when={props.state === 'once-overdue'}>
+          <circle cx="12" cy="12" r="9" />
+          <Bang />
+        </Match>
+        <Match when={props.state === 'repeat-overdue'}>
           <RepeatRing />
-          <path d="M12 8v4.5" />
-          <path d="M12 16.2h.01" />
+          <Bang />
         </Match>
       </Switch>
     </svg>
