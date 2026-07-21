@@ -321,6 +321,7 @@ test.describe('reminders', () => {
 
     await page.getByTestId('presence-bar').click();
     await expect(page.getByTestId('member-list-panel')).toBeVisible();
+    await page.getByTestId('account-toggle-button').click();
     await page.getByTestId('leave-space-button').click();
     await page.getByTestId('confirm-dialog-confirm').click();
 

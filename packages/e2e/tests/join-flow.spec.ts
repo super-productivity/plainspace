@@ -185,6 +185,7 @@ test('leaving your last Space clears the device-wide saved email', async ({ page
   await page.goto(`/${project.slug}`);
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
   await expect(page.getByTestId('forget-plainspace-email-button')).toBeVisible();
 
   await page.getByTestId('leave-space-button').click();
@@ -202,6 +203,7 @@ test('signing out revokes this browser session without leaving the Space', async
   await page.goto(`/${project.slug}`);
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
   await page.getByTestId('sign-out-button').click();
 
   await expect(page).toHaveURL(/\/$/);
@@ -233,6 +235,7 @@ test('leaving one of several Spaces keeps the saved email', async ({ page }) => 
   await page.goto(`/${spaceA.project.slug}`);
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
 
   await page.getByTestId('leave-space-button').click();
   await page.getByTestId('confirm-dialog-confirm').click();

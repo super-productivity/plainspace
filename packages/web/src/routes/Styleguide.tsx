@@ -21,6 +21,7 @@ import {
   CollapseToggle,
   ConfirmDialog,
   Dialog,
+  DisclosureSection,
   FormCard,
   IconDeleteButton,
   InlineRename,
@@ -458,6 +459,7 @@ export default function Styleguide() {
   const [demoCollapsed, setDemoCollapsed] = createSignal(false);
   const demoCollapseBodyId = createUniqueId();
   let focusDemoHeading: HTMLHeadingElement | undefined;
+  const [demoDisclosureOpen, setDemoDisclosureOpen] = createSignal(false);
 
   useDocumentTitle(() => 'Styleguide — Plainspace');
 
@@ -684,6 +686,36 @@ export default function Styleguide() {
               technology until it is expanded again.
             </p>
           </CollapseBody>
+        </div>
+      </section>
+
+      <section class={styles.section}>
+        <h2 class={styles.sectionTitle}>Disclosure Section</h2>
+        <p>
+          The other way to fold something, for <em>secondary settings</em> rather than content
+          cards. The heading stays plain text beside a Show/Hide button, the state is per-visit (a
+          settings surface should open the same quiet way every time), and the body uses{' '}
+          <code>hidden</code> rather than <code>inert</code> — nothing inside needs to survive the
+          fold, so it leaves the tab order and the accessibility tree outright.{' '}
+          <code>DisclosureSection</code> owns the <code>aria-expanded</code>/
+          <code>aria-controls</code> wiring and derives <code>&lt;testId&gt;-toggle-button</code>{' '}
+          and <code>&lt;testId&gt;-body</code>. Reach for <code>Collapsible</code> above instead
+          when a whole card folds on its title row and the choice should persist per device.
+        </p>
+        <div class={styles.stack}>
+          <DisclosureSection
+            title="Advanced"
+            label="advanced settings"
+            description="Device link and API tokens."
+            open={demoDisclosureOpen()}
+            onToggle={() => setDemoDisclosureOpen((value) => !value)}
+            testId="styleguide-disclosure"
+          >
+            <p class={styles.helperText}>
+              Folded content lives here. The toggle announces “Show advanced settings” rather than a
+              bare “Show”, so it still makes sense out of context.
+            </p>
+          </DisclosureSection>
         </div>
       </section>
 

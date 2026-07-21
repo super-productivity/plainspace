@@ -135,9 +135,11 @@ test('web app root reopens the last Space and people panel links back to overvie
   await page.goto(`/${first.project.slug}`);
   await expect(page.getByTestId('project-name')).toHaveText('First Space');
 
-  // The Spaces overview is reached from the people panel, not a header button.
+  // The People panel keeps account and Space-switching actions tucked away
+  // until they are needed.
   await page.getByTestId('presence-bar').click();
   await expect(page.getByTestId('member-list-panel')).toBeVisible();
+  await page.getByTestId('account-toggle-button').click();
   // Other known Spaces are listed for quick switching.
   await expect(page.getByTestId('panel-space-link')).toContainText(['Second Space']);
   await page.getByTestId('panel-space-link').click();
@@ -149,8 +151,26 @@ test('web app root reopens the last Space and people panel links back to overvie
   await expect(page.getByTestId('project-name')).toHaveText('Second Space');
 
   await page.getByTestId('presence-bar').click();
+  await page.getByTestId('account-toggle-button').click();
   await page.getByTestId('spaces-overview-link').click();
   await expect(page).toHaveURL('/spaces');
   await expect(page.getByTestId('known-spaces')).toBeVisible();
   await expect(page.getByTestId('known-space-link')).toContainText(['First Space', 'Second Space']);
+});
+
+// The panel route above still works, but it is no longer the only way out: the
+// header carries a plain link so leaving a Space costs one tap, not three.
+test('the Space header links straight back to the Spaces overview', async ({ page }) => {
+  const { project, token, member } = await createProjectViaApi('Header Space', 'Owner');
+
+  await page.goto('/');
+  await seedIdentity(page, project.slug, token, member.id, 'Header Space');
+
+  await page.goto(`/${project.slug}`);
+  await expect(page.getByTestId('project-name')).toHaveText('Header Space');
+
+  await page.getByTestId('header-spaces-overview-link').click();
+  await expect(page).toHaveURL('/spaces');
+  await expect(page.getByTestId('known-spaces')).toBeVisible();
+  await expect(page.getByTestId('known-space-link')).toContainText(['Header Space']);
 });
