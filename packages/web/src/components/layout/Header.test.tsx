@@ -51,6 +51,20 @@ const member = {
   joinedAt: '2026-01-01T00:00:00.000Z',
 } as Member;
 
+function renderHeader() {
+  render(() => (
+    <Header
+      project={project}
+      members={[member]}
+      presence={[]}
+      slug="weekend"
+      myId={member.id}
+      myRole="admin"
+      isCreator
+    />
+  ));
+}
+
 describe('Header', () => {
   beforeEach(() => {
     // Only `.matches` is read (the scroll handler's mobile check).
@@ -60,19 +74,19 @@ describe('Header', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('offers a dedicated route back to the Spaces overview', () => {
-    render(() => (
-      <Header
-        project={project}
-        members={[member]}
-        presence={[]}
-        slug="weekend"
-        myId={member.id}
-        myRole="admin"
-        isCreator
-      />
-    ));
+    renderHeader();
 
     const overview = screen.getByRole('link', { name: /spaces overview/i });
     expect(overview.getAttribute('href')).toBe('/spaces');
+  });
+
+  // Project's retry flow moves focus here once a reload succeeds, which only
+  // works while the name stays a programmatically focusable page heading.
+  it('exposes the Space name as a focusable page heading', () => {
+    renderHeader();
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Weekend away' });
+    expect(heading.getAttribute('tabindex')).toBe('-1');
+    expect(heading.getAttribute('data-testid')).toBe('project-name');
   });
 });
