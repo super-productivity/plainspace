@@ -382,7 +382,7 @@ export default function Project() {
 
   async function handleDeleteItem(itemId: string) {
     const item = state.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item) return false;
     try {
       await api.deleteItem(params.slug, itemId);
       // Apply the confirmed result directly instead of waiting for the SSE
@@ -398,9 +398,11 @@ export default function Project() {
         },
         'Undo',
       );
+      return true;
     } catch {
       // SSE will resync if the delete actually went through.
       addToast('Could not delete the item. Please try again.');
+      return false;
     }
   }
 
