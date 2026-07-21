@@ -75,12 +75,29 @@ function item(id: string, text: string, position: number): Item {
   };
 }
 
+// The store mocks reposition for real, and the card re-renders from a signal.
+// A reorder test whose row never moves proves almost nothing — that is how a
+// focus bug survived this entire suite. Items are mutated in place so their
+// identity is preserved exactly as produce() does in store.ts, which makes
+// <For> re-insert the existing row rather than remount a new one.
 function renderCard(items: Item[]) {
+  const [rows, setRows] = createSignal(items);
+  const reposition = (itemId: string, position: number) => {
+    const target = items.find((i) => i.id === itemId);
+    if (target) target.position = position;
+    const next = [...items].sort((a, b) => a.position - b.position);
+    state.items = next;
+    setRows(next);
+  };
+  moveItem.mockImplementation((itemId: string, _listId: string, position: number) =>
+    reposition(itemId, position),
+  );
+  setItemPosition.mockImplementation(reposition);
   state.items = items;
   return render(() => (
     <ListCard
       list={list}
-      items={items}
+      items={rows()}
       members={[]}
       attachments={[]}
       slug="abc"
@@ -152,32 +169,10 @@ describe('ListCard accessibility', () => {
     );
   });
 
-  // The other reorder tests leave moveItem a no-op, so the row never actually
-  // moves and focus is never at risk. Here the store mock reorders for real —
-  // preserving item identity the way produce() does — because <For> re-inserts
-  // the moved row, and re-inserting a node blurs its focused descendant.
+  // <For> re-inserts the moved row, and re-inserting a node blurs its focused
+  // descendant — so the trigger has to be handed focus back explicitly.
   it('keeps focus on the trigger after the row actually moves', async () => {
-    const items = [item('i1', 'First task', 1000), item('i2', 'Second task', 2000)];
-    const [rows, setRows] = createSignal(items);
-    moveItem.mockImplementation((itemId: string, _listId: string, position: number) => {
-      const target = items.find((i) => i.id === itemId);
-      if (target) target.position = position;
-      const next = [...items].sort((a, b) => a.position - b.position);
-      state.items = next;
-      setRows(next);
-    });
-    state.items = items;
-    render(() => (
-      <ListCard
-        list={list}
-        items={rows()}
-        members={[]}
-        attachments={[]}
-        slug="abc"
-        myId="m1"
-        onDeleteItem={vi.fn()}
-      />
-    ));
+    renderCard([item('i1', 'First task', 1000), item('i2', 'Second task', 2000)]);
 
     const trigger = screen.getByLabelText('Actions for First task');
     fireEvent.click(trigger);
@@ -190,6 +185,11 @@ describe('ListCard accessibility', () => {
       ]),
     );
     expect(document.activeElement).toBe(trigger);
+    // Let the commit settle before the test ends: reorderPending is module
+    // scope, so an in-flight move would refuse the next test's reorder.
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('Moved "First task" down.'),
+    );
   });
 
   it('announces that the new order could not be saved when keyboard reorder fails', async () => {
@@ -199,10 +199,12 @@ describe('ListCard accessibility', () => {
     fireEvent.click(screen.getByLabelText('Actions for First task'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
 
-    await waitFor(() => expect(addToast).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('status').textContent).toBe(
-      'Could not fully save the new order after moving "First task" down.',
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe(
+        'Could not fully save the new order after moving "First task" down.',
+      ),
     );
+    expect(addToast).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a second keyboard reorder while one is still saving', async () => {
@@ -222,11 +224,12 @@ describe('ListCard accessibility', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move down' }));
     expect(api.updateItem).toHaveBeenCalledTimes(1);
 
-    // A row still offers its move actions while a move is in flight — what a row
-    // offers depends on position, never on pending state.
+    // The row moved optimistically, so the order is now Second, First, Third.
+    // Every row still offers the move actions its POSITION allows while the save
+    // is in flight — availability never depends on pending state.
     expect(screen.getByLabelText('Actions for First task')).toBeTruthy();
-    const second = screen.getByLabelText('Actions for Second task');
-    fireEvent.click(second);
+    const third = screen.getByLabelText('Actions for Third task');
+    fireEvent.click(third);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
 
     // …but committing it is refused, with feedback rather than a silent no-op.
