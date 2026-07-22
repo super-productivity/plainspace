@@ -44,3 +44,23 @@ test('long task titles clamp cleanly and keep their complete text available', as
     .poll(() => titleText.evaluate((element) => getComputedStyle(element).textDecorationLine))
     .toContain('line-through');
 });
+
+test('narrow hover layouts move empty task actions into the overflow menu', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium', 'Requires a hover-capable browser context');
+  await page.setViewportSize({ width: 320, height: 800 });
+
+  const { project, token } = await setupProject(page);
+  const title = 'Review the project plan before the coordination meeting';
+  await createItemViaApi(project.slug, token, title);
+  await page.goto(`/${project.slug}`);
+
+  expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(true);
+  const row = page.getByTestId('list-item').filter({ hasText: title });
+
+  await expect(row.getByTestId('assign-button')).toHaveCSS('display', 'none');
+  await expect(row.getByTestId('reminder-button')).toHaveCSS('display', 'none');
+  await expect(row.getByTestId('delete-item-button')).toHaveCSS('display', 'none');
+  await expect(row.getByTestId('more-actions-button')).toHaveCSS('display', 'flex');
+});

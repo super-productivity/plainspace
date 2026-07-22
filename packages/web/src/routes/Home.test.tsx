@@ -73,6 +73,17 @@ describe('Home — first visit', () => {
     expect(container.querySelector('main')).toBeTruthy();
   });
 
+  it('compacts the branding while a task flow is open', () => {
+    render(() => <Home />);
+    const tagline = "The simplest way to stay aligned with people who don't use your tools.";
+
+    expect(screen.getByText(tagline)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('show-create-button'));
+
+    expect(screen.queryByText(tagline)).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Plainspace' })).toBeTruthy();
+  });
+
   it('returns focus to the page heading when leaving a form', async () => {
     render(() => <Home />);
     fireEvent.click(screen.getByTestId('show-login-button'));

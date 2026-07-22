@@ -13,6 +13,24 @@
   margin-bottom: var(--space-xl);
 }
 
+.heroCompact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+}
+
+.heroCompact .logoMark {
+  width: 56px;
+  height: 56px;
+  margin: 0;
+}
+
+.heroCompact .title {
+  font-size: var(--text-2xl);
+  margin: 0;
+}
+
 .logoMark {
   display: block;
   /* The mark occupies ~42% of the SVG viewBox, so render large to get a

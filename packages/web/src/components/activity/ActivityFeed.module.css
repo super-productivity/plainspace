@@ -1,5 +1,7 @@
 .bar {
   min-width: 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
   color: var(--color-text-secondary);
 }
 
@@ -8,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-sm);
 }
 
 .title {
@@ -16,7 +18,7 @@
   color: var(--color-text-secondary);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: var(--tracking-wide);
   line-height: var(--leading-snug);
   text-transform: uppercase;
@@ -35,7 +37,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 5px 0;
+  padding: var(--space-sm) 0;
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
@@ -44,10 +46,6 @@
    first row's text (avatar 22px + row gap 10px). */
 .continuation {
   padding-left: 32px;
-}
-
-.activityAvatar {
-  opacity: 0.66;
 }
 
 .text {
@@ -60,12 +58,12 @@
 }
 
 .text strong {
-  color: var(--color-text-secondary);
-  font-weight: 500;
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .subject {
-  color: var(--color-text-secondary);
+  color: var(--color-text);
 }
 
 .time {
@@ -78,7 +76,7 @@
 
 .moreRow {
   display: flex;
-  padding: 5px 0 0 32px;
+  padding: var(--space-sm) 0 0 32px;
 }
 
 .morePill {

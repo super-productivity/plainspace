@@ -63,10 +63,11 @@ export default function ListItem(props: ListItemProps) {
   const [editText, setEditText] = createSignal('');
   const [showPicker, setShowPicker] = createSignal(false);
   const [showReminderPicker, setShowReminderPicker] = createSignal(false);
-  // On touch the non-state actions (empty assign, empty reminder, delete) move
-  // into the ⋯ popover menu so the title reclaims the row width (a CSS media
-  // query hides the inline buttons there; desktop keeps its hover-reveal and
-  // uses the menu for keyboard reorder). The picker anchors to whichever
+  // On touch and narrow layouts the non-state actions (empty assign, empty
+  // reminder, delete) move into the ⋯ popover menu so the title reclaims the
+  // row width (a CSS media query hides the inline buttons there; wide pointer
+  // layouts keep their hover-reveal and use the menu for keyboard reorder).
+  // The picker anchors to whichever
   // control opened it — the inline badge or the ⋯ trigger.
   const [reminderAnchor, setReminderAnchor] = createSignal<HTMLButtonElement>();
   const [assignAnchor, setAssignAnchor] = createSignal<HTMLButtonElement>();
@@ -532,9 +533,10 @@ export default function ListItem(props: ListItemProps) {
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
           </svg>
         </button>
-        {/* On touch, the empty reminder/assign actions and delete collapse into
-            this ⋯ menu. Desktop keeps its hover-revealed inline buttons and uses
-            the menu for keyboard reorder, which has no inline equivalent. */}
+        {/* On touch and narrow layouts, the empty reminder/assign actions and
+            delete collapse into this ⋯ menu. Wide pointer layouts keep their
+            hover-revealed inline buttons and use the menu for keyboard reorder,
+            which has no inline equivalent. */}
         <Menu
           class={styles.moreButton}
           label={`Actions for ${props.item.text}`}

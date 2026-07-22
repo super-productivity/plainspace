@@ -892,18 +892,21 @@ export default function Styleguide() {
       <section class={styles.section}>
         <h2 class={styles.sectionTitle}>Mobile Quick Actions</h2>
         <p class={styles.helperText}>
-          Floating pill rendered on mobile (≤ 760 px) over the project page. Tapping{' '}
-          <strong>Task</strong> focuses the Add Item input; tapping <strong>Scratchpad</strong>{' '}
-          scrolls to the scratchpad and flips it into edit mode in one tap. Shown inline here for
-          documentation.
+          Floating pill rendered on mobile (≤ 760 px) whenever either direct edit control is
+          offscreen. Tapping <strong>Task</strong> focuses the Add Item input; tapping{' '}
+          <strong>Scratchpad</strong> scrolls to the scratchpad and flips it into edit mode in one
+          tap. Shown inline here for documentation.
         </p>
         <div class={styles.quickActionsDemo}>
-          <MobileQuickActions />
+          <MobileQuickActions alwaysVisible />
         </div>
       </section>
 
       <section class={styles.section}>
         <h2 class={styles.sectionTitle}>Add Item</h2>
+        <p class={styles.helperText}>
+          The compact submit control uses the shared focus ring for keyboard navigation.
+        </p>
         <AddItem slug={SLUG} listId="l1" />
       </section>
 
@@ -933,23 +936,23 @@ export default function Styleguide() {
           The checkbox is hand-drawn to match the heading underline: the resting box is a squircle
           ring (<code>--ring-hand</code>) and the checked state is a filled terracotta squircle (
           <code>--disc-hand</code>, <code>--color-primary</code>) with a hand check (
-          <code>--check-hand</code>) — all masked so the ink stays themeable. On pointer devices the
-          per-row action icons (reminder / assign / delete) stay hidden at rest and appear on row
-          hover or keyboard focus; on touch they collapse into a single ⋯ button that opens a
-          popover menu (Set reminder / Assign / Delete), while an assignee avatar or active reminder
-          badge stays inline because it carries state — so the title keeps the row's width. The ⋯
-          trigger is present on pointer devices too, revealed the same way, because it is the only
-          route to keyboard reorder (Move up / Move down) — those have no inline equivalent. The
-          schedule button carries exactly one icon, whose shape (not colour) says which state it's
-          in. Two things compose it: the ring says whether the task repeats — closed for a one-off,
-          closed by an arrowhead for a recurring one — and the mark inside says where it stands:
-          hands for still-to-come, an amber <code>!</code> for a fire time that passed while undone,
-          a check for a recurring task resting until its next occurrence. An empty button is the
-          exception, a clock with a <code>+</code> in the ring gap. Tasks three to seven walk the
-          set: one-off, one-off overdue, repeating, resting, overdue occurrence. The repeat chips
-          (Once / Daily / Mon–Fri / Weekly / 2 weeks / Monthly) live in the reminder picker;
-          byWeekday/byMonthDay are derived from the chosen fire time at commit, and the server owns
-          the immutable anchor.
+          <code>--check-hand</code>) — all masked so the ink stays themeable. On wide pointer
+          layouts the per-row action icons (reminder / assign / delete) stay hidden at rest and
+          appear on row hover or keyboard focus; on touch and narrow layouts they collapse into a
+          single ⋯ button that opens a popover menu (Set reminder / Assign / Delete), while an
+          assignee avatar or active reminder badge stays inline because it carries state — so the
+          title keeps the row's width. The ⋯ trigger is present on pointer devices too, revealed the
+          same way, because it is the only route to keyboard reorder (Move up / Move down) — those
+          have no inline equivalent. The schedule button carries exactly one icon, whose shape (not
+          colour) says which state it's in. Two things compose it: the ring says whether the task
+          repeats — closed for a one-off, closed by an arrowhead for a recurring one — and the mark
+          inside says where it stands: hands for still-to-come, an amber <code>!</code> for a fire
+          time that passed while undone, a check for a recurring task resting until its next
+          occurrence. An empty button is the exception, a clock with a <code>+</code> in the ring
+          gap. Tasks three to seven walk the set: one-off, one-off overdue, repeating, resting,
+          overdue occurrence. The repeat chips (Once / Daily / Mon–Fri / Weekly / 2 weeks / Monthly)
+          live in the reminder picker; byWeekday/byMonthDay are derived from the chosen fire time at
+          commit, and the server owns the immutable anchor.
         </p>
       </section>
 

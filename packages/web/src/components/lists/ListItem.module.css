@@ -308,12 +308,9 @@
   }
 }
 
-/* Touch devices (no hover) can't reveal actions on hover the way desktop does,
-   so the empty assign/reminder and the delete button would otherwise sit
-   permanently in the row, eating ~120px the title needs. Move them into the ⋯
-   popover menu instead; the assignee avatar and an active reminder badge stay
-   inline because they carry state (same rule the desktop hover reveal uses). */
-@media (hover: none) {
+/* Touch devices and narrow windows don't have room for three inline actions.
+   Move them into the ⋯ popover; assignee and reminder state stay visible. */
+@media (hover: none), (max-width: 720px) {
   .assignButton:not(.hasAssignee),
   .reminderButton:not(.hasReminder),
   .deleteButton {

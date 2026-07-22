@@ -160,7 +160,6 @@ export default function ActivityFeed(props: ActivityFeedProps) {
                       color={m?.color}
                       size="sm"
                       letters={1}
-                      class={styles.activityAvatar}
                       data-testid="activity-avatar"
                     />
                   </Show>

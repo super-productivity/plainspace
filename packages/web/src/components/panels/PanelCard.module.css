@@ -9,12 +9,11 @@
      so it folds away with the body when the card collapses. */
   /* Sheet surface to match ListCard/ScratchpadCard. */
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-paper);
   /* 20px sides match the other sheet cards and give the header's hanging
      collapse chevron room in the left gutter (it hangs ~14px out of flow). */
-  padding: 14px 20px 16px;
+  padding: 18px 20px 20px;
 }
 
 .header {
@@ -67,6 +66,17 @@
 
 .titleInput:focus {
   outline: none;
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 14px 16px 16px;
+  }
+
+  .title,
+  .titleInput {
+    font-size: 1.25rem;
+  }
 }
 
 .list {

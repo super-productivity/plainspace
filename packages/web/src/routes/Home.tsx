@@ -306,26 +306,30 @@ export default function Home() {
     setView(knownSpaces().length > 0 ? 'none' : 'choice');
   }
 
+  const compactHero = () => view() !== 'none' && view() !== 'choice';
+
   return (
     <main class={styles.container}>
-      <div class={styles.hero}>
+      <div class={`${styles.hero} ${compactHero() ? styles.heroCompact : ''}`}>
         <img src="/favicon.svg" alt="" class={styles.logoMark} />
         <h1 ref={(element) => (pageHeading = element)} class={styles.title} tabindex="-1">
           Plainspace
         </h1>
-        <p class={styles.subtitle}>
-          The simplest way to stay aligned with people who don't use your tools.
-        </p>
-        <Show when={canInstall()}>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={promptInstall}
-            data-testid="install-app-button"
-          >
-            Install app
-          </Button>
+        <Show when={!compactHero()}>
+          <p class={styles.subtitle}>
+            The simplest way to stay aligned with people who don't use your tools.
+          </p>
+          <Show when={canInstall()}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={promptInstall}
+              data-testid="install-app-button"
+            >
+              Install app
+            </Button>
+          </Show>
         </Show>
       </div>
 

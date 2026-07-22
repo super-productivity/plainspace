@@ -2,17 +2,27 @@ import { createSignal, onCleanup, onMount } from 'solid-js';
 import styles from './MobileQuickActions.module.css';
 
 const SCROLL: ScrollIntoViewOptions = { behavior: 'smooth', block: 'center' };
+const MOBILE_QUERY = '(max-width: 760px)';
 // Matches the fold transition in Collapsible.module.css — wait it out before
 // scrolling so the target is measured at its final, expanded height.
 const COLLAPSE_MS = 220;
 
-// Below this scroll position the pill is always visible regardless of
-// scroll direction; above it, scrolling down hides it and up reveals it.
-const ALWAYS_VISIBLE_Y = 40;
-// Asymmetric thresholds: hiding requires a few px of intent to avoid
-// flicker on jitter; revealing should feel almost immediate.
-const HIDE_THRESHOLD = 8;
-const REVEAL_THRESHOLD = 2;
+function isDirectlyVisible(el: Element): boolean {
+  if (el.closest('[inert], [aria-hidden="true"]')) return false;
+  const { top, bottom } = el.getBoundingClientRect();
+  return bottom > 0 && top < window.innerHeight;
+}
+
+function shouldHide(): boolean {
+  const addItem = document.querySelector('[data-testid="add-item-input"]');
+  const scratchpad = document.querySelector(
+    '[data-testid="scratchpad-textarea"], [data-testid="scratchpad-content"]',
+  );
+  if (!addItem || !scratchpad) return true;
+  const addItemVisible = isDirectlyVisible(addItem);
+  const scratchpadVisible = isDirectlyVisible(scratchpad);
+  return addItemVisible && scratchpadVisible;
+}
 
 // The quick-action targets live inside collapsible cards whose bodies stay
 // mounted (just clipped) when folded — so a tap can find them but they'd be
@@ -70,24 +80,64 @@ function focusScratchpad() {
   else requestAnimationFrame(settle);
 }
 
-export default function MobileQuickActions() {
-  const [hidden, setHidden] = createSignal(false);
+interface MobileQuickActionsProps {
+  /** Keeps the inline styleguide specimen visible independent of page targets. */
+  alwaysVisible?: boolean;
+}
+
+export default function MobileQuickActions(props: MobileQuickActionsProps) {
+  // Start hidden so the floating controls never flash over their inline targets
+  // before the first layout measurement runs.
+  const [hideForTargets, setHideForTargets] = createSignal(true);
+  const hidden = () => !props.alwaysVisible && hideForTargets();
 
   onMount(() => {
-    let lastY = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      if (y < ALWAYS_VISIBLE_Y) {
-        setHidden(false);
-      } else {
-        const delta = y - lastY;
-        if (delta > HIDE_THRESHOLD) setHidden(true);
-        else if (delta < -REVEAL_THRESHOLD) setHidden(false);
-      }
-      lastY = y;
+    if (props.alwaysVisible) return;
+    const mobile = window.matchMedia(MOBILE_QUERY);
+    let stopTracking: (() => void) | undefined;
+
+    const syncTracking = () => {
+      stopTracking?.();
+      stopTracking = undefined;
+      setHideForTargets(true);
+      if (!mobile.matches) return;
+
+      let frame: number | undefined;
+      const updateHidden = () => {
+        if (frame !== undefined) return;
+        frame = requestAnimationFrame(() => {
+          frame = undefined;
+          setHideForTargets(shouldHide());
+        });
+      };
+      // Folding cards and editing their contents can change target availability
+      // or position without scrolling or resizing.
+      const visibilityObserver = new MutationObserver(updateHidden);
+      visibilityObserver.observe(document.body, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true,
+        attributeFilter: ['aria-hidden', 'inert'],
+      });
+      window.addEventListener('scroll', updateHidden, { passive: true });
+      window.addEventListener('resize', updateHidden);
+      updateHidden();
+
+      stopTracking = () => {
+        if (frame !== undefined) cancelAnimationFrame(frame);
+        visibilityObserver.disconnect();
+        window.removeEventListener('scroll', updateHidden);
+        window.removeEventListener('resize', updateHidden);
+      };
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onCleanup(() => window.removeEventListener('scroll', onScroll));
+
+    mobile.addEventListener('change', syncTracking);
+    syncTracking();
+    onCleanup(() => {
+      mobile.removeEventListener('change', syncTracking);
+      stopTracking?.();
+    });
   });
 
   return (
@@ -95,6 +145,8 @@ export default function MobileQuickActions() {
       class={styles.bar}
       role="group"
       aria-label="Quick actions"
+      aria-hidden={hidden() ? 'true' : undefined}
+      inert={hidden()}
       data-hidden={hidden() ? 'true' : undefined}
     >
       <button
