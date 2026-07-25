@@ -70,6 +70,9 @@ async function collect() {
     countSince('members', 'joined_at', 30),
     distinctActive('member_id', 7),
     distinctActive('member_id', 30),
+    // Sessions slide on use, so a live row now means "used within the last 30
+    // days" rather than "issued within the last 7" — the figure steps up
+    // permanently at the deploy that introduced sliding expiry.
     sql`SELECT count(*)::int AS sessions, count(DISTINCT member_id)::int AS members
         FROM member_tokens
         WHERE expires_at > now()`,

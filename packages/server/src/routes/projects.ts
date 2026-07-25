@@ -80,7 +80,8 @@ projectRoutes.post('/', async (c) => {
 
   // Global account: a token from another Space whose verified email matches this
   // one proves email control, standing in for the creation code so a returning
-  // user creates further Spaces in one step. Resolved outside the tx (a read).
+  // user creates further Spaces in one step. Resolved outside the tx — it may
+  // slide the proof session's expiry, so it must not ride on this one.
   const proofEmail = await resolveProofEmail(proofToken);
   const proofVerified = proofEmail !== null && proofEmail === normalizeEmail(email);
 

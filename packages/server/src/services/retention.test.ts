@@ -72,7 +72,7 @@ describe('runRetentionSweep', () => {
   it('purges expired member sessions and keeps live ones', async () => {
     const now = new Date();
     const { project } = await createProject();
-    // addMember inserts one live session (expires_at now()+7d); add an expired one.
+    // addMember inserts one live session (expires_at now()+30d); add an expired one.
     const member = await addMember(project.id);
     const expiredHash = randomBytes(32).toString('hex');
     await db.insert(memberTokens).values({

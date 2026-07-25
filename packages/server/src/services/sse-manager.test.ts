@@ -86,4 +86,23 @@ describe('SSEManager cleanup', () => {
     expect(manager.getClientCount('project')).toBe(0);
     vi.useRealTimers();
   });
+
+  // Node doesn't clamp an over-long setTimeout delay, it fires after 1ms — so an
+  // unclamped session expiry beyond ~24.8 days closed every stream on open.
+  it('keeps a stream open when the session outlasts the setTimeout ceiling', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
+    const manager = new SSEManager();
+    const stream = createStream();
+    manager.addClient('project', 'member', stream, vi.fn(), {
+      sessionHash: 'session',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+
+    vi.advanceTimersByTime(60_000);
+
+    expect(stream.close).not.toHaveBeenCalled();
+    expect(manager.getClientCount('project')).toBe(1);
+    vi.useRealTimers();
+  });
 });
