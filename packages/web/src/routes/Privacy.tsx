@@ -151,8 +151,8 @@ export default function Privacy() {
         </li>
         <li>
           <strong>Browser session records</strong>: a session lapses no more than 30 days after it
-          was last used, and lapsed records are deleted automatically. Signing out or leaving the
-          Space deletes the record immediately.
+          was last used and no more than 90 days after sign-in, and lapsed records are deleted
+          automatically. Signing out or leaving the Space deletes the record immediately.
         </li>
         <li>
           <strong>Email verification codes</strong>: expire after 10 minutes; expired or used
@@ -268,11 +268,11 @@ export default function Privacy() {
         to provide the passwordless access you requested (§ 25(2) No. 2 TDDDG): the token is the
         credential, and without it we cannot keep your Space access available. It remains in your
         browser until you sign out, clear browser storage, or leave that Space, and the server
-        accepts each session for no more than 30 days after it was last used. We also store local UI
-        state, such as recent reminder choices and an email saved on this device for form prefill.
-        You can clear the saved email from the People panel. We do not use third-party cookies,
-        analytics, advertising, or tracking technologies. For this reason no consent banner is
-        required.
+        accepts each session for no more than 30 days after it was last used, and never for more
+        than 90 days after sign-in. We also store local UI state, such as recent reminder choices
+        and an email saved on this device for form prefill. You can clear the saved email from the
+        People panel. We do not use third-party cookies, analytics, advertising, or tracking
+        technologies. For this reason no consent banner is required.
       </p>
 
       <h2>17. Security</h2>

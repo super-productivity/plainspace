@@ -15,6 +15,14 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // someone who keeps showing up never has to ask for another email code.
 export const MEMBER_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+// The hard ceiling sliding cannot cross: no session outlives this much time
+// from its issuance, however continuously it is used. Without it a stolen
+// token that the thief keeps exercising never expires at all, and there is no
+// "sign out everywhere" control to fall back on — so this is what bounds a
+// compromise the member never notices. Costs an active member four emailed
+// codes a year.
+export const MEMBER_SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
 // This cap bounds concurrent devices; minting session 11 retires the oldest
 // still-live one.
 const MAX_SESSIONS_PER_MEMBER = 10;
@@ -73,24 +81,52 @@ export type MemberSession = {
 // long-lived transports enforce the same boundary after their opening request.
 //
 // Sessions slide: a request landing in the second half of the window pushes the
-// expiry out to a full TTL again, so an active member never re-authenticates.
-// Renewing only past the halfway mark is what keeps authentication read-only in
-// the common case — at most one write per session per half-window, not one per
-// request.
+// expiry out to a full TTL again, so an active member never re-authenticates
+// until the MAX_AGE ceiling stops the sliding for good. Renewing only past the
+// halfway mark is what keeps authentication read-only in the common case — at
+// most one write per session per half-window, not one per request.
+//
+// The ceiling is enforced on read, by created_at, rather than left to emerge
+// from the capped write below: a bound that holds only because no older code
+// path ever wrote the row is not a bound worth relying on for revocation.
+// Capping the write too keeps expires_at honest, so the retention sweep and the
+// "live sessions" count don't treat an aged-out row as usable. The
+// `next > expiresAt` guard then matters for more than tidiness: a session
+// pinned at its ceiling sits permanently inside the halfway window, and without
+// it every request would rewrite the same timestamp — exactly the per-request
+// write the threshold exists to avoid.
 export async function sessionForToken(token: string): Promise<MemberSession | null> {
   const tokenHash = hashToken(token);
   const now = new Date();
+  const issuedAfter = new Date(now.getTime() - MEMBER_SESSION_MAX_AGE_MS);
   const [row] = await db
-    .select({ member: members, expiresAt: memberTokens.expiresAt })
+    .select({
+      member: members,
+      expiresAt: memberTokens.expiresAt,
+      createdAt: memberTokens.createdAt,
+    })
     .from(memberTokens)
     .innerJoin(members, eq(members.id, memberTokens.memberId))
-    .where(and(eq(memberTokens.tokenHash, tokenHash), gt(memberTokens.expiresAt, now)))
+    .where(
+      and(
+        eq(memberTokens.tokenHash, tokenHash),
+        gt(memberTokens.expiresAt, now),
+        gt(memberTokens.createdAt, issuedAfter),
+      ),
+    )
     .limit(1);
   if (!row) return null;
 
   let expiresAt = row.expiresAt;
-  if (expiresAt.getTime() - now.getTime() < MEMBER_SESSION_TTL_MS / 2) {
-    expiresAt = new Date(now.getTime() + MEMBER_SESSION_TTL_MS);
+  const next = Math.min(
+    now.getTime() + MEMBER_SESSION_TTL_MS,
+    row.createdAt.getTime() + MEMBER_SESSION_MAX_AGE_MS,
+  );
+  if (
+    next > expiresAt.getTime() &&
+    expiresAt.getTime() - now.getTime() < MEMBER_SESSION_TTL_MS / 2
+  ) {
+    expiresAt = new Date(next);
     await db.update(memberTokens).set({ expiresAt }).where(eq(memberTokens.tokenHash, tokenHash));
   }
   return { member: row.member, tokenHash, expiresAt };
