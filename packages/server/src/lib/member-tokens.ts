@@ -7,11 +7,14 @@ import { hashToken } from './crypto.js';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export const MEMBER_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// How long a session stays valid *after its last use* — an idle window, not a
+// fixed lifetime (see sessionForToken). A copied token still dies this long
+// after the thief stops using it, but someone who keeps showing up never has to
+// ask for another email code.
+export const MEMBER_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-// The fixed lifetime bounds a copied token's usefulness without adding a DB
-// write to every authenticated request. This cap separately bounds concurrent
-// devices; minting session 11 retires the oldest still-live one.
+// This cap bounds concurrent devices; minting session 11 retires the oldest
+// still-live one.
 const MAX_SESSIONS_PER_MEMBER = 10;
 
 // Issue a fresh bearer token as a NEW session for a member and return the
@@ -62,15 +65,29 @@ export type MemberSession = {
 
 // Resolve a live bearer session in one indexed join. Returning the expiry lets
 // long-lived transports enforce the same boundary after their opening request.
+//
+// Sessions slide: a request landing in the second half of the window pushes the
+// expiry out to a full TTL again, so an active member never re-authenticates.
+// Renewing only past the halfway mark is what keeps authentication read-only in
+// the common case — at most one write per session per half-window, not one per
+// request.
 export async function sessionForToken(token: string): Promise<MemberSession | null> {
   const tokenHash = hashToken(token);
+  const now = new Date();
   const [row] = await db
     .select({ member: members, expiresAt: memberTokens.expiresAt })
     .from(memberTokens)
     .innerJoin(members, eq(members.id, memberTokens.memberId))
-    .where(and(eq(memberTokens.tokenHash, tokenHash), gt(memberTokens.expiresAt, new Date())))
+    .where(and(eq(memberTokens.tokenHash, tokenHash), gt(memberTokens.expiresAt, now)))
     .limit(1);
-  return row ? { member: row.member, tokenHash, expiresAt: row.expiresAt } : null;
+  if (!row) return null;
+
+  let expiresAt = row.expiresAt;
+  if (expiresAt.getTime() - now.getTime() < MEMBER_SESSION_TTL_MS / 2) {
+    expiresAt = new Date(now.getTime() + MEMBER_SESSION_TTL_MS);
+    await db.update(memberTokens).set({ expiresAt }).where(eq(memberTokens.tokenHash, tokenHash));
+  }
+  return { member: row.member, tokenHash, expiresAt };
 }
 
 // Proof-token callers need only the member, while request authentication uses

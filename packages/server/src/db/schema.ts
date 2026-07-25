@@ -89,12 +89,12 @@ export const memberTokens = pgTable(
       .notNull()
       .references(() => members.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    // Fixed lifetime keeps authentication reads read-only and makes the
-    // maximum exposure of a copied bearer token explicit. Re-authentication
-    // issues a fresh additive session without disturbing other devices.
+    // An idle window, not a fixed lifetime: sessionForToken pushes this out
+    // again once a session passes its halfway mark, so the value bounds
+    // exposure of a copied bearer token from its *last use*.
     expiresAt: timestamp('expires_at', { withTimezone: true })
       .notNull()
-      .default(sql`now() + interval '7 days'`),
+      .default(sql`now() + interval '30 days'`),
   },
   (table) => [index('idx_member_tokens_member').on(table.memberId)],
 );

@@ -6,7 +6,7 @@ import { createApp } from '../app.js';
 import { db } from '../db/connection.js';
 import { loginVerifications, members, memberTokens } from '../db/schema.js';
 import { hashToken } from '../lib/crypto.js';
-import { isSessionLive } from '../lib/member-tokens.js';
+import { isSessionLive, MEMBER_SESSION_TTL_MS } from '../lib/member-tokens.js';
 import { encryptedEmailFields } from '../lib/email-crypto.js';
 import { createProject } from '../../test/helpers.js';
 
@@ -107,7 +107,7 @@ describe('POST /api/projects/:slug/auth/verify-login-code — additive sessions'
 });
 
 describe('member session lifecycle', () => {
-  it('rejects a bearer token after its fixed expiry', async () => {
+  it('rejects a bearer token once its idle window has lapsed', async () => {
     const { project } = await createProject('Expired session');
     const { token } = await verifiedMemberWithToken(project.id, 'expired@example.com');
     await db
@@ -116,6 +116,42 @@ describe('member session lifecycle', () => {
       .where(eq(memberTokens.tokenHash, hashToken(token)));
 
     expect((await authed(project.slug, token)).status).toBe(401);
+  });
+
+  it('slides the expiry forward for a session past its halfway mark', async () => {
+    const { project } = await createProject('Sliding session');
+    const { token } = await verifiedMemberWithToken(project.id, 'sliding@example.com');
+    const stale = new Date(Date.now() + MEMBER_SESSION_TTL_MS / 4);
+    await db
+      .update(memberTokens)
+      .set({ expiresAt: stale })
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [row] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    // Renewed to a full window rather than merely surviving the request.
+    expect(row.expiresAt.getTime()).toBeGreaterThan(Date.now() + MEMBER_SESSION_TTL_MS - 60 * 1000);
+  });
+
+  it('leaves a fresh session untouched, keeping authentication read-only', async () => {
+    const { project } = await createProject('Fresh session');
+    const { token } = await verifiedMemberWithToken(project.id, 'fresh@example.com');
+    const [before] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [after] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    expect(after.expiresAt.getTime()).toBe(before.expiresAt.getTime());
   });
 
   it('logs out only the current device session', async () => {

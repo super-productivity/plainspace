@@ -262,9 +262,9 @@ export default function Privacy() {
         We store a per-Space join token in your browser's localStorage. This is strictly necessary
         to provide the passwordless access you requested (§ 25(2) No. 2 TDDDG): the token is the
         credential, and without it we cannot keep your Space access available. It remains in your
-        browser until you sign out, clear browser storage, or leave that Space, and the server
-        accepts each issued session for no more than 7 days. We also store local UI state, such as
-        recent reminder choices and an email saved on this device for form prefill. You can clear
+        browser until you sign out, clear browser storage, or leave that Space, and the server stops
+        accepting a session once it has gone 30 days without use. We also store local UI state, such
+        as recent reminder choices and an email saved on this device for form prefill. You can clear
         the saved email from the People panel. We do not use third-party cookies, analytics,
         advertising, or tracking technologies. For this reason no consent banner is required.
       </p>
