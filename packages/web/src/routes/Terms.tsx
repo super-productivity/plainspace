@@ -43,11 +43,13 @@ export default function Terms() {
       <p>
         Plainspace uses passwordless authentication. When you create or join a Space, your browser
         stores a per-Space access token that acts as your credential. Each browser session expires
-        after 7 days and can be revoked earlier by signing out on that device or leaving the Space.
-        Anyone with access to that token, or to an email inbox you added to that Space, can access
-        the Space as you. You are responsible for the security of the device and inbox you use. An
-        API token (one per email, valid for 1 year) follows the same rule and may be revoked by us
-        if abused.
+        no more than 30 days after you last used it — continuing to use the Space extends it, so an
+        active member stays signed in — and in no case more than 90 days after you signed in, after
+        which you confirm your email again. A session can be ended earlier by signing out on that
+        device or leaving the Space. Anyone with access to that token, or to an email inbox you
+        added to that Space, can access the Space as you. You are responsible for the security of
+        the device and inbox you use. An API token (one per email) is different: it has a fixed
+        1-year lifetime that use does not extend, and may be revoked by us if abused.
       </p>
       <p>
         By creating or joining a Space, you confirm that you are at least 16 years old. We do not

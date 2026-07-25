@@ -15,6 +15,8 @@ interface SSEClient {
 }
 
 const MAX_STREAMS_PER_MEMBER = 3;
+// Node's setTimeout ceiling (2^31-1 ms, ~24.8 days).
+const TIMEOUT_MAX_MS = 2_147_483_647;
 // A broadcast write that hasn't resolved within this window means the client
 // is backpressured or gone; treat it as dead so one stalled socket can't hold
 // up delivery to everyone else in the Space.
@@ -73,9 +75,13 @@ export class SSEManager {
 
     clients.add(client);
     if (session) {
+      // Node does NOT clamp a delay above 2^31-1 ms (~24.8 days) — it warns and
+      // fires after 1ms, which would close every stream the instant it opened
+      // once sessions started lasting 30 days. Clamping instead disconnects a
+      // stream that somehow stays open that long a little early; it reconnects.
       client.expiryTimer = setTimeout(
         () => this.removeClientFromSet(projectId, clients, client, { closeStream: true }),
-        Math.max(0, session.expiresAt.getTime() - Date.now()),
+        Math.min(Math.max(0, session.expiresAt.getTime() - Date.now()), TIMEOUT_MAX_MS),
       );
     }
     return client;

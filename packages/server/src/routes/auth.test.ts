@@ -6,7 +6,11 @@ import { createApp } from '../app.js';
 import { db } from '../db/connection.js';
 import { loginVerifications, members, memberTokens } from '../db/schema.js';
 import { hashToken } from '../lib/crypto.js';
-import { isSessionLive } from '../lib/member-tokens.js';
+import {
+  isSessionLive,
+  MEMBER_SESSION_MAX_AGE_MS,
+  MEMBER_SESSION_TTL_MS,
+} from '../lib/member-tokens.js';
 import { encryptedEmailFields } from '../lib/email-crypto.js';
 import { createProject } from '../../test/helpers.js';
 
@@ -107,7 +111,7 @@ describe('POST /api/projects/:slug/auth/verify-login-code — additive sessions'
 });
 
 describe('member session lifecycle', () => {
-  it('rejects a bearer token after its fixed expiry', async () => {
+  it('rejects a bearer token once its idle window has lapsed', async () => {
     const { project } = await createProject('Expired session');
     const { token } = await verifiedMemberWithToken(project.id, 'expired@example.com');
     await db
@@ -116,6 +120,102 @@ describe('member session lifecycle', () => {
       .where(eq(memberTokens.tokenHash, hashToken(token)));
 
     expect((await authed(project.slug, token)).status).toBe(401);
+  });
+
+  it('slides the expiry forward for a session past its halfway mark', async () => {
+    const { project } = await createProject('Sliding session');
+    const { token } = await verifiedMemberWithToken(project.id, 'sliding@example.com');
+    const stale = new Date(Date.now() + MEMBER_SESSION_TTL_MS / 4);
+    await db
+      .update(memberTokens)
+      .set({ expiresAt: stale })
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [row] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    // Renewed to a full window rather than merely surviving the request.
+    expect(row.expiresAt.getTime()).toBeGreaterThan(Date.now() + MEMBER_SESSION_TTL_MS - 60 * 1000);
+  });
+
+  it('never slides a session past its absolute age ceiling', async () => {
+    const { project } = await createProject('Capped session');
+    const { token } = await verifiedMemberWithToken(project.id, 'capped@example.com');
+    // Issued 80 days ago and still live: renewal is due, but only 10 days of
+    // headroom remain before the 90-day ceiling.
+    const createdAt = new Date(Date.now() - 80 * 24 * 60 * 60 * 1000);
+    await db
+      .update(memberTokens)
+      .set({ createdAt, expiresAt: new Date(Date.now() + MEMBER_SESSION_TTL_MS / 4) })
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [row] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    const ceiling = createdAt.getTime() + MEMBER_SESSION_MAX_AGE_MS;
+    expect(row.expiresAt.getTime()).toBe(ceiling);
+    // The ceiling binds, so this is well short of a full TTL from now.
+    expect(row.expiresAt.getTime()).toBeLessThan(Date.now() + MEMBER_SESSION_TTL_MS);
+  });
+
+  it('rejects a session that has reached its absolute age ceiling', async () => {
+    const { project } = await createProject('Aged out session');
+    const { token } = await verifiedMemberWithToken(project.id, 'aged@example.com');
+    // Live by expires_at, but issued longer ago than the ceiling allows: the
+    // capped renewal can never have produced this, so it must not authenticate.
+    await db
+      .update(memberTokens)
+      .set({
+        createdAt: new Date(Date.now() - MEMBER_SESSION_MAX_AGE_MS - 1000),
+        expiresAt: new Date(Date.now() + MEMBER_SESSION_TTL_MS),
+      })
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(401);
+  });
+
+  it('does not rewrite a session already pinned at its ceiling', async () => {
+    const { project } = await createProject('Pinned session');
+    const { token } = await verifiedMemberWithToken(project.id, 'pinned@example.com');
+    const createdAt = new Date(Date.now() - 85 * 24 * 60 * 60 * 1000);
+    const pinned = new Date(createdAt.getTime() + MEMBER_SESSION_MAX_AGE_MS);
+    await db
+      .update(memberTokens)
+      .set({ createdAt, expiresAt: pinned })
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [row] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    // Inside the halfway window but at the ceiling: no write, or every request
+    // in the final stretch would rewrite the same timestamp.
+    expect(row.expiresAt.getTime()).toBe(pinned.getTime());
+  });
+
+  it('leaves a fresh session untouched, keeping authentication read-only', async () => {
+    const { project } = await createProject('Fresh session');
+    const { token } = await verifiedMemberWithToken(project.id, 'fresh@example.com');
+    const [before] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+
+    expect((await authed(project.slug, token)).status).toBe(200);
+
+    const [after] = await db
+      .select()
+      .from(memberTokens)
+      .where(eq(memberTokens.tokenHash, hashToken(token)));
+    expect(after.expiresAt.getTime()).toBe(before.expiresAt.getTime());
   });
 
   it('logs out only the current device session', async () => {

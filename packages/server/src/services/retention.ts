@@ -65,7 +65,7 @@ export async function runRetentionSweep(now = new Date()): Promise<void> {
     // Expired sessions are dead the moment they lapse (sessionForToken filters
     // expires_at > now), but issueMemberToken only prunes a member's own expired
     // rows when *that* member signs in again — someone who logs in once and never
-    // returns leaves a 7-day token row forever. Without this the table grows
+    // returns leaves a lapsed token row forever. Without this the table grows
     // unbounded and any raw count(*) over-reports who is "signed in".
     await tx.delete(memberTokens).where(lt(memberTokens.expiresAt, now));
     await tx

@@ -45,7 +45,7 @@ WHERE created_at > now() - (:days * interval '1 day');
 \echo '== Live sessions (currently signed in, one row per device) =='
 -- Filter on expires_at so this matches what actually authenticates
 -- (sessionForToken requires expires_at > now()). Counting every row would
--- include lapsed 7-day sessions the retention sweep hasn't purged yet, which
+-- include lapsed sessions the retention sweep hasn't purged yet, which
 -- over-reports "signed in" — often above the active-member count.
 SELECT
   count(*)                  AS sessions,
