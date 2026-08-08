@@ -111,6 +111,124 @@ async function patchDone(taskId: string, token: string, done: boolean): Promise<
     body: JSON.stringify({ done }),
   });
 }
+async function authDelete(path: string, token: string): Promise<Response> {
+  return app.request(path, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+describe('POST /api/integration/tasks/:taskId/unassign', () => {
+  it('unassigns my task: 200, clears assignee, records activity, broadcasts', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, {
+      text: 'Leave me',
+      assignedTo: memberId,
+    });
+    const spy = vi.spyOn(sseManager, 'broadcast');
+
+    const res = await authPost(`/api/integration/tasks/${item.id}/unassign`, token);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.task.id).toBe(item.id);
+
+    const updated = await db.query.items.findFirst({ where: eq(items.id, item.id) });
+    expect(updated?.assignedTo).toBeNull();
+
+    const acts = await db
+      .select()
+      .from(activity)
+      .where(and(eq(activity.targetId, item.id), eq(activity.action, 'item.assigned')));
+    expect(acts.some((a) => (a.meta as { assignedTo?: unknown }).assignedTo === null)).toBe(
+      true,
+    );
+    expect(spy).toHaveBeenCalledWith(
+      projectId,
+      'item.updated',
+      expect.objectContaining({ memberId }),
+    );
+  });
+
+  it('already unassigned: idempotent 200', async () => {
+    const { projectId, listId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'Free' });
+    const res = await authPost(`/api/integration/tasks/${item.id}/unassign`, token);
+    expect(res.status).toBe(200);
+  });
+
+  it('assigned to another member: 404, row unchanged', async () => {
+    const { projectId, listId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail());
+    const item = await addItem(listId, projectId, {
+      text: 'Theirs',
+      assignedTo: other.id,
+    });
+    const res = await authPost(`/api/integration/tasks/${item.id}/unassign`, token);
+    expect(res.status).toBe(404);
+    const row = await db.query.items.findFirst({ where: eq(items.id, item.id) });
+    expect(row?.assignedTo).toBe(other.id);
+  });
+
+  it('non-uuid taskId: 404', async () => {
+    const { token } = await setupSpace();
+    const res = await authPost('/api/integration/tasks/not-a-uuid/unassign', token);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/integration/tasks/:taskId', () => {
+  it('soft-deletes my assigned task: 204, deletedAt set, broadcasts', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, {
+      text: 'Delete me',
+      assignedTo: memberId,
+    });
+    const spy = vi.spyOn(sseManager, 'broadcast');
+
+    const res = await authDelete(`/api/integration/tasks/${item.id}`, token);
+    expect(res.status).toBe(204);
+
+    const row = await db.query.items.findFirst({ where: eq(items.id, item.id) });
+    expect(row?.deletedAt).not.toBeNull();
+
+    const acts = await db
+      .select()
+      .from(activity)
+      .where(and(eq(activity.targetId, item.id), eq(activity.action, 'item.deleted')));
+    expect(acts.length).toBeGreaterThan(0);
+    expect(spy).toHaveBeenCalledWith(
+      projectId,
+      'item.deleted',
+      expect.objectContaining({ itemId: item.id, memberId }),
+    );
+  });
+
+  it('unassigned task: 404 (must be mine)', async () => {
+    const { projectId, listId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'Nobody' });
+    const res = await authDelete(`/api/integration/tasks/${item.id}`, token);
+    expect(res.status).toBe(404);
+    const row = await db.query.items.findFirst({ where: eq(items.id, item.id) });
+    expect(row?.deletedAt).toBeNull();
+  });
+
+  it('assigned to another member: 404', async () => {
+    const { projectId, listId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail());
+    const item = await addItem(listId, projectId, {
+      text: 'Theirs',
+      assignedTo: other.id,
+    });
+    const res = await authDelete(`/api/integration/tasks/${item.id}`, token);
+    expect(res.status).toBe(404);
+  });
+
+  it('non-uuid taskId: 404', async () => {
+    const { token } = await setupSpace();
+    const res = await authDelete('/api/integration/tasks/not-a-uuid', token);
+    expect(res.status).toBe(404);
+  });
+});
 
 describe('POST /api/integration/tasks/:taskId/claim', () => {
   it('claims an unassigned task: 200, assigns to me, records activity, broadcasts', async () => {
