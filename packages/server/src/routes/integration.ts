@@ -7,7 +7,7 @@ import { Hono } from 'hono';
 import { eq, and, isNull, inArray, gt, desc, count, max } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/connection.js';
-import { members, items, lists, projects } from '../db/schema.js';
+import { activity, attachments, members, items, lists, projects } from '../db/schema.js';
 import { apiTokenMiddleware, type ApiTokenContext } from '../middleware/api-token.js';
 import { isUuid } from '../middleware/uuid-param.js';
 import { sseManager } from '../services/sse-manager.js';
@@ -626,6 +626,206 @@ integrationRoutes.post('/tasks/:taskId/claim', async (c) => {
   void sseManager.broadcast(item.projectId, 'activity', { entry: result.activityEntry });
 
   return c.json({ task: serializeSPTask(result.claimed, list, proj, appOrigin()) });
+});
+
+// POST /api/integration/tasks/:taskId/unassign - Drop the caller's assignment so
+// the task returns to the claim pool. Symmetric with claim: only the caller's
+// own member can be cleared (never someone else's). Idempotent when already
+// unassigned. A task held by another member is 404 (no probe / no steal).
+integrationRoutes.post('/tasks/:taskId/unassign', async (c) => {
+  const emailLookup = c.get('apiTokenEmailLookup');
+  const taskId = c.req.param('taskId');
+  if (!isUuid(taskId)) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const scope = await loadIntegrationScope(emailLookup);
+  if (scope.memberRows.length === 0) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const item = await db.query.items.findFirst({
+    where: and(
+      eq(items.id, taskId),
+      inArray(items.projectId, scope.projectIds),
+      isNull(items.deletedAt),
+    ),
+  });
+  if (!item) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const member = scope.memberByProjectId.get(item.projectId);
+  if (!member) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const [list, proj] = await Promise.all([
+    db.query.lists.findFirst({ where: eq(lists.id, item.listId) }),
+    db.query.projects.findFirst({ where: eq(projects.id, item.projectId) }),
+  ]);
+  if (!list || !proj) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  // Already unassigned → idempotent success (SP retry / second device).
+  if (item.assignedTo === null) {
+    return c.json({ task: serializeSPTask(item, list, proj, appOrigin()) });
+  }
+
+  // Only the caller's own assignment may be cleared. A task held by someone
+  // else is indistinguishable from missing (404) — never 409 that would leak
+  // that the id exists and is assigned.
+  if (item.assignedTo !== member.id) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [unassigned] = await tx
+      .update(items)
+      .set({ assignedTo: null })
+      .where(
+        and(
+          eq(items.id, taskId),
+          eq(items.projectId, item.projectId),
+          eq(items.assignedTo, member.id),
+          isNull(items.deletedAt),
+        ),
+      )
+      .returning();
+    if (!unassigned) {
+      return null;
+    }
+
+    const activityEntry = await recordActivity(tx, {
+      projectId: item.projectId,
+      memberId: member.id,
+      action: 'item.assigned',
+      targetType: 'item',
+      targetId: taskId,
+      meta: { text: item.text, assignedTo: null, source: 'sp' },
+    });
+    return { unassigned, activityEntry };
+  });
+  if (!result) {
+    const current = await db.query.items.findFirst({ where: eq(items.id, taskId) });
+    if (current && current.assignedTo === null && !current.deletedAt) {
+      return c.json({ task: serializeSPTask(current, list, proj, appOrigin()) });
+    }
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  void sseManager.broadcast(item.projectId, 'item.updated', {
+    item: serializeItem(result.unassigned),
+    memberId: member.id,
+  });
+  void sseManager.broadcast(item.projectId, 'activity', { entry: result.activityEntry });
+
+  return c.json({ task: serializeSPTask(result.unassigned, list, proj, appOrigin()) });
+});
+
+// DELETE /api/integration/tasks/:taskId - Soft-delete a task assigned to the
+// caller (PAT). Mirrors member DELETE /api/projects/:slug/items/:itemId:
+// scrub item activity meta, set deletedAt, broadcast item.deleted. Tasks held
+// by another member or already deleted are 404.
+integrationRoutes.delete('/tasks/:taskId', async (c) => {
+  const emailLookup = c.get('apiTokenEmailLookup');
+  const taskId = c.req.param('taskId');
+  if (!isUuid(taskId)) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const scope = await loadIntegrationScope(emailLookup);
+  if (scope.memberRows.length === 0) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const item = await db.query.items.findFirst({
+    where: and(
+      eq(items.id, taskId),
+      inArray(items.projectId, scope.projectIds),
+      inArray(items.assignedTo, scope.memberIds),
+      isNull(items.deletedAt),
+    ),
+  });
+  if (!item || !isAssignedToScopedMember(item, scope)) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const member = scope.memberByProjectId.get(item.projectId);
+  if (!member) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const result = await db.transaction(async (tx) => {
+    await tx
+      .update(activity)
+      .set({ meta: {} })
+      .where(
+        and(
+          eq(activity.projectId, item.projectId),
+          eq(activity.targetType, 'item'),
+          eq(activity.targetId, taskId),
+        ),
+      );
+
+    const itemAttachments = await tx.query.attachments.findMany({
+      where: eq(attachments.itemId, taskId),
+      columns: { id: true },
+    });
+    if (itemAttachments.length > 0) {
+      await tx
+        .update(activity)
+        .set({ meta: {} })
+        .where(
+          and(
+            eq(activity.projectId, item.projectId),
+            eq(activity.targetType, 'attachment'),
+            inArray(
+              activity.targetId,
+              itemAttachments.map((a) => a.id),
+            ),
+          ),
+        );
+    }
+
+    const [deleted] = await tx
+      .update(items)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(items.id, taskId),
+          eq(items.projectId, item.projectId),
+          eq(items.assignedTo, member.id),
+          isNull(items.deletedAt),
+        ),
+      )
+      .returning();
+    if (!deleted) {
+      return null;
+    }
+
+    const activityEntry = await recordActivity(tx, {
+      projectId: item.projectId,
+      memberId: member.id,
+      action: 'item.deleted',
+      targetType: 'item',
+      targetId: taskId,
+      meta: { source: 'sp' },
+    });
+    return { activityEntry };
+  });
+
+  if (!result) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  void sseManager.broadcast(item.projectId, 'item.deleted', {
+    itemId: taskId,
+    memberId: member.id,
+  });
+  void sseManager.broadcast(item.projectId, 'activity', { entry: result.activityEntry });
+  return c.body(null, 204);
 });
 
 // POST /api/integration/spaces - Create a new Space owned by the PAT's email.
