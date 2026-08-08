@@ -7,6 +7,6 @@ Adds PAT integration endpoints used by the Super Productivity Newas fork:
 
 See also: `/home/yuna/git/super-productivity-fork` (`NEWAS.md`).
 
-Forgejo: https://forgejo.fsociety00.cc/yuna/plainspace-fork
+Forgejo: https://forgejo.fsociety00.cc/copilot/plainspace-fork
 
 Branch: `newas/integration-unassign-delete`
