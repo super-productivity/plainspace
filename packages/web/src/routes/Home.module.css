@@ -66,19 +66,13 @@
   max-width: 30rem;
 }
 
-/* Second hero line: defines "Space" before the buttons use the word. */
-.heroNote {
-  margin-top: var(--space-sm);
-  font-size: var(--text-base);
-}
-
 /* How-it-works reassurance under the onboarding CTAs. */
 .ctaNote {
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
   text-align: center;
-  margin: 0;
+  margin: var(--space-md) 0 0;
 }
 
 .submit {
@@ -285,10 +279,10 @@
   transform: rotate(45deg);
 }
 
-/* The hero + CTAs alone fit comfortably; the full column with the peek measures
-   ~750px, so below 760px the peek would clip at the fold and is hidden. Re-check
+/* The hero + CTAs alone fit comfortably; the full column with the peek needs
+   ~725px, so below 730px the peek would clip at the fold and is hidden. Re-check
    this number when hero or CTA copy grows. */
-@media (max-height: 760px) {
+@media (max-height: 730px) {
   .vignette {
     display: none;
   }

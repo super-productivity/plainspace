@@ -316,13 +316,10 @@ export default function Home() {
           Plainspace
         </h1>
         <Show when={!compactHero()}>
-          {/* The pitch explains what a Space is before any button uses the word;
-              returning visitors already know, so they get their list instead. */}
+          {/* One-line pitch for new visitors; returning users get their list
+              instead. The vignette below shows what a Space holds. */}
           <Show when={knownSpaces().length === 0}>
             <p class={styles.subtitle}>One shared page for your trip, household, club, or team.</p>
-            <p class={`${styles.subtitle} ${styles.heroNote}`}>
-              A Space holds your tasks, notes, polls, and reminders.
-            </p>
           </Show>
           {/* The pitch promises "no app needed", so offering an install to a
               first-time visitor would contradict it; the optional PWA install
@@ -448,10 +445,8 @@ export default function Home() {
           >
             Got a Space link? Open it
           </Button>
-          <p class={styles.ctaNote}>
-            Share one link and everyone can join in the browser. No account or app needed.
-          </p>
         </div>
+        <p class={styles.ctaNote}>Everyone joins with one link. No account or app needed.</p>
 
         {/* A faded peek at the paper-panel UI so a first-time visitor sees what
             a Space looks like, not just text on the grid. Decorative only. */}
