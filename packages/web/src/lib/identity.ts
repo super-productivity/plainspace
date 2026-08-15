@@ -224,7 +224,7 @@ export function parseClaim(hash: string): { token: string; memberId: string } | 
 }
 
 // Parse a "#login=<code>.<base64url(email)>" magic recovery link (emailed by
-// "Find my Spaces"). Returns the email + code to redeem for a fresh token, or
+// "Open your Spaces by email"). Returns the email + code to redeem for a fresh token, or
 // null when the fragment isn't a well-formed login link. Like the claim link,
 // the secret rides in the fragment so it never reaches the server's logs.
 export function parseLoginLink(hash: string): { email: string; code: string } | null {

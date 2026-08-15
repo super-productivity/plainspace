@@ -52,7 +52,7 @@ describe('Home — first visit', () => {
   it('sets a route-specific title and exposes one main page heading', () => {
     render(() => <Home />);
 
-    expect(document.title).toBe('Plainspace — Simple shared spaces');
+    expect(document.title).toBe('Plainspace — One shared page for your plans');
     expect(screen.getByRole('main')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Plainspace' })).toBeTruthy();
   });
@@ -75,7 +75,7 @@ describe('Home — first visit', () => {
 
   it('compacts the branding while a task flow is open', () => {
     render(() => <Home />);
-    const tagline = "The simplest way to stay aligned with people who don't use your tools.";
+    const tagline = 'One shared page for your trip, household, club, or team.';
 
     expect(screen.getByText(tagline)).toBeTruthy();
     fireEvent.click(screen.getByTestId('show-create-button'));
@@ -273,7 +273,7 @@ describe('Home — create flow', () => {
   });
 });
 
-describe('Home — find my Spaces', () => {
+describe('Home — open your Spaces by email', () => {
   it('sends the recovery email and drops the button into a cooldown', async () => {
     api.findSpaces.mockResolvedValue({ message: 'Check your inbox.' });
     render(() => <Home />);

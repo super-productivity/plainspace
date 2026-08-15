@@ -11,7 +11,9 @@ test('open an existing Space from Home by pasting its link', async ({ page }) =>
   await page.goto('/');
 
   await expect(page.getByTestId('onboarding-choice')).toBeVisible();
-  await expect(page.getByTestId('show-login-button')).toHaveText('Find my Spaces');
+  await expect(page.getByTestId('show-login-button')).toHaveText(
+    'Already have a Space? Open it by email',
+  );
   await expect(page.getByTestId('show-create-button')).toHaveText('Create a Space');
   await page.getByTestId('show-open-button').click();
 
@@ -22,9 +24,9 @@ test('open an existing Space from Home by pasting its link', async ({ page }) =>
   await expect(page).toHaveURL(new RegExp(`/${project.slug}/join$`));
 });
 
-// "Find my Spaces" emails the address owner the list of Spaces. In
+// "Open your Spaces by email" emails the address owner the list of Spaces. In
 // dev the server echoes the matches back, which the UI renders as links.
-test('find my Spaces by email lists the verified Space', async ({ page }) => {
+test('open your Spaces by email lists the verified Space', async ({ page }) => {
   const email = `finder-${Date.now()}@test.local`;
   const { project, token } = await createProjectViaApi('Findable Space', 'Owner', email);
   await verifyMemberViaApi(project.slug, token, email);
@@ -33,8 +35,8 @@ test('find my Spaces by email lists the verified Space', async ({ page }) => {
   await page.getByTestId('show-login-button').click();
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
 
-  await expect(page.getByText('Enter an email you added to a Space.')).toBeVisible();
-  await expect(page.getByTestId('find-email-button')).toHaveText('Send Space links');
+  await expect(page.getByText('Enter the email you added to your Spaces.')).toBeVisible();
+  await expect(page.getByTestId('find-email-button')).toHaveText('Email me my Space links');
   await page.getByTestId('find-email-input').fill(email);
   const sendButton = page.getByTestId('find-email-button');
   await sendButton.click();
@@ -43,7 +45,7 @@ test('find my Spaces by email lists the verified Space', async ({ page }) => {
   const spaceLink = page.locator(`a[href="/${project.slug}"]`);
   await expect(spaceLink).toBeVisible({ timeout: 5000 });
   await expect(spaceLink).toContainText('Findable Space');
-  // Typing an email into Find my Spaces is not proof of inbox ownership.
+  // Typing an email into the form is not proof of inbox ownership.
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('spaces:plainspaceEmail')))
     .toBeNull();
@@ -57,10 +59,10 @@ test('find my Spaces by email lists the verified Space', async ({ page }) => {
 
   await page.clock.runFor(1_000);
   await expect(sendButton).toBeEnabled();
-  await expect(sendButton).toHaveText('Send Space links');
+  await expect(sendButton).toHaveText('Email me my Space links');
 });
 
-// The emailed "Find my Spaces" links are one-click sign-ins: opening
+// The emailed "Open your Spaces by email" links are one-click sign-ins: opening
 // /{slug}#login=<code>.<email> redeems the single-use code for a fresh token,
 // no typing. The fragment is stripped once consumed.
 test('opening a magic recovery link signs the owner in', async ({ page }) => {

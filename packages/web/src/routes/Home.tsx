@@ -68,7 +68,7 @@ export default function Home() {
   const [link, setLink] = createSignal('');
   const [linkError, setLinkError] = createSignal('');
 
-  // "Find my Spaces": email the address owner links to their Spaces.
+  // "Open your Spaces by email": email the address owner links to their Spaces.
   const [findEmail, setFindEmail] = createSignal(getPlainspaceEmail());
   const [findSubmitting, setFindSubmitting] = createSignal(false);
   const [findCooldownRemaining, setFindCooldownRemaining] = createSignal(0);
@@ -92,7 +92,7 @@ export default function Home() {
     return mine ? [mine, ...others] : members;
   }
 
-  useDocumentTitle(() => 'Plainspace — Simple shared spaces');
+  useDocumentTitle(() => 'Plainspace — One shared page for your plans');
 
   onMount(() => {
     if (location.pathname === '/') {
@@ -316,10 +316,19 @@ export default function Home() {
           Plainspace
         </h1>
         <Show when={!compactHero()}>
-          <p class={styles.subtitle}>
-            The simplest way to stay aligned with people who don't use your tools.
-          </p>
-          <Show when={canInstall()}>
+          {/* The pitch explains what a Space is before any button uses the word;
+              returning visitors already know, so they get their list instead. */}
+          <Show when={knownSpaces().length === 0}>
+            <p class={styles.subtitle}>One shared page for your trip, household, club, or team.</p>
+            <p class={`${styles.subtitle} ${styles.heroNote}`}>
+              Tasks, notes, polls, and reminders in a shared Space. Send one link — everyone can
+              join in the browser, no account or app needed.
+            </p>
+          </Show>
+          {/* The pitch promises "no app needed", so offering an install to a
+              first-time visitor would contradict it — the optional PWA install
+              only shows once this device already has Spaces. */}
+          <Show when={canInstall() && knownSpaces().length > 0}>
             <Button
               type="button"
               variant="secondary"
@@ -388,7 +397,7 @@ export default function Home() {
                 onClick={showLoginView}
                 data-testid="show-login-button"
               >
-                Find my Spaces
+                Missing a Space? Open it by email
               </Button>
               <Button
                 type="button"
@@ -404,7 +413,7 @@ export default function Home() {
                 onClick={showOpenView}
                 data-testid="show-open-button"
               >
-                Have a Space link? Open it
+                Got a Space link? Open it
               </Button>
             </div>
           </Show>
@@ -418,8 +427,8 @@ export default function Home() {
       <Show when={view() === 'choice' || (view() === 'none' && knownSpaces().length === 0)}>
         <div class={styles.choicePanel} data-testid="onboarding-choice">
           {/* New visitors land here with no known Spaces, so creating one is
-              the hero action; finding existing Spaces is the returning-user
-              path. */}
+              the hero action; opening existing Spaces by email is the
+              returning-user path. */}
           <Button type="button" fullWidth onClick={showCreateView} data-testid="show-create-button">
             Create a Space
           </Button>
@@ -430,7 +439,7 @@ export default function Home() {
             onClick={showLoginView}
             data-testid="show-login-button"
           >
-            Find my Spaces
+            Already have a Space? Open it by email
           </Button>
           <Button
             type="button"
@@ -438,7 +447,7 @@ export default function Home() {
             onClick={showOpenView}
             data-testid="show-open-button"
           >
-            Have a Space link? Open it
+            Got a Space link? Open it
           </Button>
         </div>
 
@@ -472,9 +481,10 @@ export default function Home() {
             aria-busy={findSubmitting() ? 'true' : undefined}
             data-testid="find-email-form"
           >
-            <h2 class={styles.panelTitle}>Find my Spaces</h2>
+            <h2 class={styles.panelTitle}>Open your Spaces by email</h2>
             <p class={styles.subtitle}>
-              Enter an email you added to a Space. We'll send links to the Spaces connected to it.
+              Enter the email you added to your Spaces. We'll email you links that open them on this
+              device.
             </p>
             <TextField
               id="find-email"
@@ -524,13 +534,13 @@ export default function Home() {
                 ? 'Sending...'
                 : findCooldownRemaining() > 0
                   ? `Send again in ${findCooldownRemaining()}s`
-                  : 'Send Space links'}
+                  : 'Email me my Space links'}
             </Button>
           </FormCard>
 
           <div class={styles.actions}>
             <Button type="button" variant="ghost" onClick={showOpenView}>
-              Have a Space link? Open it
+              Got a Space link? Open it
             </Button>
             <Button type="button" variant="ghost" onClick={showCreateView}>
               Create a Space instead
@@ -553,7 +563,9 @@ export default function Home() {
         <div class={styles.spaces}>
           <FormCard onSubmit={handleOpenSpace} data-testid="open-space-form">
             <h2 class={styles.panelTitle}>Open a Space link</h2>
-            <p class={styles.subtitle}>Paste a Space link or slug to open it on this device.</p>
+            <p class={styles.subtitle}>
+              Paste the link someone shared with you to open that Space on this device.
+            </p>
 
             <TextField
               id="space-link"
@@ -577,7 +589,7 @@ export default function Home() {
 
           <div class={styles.actions}>
             <Button type="button" variant="ghost" onClick={showLoginView}>
-              Find my Spaces instead
+              Open my Spaces by email
             </Button>
             <Button type="button" variant="ghost" onClick={showCreateView}>
               Create a Space instead
@@ -677,7 +689,7 @@ export default function Home() {
             onClick={showLoginView}
             data-testid="have-space-button"
           >
-            Find my Spaces
+            Already have a Space? Open it by email
           </Button>
         </FormCard>
       </Show>

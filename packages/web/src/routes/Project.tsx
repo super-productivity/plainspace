@@ -287,7 +287,7 @@ export default function Project() {
       saveIdentity(slug, claim.token, claim.memberId);
     }
 
-    // "Find my Spaces" magic recovery link: /{slug}#login=<code>.<email>.
+    // "Open your Spaces by email" magic recovery link: /{slug}#login=<code>.<email>.
     // Redeemed below (async) for a fresh token before the identity check.
     const loginLink = parseLoginLink(window.location.hash);
     if (loginLink) {

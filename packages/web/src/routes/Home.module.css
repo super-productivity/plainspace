@@ -65,6 +65,12 @@
   max-width: 28rem;
 }
 
+/* Second hero line: the "how it works" note under the tagline. */
+.heroNote {
+  margin-top: var(--space-sm);
+  font-size: var(--text-base);
+}
+
 .submit {
   margin-top: var(--space-sm);
 }

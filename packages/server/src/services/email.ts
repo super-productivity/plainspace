@@ -66,7 +66,7 @@ export async function sendVerificationCode(
   await transporter!.sendMail({ from: FROM_EMAIL, to: email, subject, text, html });
 }
 
-// "Find my Spaces": emails the address owner one-click sign-in links to the
+// "Open your Spaces by email": emails the address owner one-click sign-in links to the
 // Spaces they added this email to, so they can re-open one on a device whose
 // localStorage was wiped or never had it — e.g. an iOS home-screen PWA, which
 // gets a fresh storage container separate from Safari. Each link carries a
