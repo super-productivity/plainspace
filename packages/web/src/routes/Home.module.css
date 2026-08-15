@@ -275,9 +275,10 @@
   transform: rotate(45deg);
 }
 
-/* The hero + CTAs alone fit comfortably; the peek only fits above ~760px tall.
-   Hiding it on shorter viewports keeps it from being clipped at the fold. */
-@media (max-height: 760px) {
+/* The hero + CTAs alone fit comfortably; with the two-line pitch the peek only
+   fits above ~840px tall. Hiding it on shorter viewports keeps it from being
+   clipped at the fold. */
+@media (max-height: 840px) {
   .vignette {
     display: none;
   }

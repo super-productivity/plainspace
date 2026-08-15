@@ -321,8 +321,8 @@ export default function Home() {
           <Show when={knownSpaces().length === 0}>
             <p class={styles.subtitle}>One shared page for your trip, household, club, or team.</p>
             <p class={`${styles.subtitle} ${styles.heroNote}`}>
-              Tasks, notes, polls, and reminders in a shared Space. Send one link and everyone can
-              join in the browser. No account or app needed.
+              A Space is one page with tasks, notes, polls, and reminders. Share one link and
+              everyone can join in the browser. No account or app needed.
             </p>
           </Show>
           {/* The pitch promises "no app needed", so offering an install to a
@@ -483,8 +483,7 @@ export default function Home() {
           >
             <h2 class={styles.panelTitle}>Open your Spaces by email</h2>
             <p class={styles.subtitle}>
-              Enter the email you added to your Spaces. We'll email you links that open them on this
-              device.
+              Enter the email you used for your Spaces. We'll email you links that sign you back in.
             </p>
             <TextField
               id="find-email"
@@ -589,7 +588,7 @@ export default function Home() {
 
           <div class={styles.actions}>
             <Button type="button" variant="ghost" onClick={showLoginView}>
-              Open my Spaces by email
+              Open your Spaces by email
             </Button>
             <Button type="button" variant="ghost" onClick={showCreateView}>
               Create a Space instead

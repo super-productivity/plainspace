@@ -30,6 +30,11 @@ vi.mock('../lib/api', async () => {
   return { ApiError: actual.ApiError, api };
 });
 
+// PWA install: jsdom never fires beforeinstallprompt, so drive canInstall
+// directly to test the install-button gating.
+const { canInstall } = vi.hoisted(() => ({ canInstall: vi.fn(() => false) }));
+vi.mock('../lib/pwa-install', () => ({ canInstall, promptInstall: vi.fn() }));
+
 import Home from './Home';
 import { ApiError } from '../lib/api';
 import { saveIdentity, savePlainspaceEmail, saveVerifiedWitnessSlug } from '../lib/identity';
@@ -41,6 +46,7 @@ beforeEach(() => {
   api.createProject.mockReset();
   api.requestCreationCode.mockReset();
   api.findSpaces.mockReset();
+  canInstall.mockReturnValue(false);
 });
 
 function fill(testid: string, value: string) {
@@ -82,6 +88,18 @@ describe('Home — first visit', () => {
 
     expect(screen.queryByText(tagline)).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Plainspace' })).toBeTruthy();
+  });
+
+  it('never offers the app install to first-time visitors, even when installable', () => {
+    // The hero pitch says "No account or app needed" — an install button next
+    // to it would contradict the pitch, so it is reserved for known devices.
+    canInstall.mockReturnValue(true);
+    render(() => <Home />);
+
+    expect(
+      screen.getByText('One shared page for your trip, household, club, or team.'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('install-app-button')).toBeNull();
   });
 
   it('returns focus to the page heading when leaving a form', async () => {
@@ -349,5 +367,18 @@ describe('Home — known Spaces', () => {
     expect(await screen.findByTestId('known-spaces')).toBeTruthy();
     expect(screen.getByText('Summer Trip')).toBeTruthy();
     await waitFor(() => expect(api.getProjectSummary).toHaveBeenCalledWith('abc123'));
+  });
+
+  it('swaps the marketing pitch for the install button once Spaces are known', () => {
+    canInstall.mockReturnValue(true);
+    saveIdentity('abc123', 'tok', 'm1', 'Summer Trip');
+    api.getProjectSummary.mockResolvedValue({ name: 'Summer Trip', purpose: '', members: [] });
+
+    render(() => <Home />);
+
+    expect(
+      screen.queryByText('One shared page for your trip, household, club, or team.'),
+    ).toBeNull();
+    expect(screen.getByTestId('install-app-button')).toBeTruthy();
   });
 });

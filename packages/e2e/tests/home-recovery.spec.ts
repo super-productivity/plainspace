@@ -35,7 +35,7 @@ test('open your Spaces by email lists the verified Space', async ({ page }) => {
   await page.getByTestId('show-login-button').click();
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
 
-  await expect(page.getByText('Enter the email you added to your Spaces.')).toBeVisible();
+  await expect(page.getByText('Enter the email you used for your Spaces.')).toBeVisible();
   await expect(page.getByTestId('find-email-button')).toHaveText('Email me my Space links');
   await page.getByTestId('find-email-input').fill(email);
   const sendButton = page.getByTestId('find-email-button');
