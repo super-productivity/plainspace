@@ -62,13 +62,23 @@
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
   margin: 0 auto;
-  max-width: 28rem;
+  /* Wide enough for the hero tagline to stay on one line on desktop. */
+  max-width: 30rem;
 }
 
-/* Second hero line: the "how it works" note under the tagline. */
+/* Second hero line: defines "Space" before the buttons use the word. */
 .heroNote {
   margin-top: var(--space-sm);
   font-size: var(--text-base);
+}
+
+/* How-it-works reassurance under the onboarding CTAs. */
+.ctaNote {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  text-align: center;
+  margin: 0;
 }
 
 .submit {
@@ -275,10 +285,10 @@
   transform: rotate(45deg);
 }
 
-/* The hero + CTAs alone fit comfortably; with the two-line pitch the peek only
-   fits above ~840px tall. Hiding it on shorter viewports keeps it from being
-   clipped at the fold. */
-@media (max-height: 840px) {
+/* The hero + CTAs alone fit comfortably; the full column with the peek measures
+   ~750px, so below 760px the peek would clip at the fold and is hidden. Re-check
+   this number when hero or CTA copy grows. */
+@media (max-height: 760px) {
   .vignette {
     display: none;
   }

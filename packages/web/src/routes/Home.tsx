@@ -321,8 +321,7 @@ export default function Home() {
           <Show when={knownSpaces().length === 0}>
             <p class={styles.subtitle}>One shared page for your trip, household, club, or team.</p>
             <p class={`${styles.subtitle} ${styles.heroNote}`}>
-              A Space is one page with tasks, notes, polls, and reminders. Share one link and
-              everyone can join in the browser. No account or app needed.
+              A Space holds your tasks, notes, polls, and reminders.
             </p>
           </Show>
           {/* The pitch promises "no app needed", so offering an install to a
@@ -449,6 +448,9 @@ export default function Home() {
           >
             Got a Space link? Open it
           </Button>
+          <p class={styles.ctaNote}>
+            Share one link and everyone can join in the browser. No account or app needed.
+          </p>
         </div>
 
         {/* A faded peek at the paper-panel UI so a first-time visitor sees what
