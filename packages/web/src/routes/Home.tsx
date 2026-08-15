@@ -321,12 +321,12 @@ export default function Home() {
           <Show when={knownSpaces().length === 0}>
             <p class={styles.subtitle}>One shared page for your trip, household, club, or team.</p>
             <p class={`${styles.subtitle} ${styles.heroNote}`}>
-              Tasks, notes, polls, and reminders in a shared Space. Send one link — everyone can
-              join in the browser, no account or app needed.
+              Tasks, notes, polls, and reminders in a shared Space. Send one link and everyone can
+              join in the browser. No account or app needed.
             </p>
           </Show>
           {/* The pitch promises "no app needed", so offering an install to a
-              first-time visitor would contradict it — the optional PWA install
+              first-time visitor would contradict it; the optional PWA install
               only shows once this device already has Spaces. */}
           <Show when={canInstall() && knownSpaces().length > 0}>
             <Button
