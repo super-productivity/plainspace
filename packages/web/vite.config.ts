@@ -1,4 +1,6 @@
-import { defineConfig } from 'vite';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
 import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
@@ -38,6 +40,16 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    fs: {
+      // In a git worktree node_modules is a symlink into the main checkout;
+      // Vite resolves the real path and would 403 static assets from there
+      // (e.g. @fontsource woff2 files), so dev falls back to system fonts.
+      // Allow the resolved node_modules alongside the workspace root.
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        realpathSync(fileURLToPath(new URL('../../node_modules', import.meta.url))),
+      ],
+    },
     proxy: {
       '/api': {
         target: `http://localhost:${apiPort}`,
