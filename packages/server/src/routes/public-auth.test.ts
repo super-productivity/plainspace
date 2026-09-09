@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Stub only the SMTP send so the magic-link minting runs against the real DB
 // without reaching for a mail server. Other email senders keep their real
@@ -16,9 +16,11 @@ import { db } from '../db/connection.js';
 import { loginVerifications, members, memberTokens } from '../db/schema.js';
 import { emailIndex } from '../lib/email-crypto.js';
 import { sendSpacesList, sendVerificationCode } from '../services/email.js';
-import { addMember, createProject } from '../../test/helpers.js';
+import { addMember, authedMember, createProject } from '../../test/helpers.js';
 
 const app = createApp();
+
+beforeEach(() => vi.clearAllMocks());
 
 // getClientIp() reads the node-server connection info, which app.request()
 // doesn't populate; supply a stub so the rate-limit IP lookup resolves.
@@ -73,6 +75,79 @@ describe('POST /api/auth/request-creation-code — per-inbox code throttle', () 
 });
 
 describe('POST /api/auth/find-spaces — magic recovery links', () => {
+  it.each(['space code', 'emailed links'])(
+    'opens an API-created Space as its creator using %s without an existing session',
+    async (recoveryMethod) => {
+      const email = uniqueEmail();
+      const home = await createProject('Original Space');
+      const owner = await authedMember(home.project.id, { email });
+      const tokenResponse = await app.request(
+        `/api/projects/${home.project.slug}/auth/api-tokens`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${owner.token}` },
+        },
+      );
+      expect(tokenResponse.status).toBe(201);
+      const { token } = await tokenResponse.json();
+      const created = await app.request('/api/integration/spaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: 'Grocery list' }),
+      });
+      expect(created.status).toBe(201);
+      const { project, memberId } = await created.json();
+      expect(
+        await db.select().from(memberTokens).where(eq(memberTokens.memberId, memberId)),
+      ).toHaveLength(0);
+
+      if (recoveryMethod === 'emailed links') {
+        expect((await findSpaces(email)).status).toBe(200);
+        await expect.poll(() => vi.mocked(sendSpacesList).mock.calls.length).toBe(1);
+        expect(sendSpacesList).toHaveBeenCalledWith(
+          email,
+          expect.arrayContaining([
+            expect.objectContaining({ slug: project.slug, name: 'Grocery list' }),
+          ]),
+        );
+      } else {
+        const requested = await app.request(
+          `/api/projects/${project.slug}/auth/request-login-code`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          },
+          connEnv,
+        );
+        expect(requested.status).toBe(200);
+      }
+
+      const [pending] = await db
+        .select()
+        .from(loginVerifications)
+        .where(eq(loginVerifications.projectId, project.id));
+      expect(pending).toBeDefined();
+      const recovered = await app.request(
+        `/api/projects/${project.slug}/auth/verify-login-code`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: pending.code }),
+        },
+        connEnv,
+      );
+      expect(recovered.status).toBe(200);
+      const session = await recovered.json();
+      expect(session.member).toMatchObject({ id: memberId, isCreator: true, role: 'admin' });
+      const opened = await app.request(`/api/projects/${project.slug}`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      expect(opened.status).toBe(200);
+      expect((await opened.json()).project.name).toBe('Grocery list');
+    },
+  );
+
   it('mints one single-use code per verified Space and never rotates a token', async () => {
     const email = uniqueEmail();
     const a = await createProject('Space A');
