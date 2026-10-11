@@ -12,6 +12,7 @@ import { apiTokenMiddleware, type ApiTokenContext } from '../middleware/api-toke
 import { isUuid } from '../middleware/uuid-param.js';
 import { sseManager } from '../services/sse-manager.js';
 import { recordActivity } from '../services/activity.js';
+import { softDeleteItem } from '../services/item-deletion.js';
 import { serializeItem, serializeProject } from '../lib/serialize.js';
 import { encryptedEmailFields, normalizeEmail } from '../lib/email-crypto.js';
 import { ensureProjectDefaults } from '../services/project-defaults.js';
@@ -470,6 +471,56 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
   void sseManager.broadcast(item.projectId, 'activity', { entry: activityEntry });
 
   return c.json({ task: serializeSPTask(updated, list, proj, appOrigin()) });
+});
+
+// DELETE /api/integration/tasks/:taskId - Delete a task assigned to me for
+// everyone in its Space (soft delete, same as the in-app delete). Super
+// Productivity calls this when its linked task is deleted; without it the next
+// poll re-imports the still-assigned task. Scoped like the PATCH, and the delete
+// itself re-checks the assignment, so a concurrent claim or reassign wins (404).
+integrationRoutes.delete('/tasks/:taskId', async (c) => {
+  const emailLookup = c.get('apiTokenEmailLookup');
+  const taskId = c.req.param('taskId');
+  if (!isUuid(taskId)) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const scope = await loadIntegrationScope(emailLookup);
+  if (scope.memberRows.length === 0) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const item = await db.query.items.findFirst({
+    where: and(
+      eq(items.id, taskId),
+      inArray(items.projectId, scope.projectIds),
+      inArray(items.assignedTo, scope.memberIds),
+      isNull(items.deletedAt),
+    ),
+  });
+  const member = item && scope.memberByProjectId.get(item.projectId);
+  if (!item || !member || !isAssignedToScopedMember(item, scope)) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  const activityEntry = await db.transaction((tx) =>
+    softDeleteItem(tx, {
+      projectId: item.projectId,
+      itemId: taskId,
+      memberId: member.id,
+      assignedTo: member.id,
+    }),
+  );
+  if (!activityEntry) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  void sseManager.broadcast(item.projectId, 'item.deleted', {
+    itemId: taskId,
+    memberId: member.id,
+  });
+  void sseManager.broadcast(item.projectId, 'activity', { entry: activityEntry });
+  return c.body(null, 204);
 });
 
 // GET /api/integration/claimable-tasks - The claim pool: unassigned, not-done,

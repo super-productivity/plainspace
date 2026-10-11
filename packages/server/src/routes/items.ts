@@ -1,15 +1,7 @@
 import { Hono } from 'hono';
 import { eq, and, asc, inArray, isNull, max } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import {
-  activity,
-  assignmentNotifications,
-  attachments,
-  items,
-  lists,
-  members,
-  projects,
-} from '../db/schema.js';
+import { assignmentNotifications, items, lists, members, projects } from '../db/schema.js';
 import {
   CreateItemSchema,
   ReorderItemsSchema,
@@ -25,6 +17,7 @@ import { serializeItem } from '../lib/serialize.js';
 import { recurrenceUpdateOnCheck } from '../lib/next-occurrence.js';
 import { sseManager } from '../services/sse-manager.js';
 import { recordActivity } from '../services/activity.js';
+import { softDeleteItem } from '../services/item-deletion.js';
 import { readJson } from '../lib/json.js';
 import { checkRateLimit } from '../lib/rate-limit.js';
 import { hasItemCapacity, ITEM_CAPACITY_ERROR } from '../services/item-capacity.js';
@@ -448,67 +441,16 @@ itemRoutes.delete('/:itemId', authMiddleware, uuidParam('itemId'), async (c) => 
   const member = c.get('member');
   const itemId = c.req.param('itemId');
 
-  const result = await db.transaction(async (tx) => {
-    const existing = await tx.query.items.findFirst({
-      where: and(eq(items.id, itemId), eq(items.projectId, project.id), isNull(items.deletedAt)),
-    });
-    if (!existing) return null;
+  const activityEntry = await db.transaction((tx) =>
+    softDeleteItem(tx, { projectId: project.id, itemId, memberId: member.id }),
+  );
 
-    await tx
-      .update(activity)
-      .set({ meta: {} })
-      .where(
-        and(
-          eq(activity.projectId, project.id),
-          eq(activity.targetType, 'item'),
-          eq(activity.targetId, itemId),
-        ),
-      );
-
-    // Attachment activity rows carry a copy of item.text in meta; scrub them
-    // too so erasure of the item doesn't leave its content in the activity log.
-    const itemAttachments = await tx.query.attachments.findMany({
-      where: eq(attachments.itemId, itemId),
-      columns: { id: true },
-    });
-    if (itemAttachments.length > 0) {
-      await tx
-        .update(activity)
-        .set({ meta: {} })
-        .where(
-          and(
-            eq(activity.projectId, project.id),
-            eq(activity.targetType, 'attachment'),
-            inArray(
-              activity.targetId,
-              itemAttachments.map((a) => a.id),
-            ),
-          ),
-        );
-    }
-
-    await tx
-      .update(items)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(items.id, itemId), eq(items.projectId, project.id)));
-
-    const activityEntry = await recordActivity(tx, {
-      projectId: project.id,
-      memberId: member.id,
-      action: 'item.deleted',
-      targetType: 'item',
-      targetId: itemId,
-      meta: {},
-    });
-    return { activityEntry };
-  });
-
-  if (!result) {
+  if (!activityEntry) {
     return c.json({ error: 'Item not found' }, 404);
   }
 
   void sseManager.broadcast(project.id, 'item.deleted', { itemId, memberId: member.id });
-  void sseManager.broadcast(project.id, 'activity', { entry: result.activityEntry });
+  void sseManager.broadcast(project.id, 'activity', { entry: activityEntry });
   return c.body(null, 204);
 });
 

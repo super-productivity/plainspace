@@ -10,7 +10,9 @@ import {
 import { createApp } from '../app.js';
 import { db } from '../db/connection.js';
 import {
+  activity,
   assignmentNotifications,
+  attachments,
   items,
   lists,
   members,
@@ -18,6 +20,7 @@ import {
   panels,
 } from '../db/schema.js';
 import { hashToken } from '../lib/crypto.js';
+import { sseManager } from '../services/sse-manager.js';
 import { addItem, addMember, createProject } from '../../test/helpers.js';
 
 const app = createApp();
@@ -252,6 +255,88 @@ describe('POST item restore — respects the project size bound', () => {
     });
     const stillDeleted = await db.query.items.findFirst({ where: eq(items.id, deleted.id) });
     expect(stillDeleted?.deletedAt).not.toBeNull();
+  });
+});
+
+describe('DELETE item — soft delete scrubs activity', () => {
+  async function deleteItem(slug: string, itemId: string, token: string): Promise<Response> {
+    return app.request(`/api/projects/${slug}/items/${itemId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  it('soft-deletes, blanks item activity meta, records item.deleted and broadcasts', async () => {
+    const { project, listId } = await createProject();
+    const member = await authedMember(project.id);
+    const item = await addItem(listId, project.id, { text: 'Secret' });
+    await db.insert(activity).values({
+      projectId: project.id,
+      memberId: member.id,
+      action: 'item.created',
+      targetType: 'item',
+      targetId: item.id,
+      meta: { text: 'Secret' },
+    });
+    const spy = vi.spyOn(sseManager, 'broadcast');
+
+    const res = await deleteItem(project.slug, item.id, member.token);
+
+    expect(res.status).toBe(204);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.deletedAt).not.toBeNull();
+    const rows = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(rows.map((r) => r.action).sort()).toEqual(['item.created', 'item.deleted']);
+    expect(rows.map((r) => r.meta)).toEqual([{}, {}]);
+    expect(spy).toHaveBeenCalledWith(project.id, 'item.deleted', {
+      itemId: item.id,
+      memberId: member.id,
+    });
+    expect(spy).toHaveBeenCalledWith(
+      project.id,
+      'activity',
+      expect.objectContaining({ entry: expect.objectContaining({ action: 'item.deleted' }) }),
+    );
+    spy.mockRestore();
+  });
+
+  it('blanks attachment activity meta too', async () => {
+    const { project, listId } = await createProject();
+    const member = await authedMember(project.id);
+    const item = await addItem(listId, project.id);
+    const [att] = await db
+      .insert(attachments)
+      .values({
+        projectId: project.id,
+        itemId: item.id,
+        filename: 'a.txt',
+        storagePath: 'x/a.txt',
+        mimeType: 'text/plain',
+        sizeBytes: 1,
+      })
+      .returning();
+    await db.insert(activity).values({
+      projectId: project.id,
+      memberId: member.id,
+      action: 'attachment.created',
+      targetType: 'attachment',
+      targetId: att.id,
+      meta: { itemText: 'Secret' },
+    });
+
+    expect((await deleteItem(project.slug, item.id, member.token)).status).toBe(204);
+
+    const rows = await db.select().from(activity).where(eq(activity.targetId, att.id));
+    expect(rows.map((r) => r.meta)).toEqual([{}]);
+  });
+
+  it('404s for an already deleted item and writes no activity', async () => {
+    const { project, listId } = await createProject();
+    const member = await authedMember(project.id);
+    const item = await addItem(listId, project.id, { deletedAt: new Date() });
+
+    expect((await deleteItem(project.slug, item.id, member.token)).status).toBe(404);
+    expect(await db.select().from(activity).where(eq(activity.targetId, item.id))).toEqual([]);
   });
 });
 
