@@ -61,6 +61,7 @@ export const CreateSpaceViaTokenSchema = z.object({
 export const CreateTaskViaTokenSchema = z.object({
   spaceId: z.string().min(1).max(255),
   title: z.string().min(1).max(MAX_ITEM_TEXT_LENGTH),
+  remindAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export const RequestCreationCodeSchema = z.object({
