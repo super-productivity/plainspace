@@ -17,6 +17,7 @@ import { serializeItem, serializeProject } from '../lib/serialize.js';
 import { encryptedEmailFields, normalizeEmail } from '../lib/email-crypto.js';
 import { ensureProjectDefaults } from '../services/project-defaults.js';
 import { recurrenceUpdateOnCheck } from '../lib/next-occurrence.js';
+import { applyRepeatUpdate } from './items.js';
 import { checkRateLimit } from '../lib/rate-limit.js';
 import {
   itemUrl,
@@ -28,6 +29,7 @@ import {
   POSITION_GAP,
   CreateSpaceViaTokenSchema,
   CreateTaskViaTokenSchema,
+  UpdateTaskViaTokenSchema,
   type SPTask,
 } from '@plainspace/shared';
 import { readJson } from '../lib/json.js';
@@ -366,7 +368,7 @@ integrationRoutes.get('/tasks/:taskId', async (c) => {
   return c.json({ task: serializeSPTask(item, list, proj, appOrigin()) });
 });
 
-// PATCH /api/integration/tasks/:taskId - Update task done status
+// PATCH /api/integration/tasks/:taskId - Update done / title / scheduledAt
 integrationRoutes.patch('/tasks/:taskId', async (c) => {
   const emailLookup = c.get('apiTokenEmailLookup');
   const taskId = c.req.param('taskId');
@@ -378,10 +380,11 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
   if (body === null) {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
-  if (typeof (body as { done?: unknown })?.done !== 'boolean') {
-    return c.json({ error: 'Invalid request. Expected { done: boolean }' }, 422);
+  const parsed = UpdateTaskViaTokenSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
   }
-  const done = (body as { done: boolean }).done;
+  const { done, title, scheduledAt } = parsed.data;
 
   const scope = await loadIntegrationScope(emailLookup);
   if (scope.memberRows.length === 0) {
@@ -416,24 +419,38 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
     return c.json({ error: 'Task not found' }, 404);
   }
 
-  const action = done ? 'item.checked' : 'item.unchecked';
-  // Same recurring-completion transition the in-app PATCH applies: advance
-  // remind_at to the next occurrence on complete (roll back on un-complete) and
-  // free notified_at, so a recurring task completed from SP isn't reopened by
-  // the day-start sweep on the next tick. null for non-recurring / no-op.
-  const recurrence = recurrenceUpdateOnCheck(item, done, new Date());
+  // Field handling mirrors the in-app PATCH (routes/items.ts).
+  const updates: Partial<typeof items.$inferInsert> = {};
+  if (title !== undefined) updates.text = title;
+  if (scheduledAt !== undefined) {
+    // Unscheduling a recurring task would silently drop its rule for the whole
+    // Space; reject instead, so recurrence is only ever ended in-app.
+    if (scheduledAt === null && item.repeat) {
+      return c.json({ error: 'A repeat rule requires a reminder time' }, 422);
+    }
+    updates.remindAt = scheduledAt ? new Date(scheduledAt) : null;
+    // Re-scheduling re-arms the fire; a stale notified_at must not suppress it.
+    updates.notifiedAt = null;
+    applyRepeatUpdate(updates, { remindAt: scheduledAt }, item);
+  }
+  if (done !== undefined) {
+    updates.checked = done;
+    updates.checkedBy = done ? member.id : null;
+    // Keep columnId in lockstep with checked, exactly like the in-app PATCH:
+    // checking moves to 'done', unchecking a done item falls back to 'todo'.
+    updates.columnId = done ? 'done' : item.columnId === 'done' ? 'todo' : item.columnId;
+    // Same recurring-completion transition the in-app PATCH applies: advance
+    // remind_at to the next occurrence on complete (roll back on un-complete)
+    // and free notified_at, so a recurring task completed from SP isn't
+    // reopened by the day-start sweep. Skipped when this PATCH re-schedules.
+    if (scheduledAt === undefined) {
+      Object.assign(updates, recurrenceUpdateOnCheck(item, done, new Date()));
+    }
+  }
   const result = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(items)
-      .set({
-        checked: done,
-        checkedBy: done ? member.id : null,
-        // Keep columnId in lockstep with checked, exactly like the in-app
-        // PATCH (routes/items.ts): checking moves to 'done', unchecking a
-        // done item falls back to 'todo'.
-        columnId: done ? 'done' : item.columnId === 'done' ? 'todo' : item.columnId,
-        ...(recurrence ?? {}),
-      })
+      .set(updates)
       .where(
         and(
           eq(items.id, taskId),
@@ -447,14 +464,19 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
       return null;
     }
 
-    const activityEntry = await recordActivity(tx, {
-      projectId: item.projectId,
-      memberId: member.id,
-      action,
-      targetType: 'item',
-      targetId: taskId,
-      meta: { text: item.text, source: 'sp' },
-    });
+    // Same actions as the in-app PATCH: a completion flip wins, else a rename
+    // is 'item.updated'; a reschedule alone records nothing (as in-app).
+    const activityEntry =
+      done !== undefined || title !== undefined
+        ? await recordActivity(tx, {
+            projectId: item.projectId,
+            memberId: member.id,
+            action: done === undefined ? 'item.updated' : done ? 'item.checked' : 'item.unchecked',
+            targetType: 'item',
+            targetId: taskId,
+            meta: { text: done === undefined ? title! : item.text, source: 'sp' },
+          })
+        : null;
     return { updated, activityEntry };
   });
   if (!result) {
@@ -468,7 +490,9 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
     item: serialized,
     memberId: member.id,
   });
-  void sseManager.broadcast(item.projectId, 'activity', { entry: activityEntry });
+  if (activityEntry) {
+    void sseManager.broadcast(item.projectId, 'activity', { entry: activityEntry });
+  }
 
   return c.json({ task: serializeSPTask(updated, list, proj, appOrigin()) });
 });

@@ -34,9 +34,9 @@ type ItemRow = typeof items.$inferSelect;
 // the stored anchor, so retry/DST-shifted remind_at values never leak into the
 // series. Clearing remindAt (null) cascades to repeat:null; clearing repeat
 // leaves remindAt as a one-shot reminder.
-function applyRepeatUpdate(
+export function applyRepeatUpdate(
   updates: Partial<typeof items.$inferInsert>,
-  data: UpdateItemInput,
+  data: Pick<UpdateItemInput, 'remindAt' | 'repeat'>,
   existing: ItemRow,
 ): boolean {
   const clearsRemindAt = data.remindAt === null;

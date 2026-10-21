@@ -768,6 +768,167 @@ describe('PATCH /api/integration/tasks/:taskId — done toggle', () => {
   });
 });
 
+async function patchTask(taskId: string, token: string, body: unknown): Promise<Response> {
+  return app.request(`/api/integration/tasks/${taskId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
+  it('done-only responds exactly as before: full task, checked activity, SSE', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'old', assignedTo: memberId });
+    const broadcast = vi.spyOn(sseManager, 'broadcast');
+
+    const res = await patchDone(item.id, token, true);
+    expect(res.status).toBe(200);
+    const { task } = await res.json();
+    expect(task).toMatchObject({ id: item.id, title: 'old', done: true, scheduledAt: null });
+
+    const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entry).toMatchObject({ action: 'item.checked', meta: { text: 'old', source: 'sp' } });
+    expect(broadcast.mock.calls.map((call) => call[1])).toEqual(['item.updated', 'activity']);
+    broadcast.mockRestore();
+  });
+
+  it('renames the task (trimmed) and records item.updated', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'old', assignedTo: memberId });
+
+    const res = await patchTask(item.id, token, { title: '  new title  ' });
+    expect(res.status).toBe(200);
+    expect((await res.json()).task).toMatchObject({ title: 'new title', done: false });
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.text).toBe('new title');
+    const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entry).toMatchObject({
+      action: 'item.updated',
+      meta: { text: 'new title', source: 'sp' },
+    });
+  });
+
+  it('sets scheduledAt, clearing notified_at, without recording activity', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+    await db.update(items).set({ notifiedAt: new Date() }).where(eq(items.id, item.id));
+
+    const scheduledAt = '2026-12-01T09:00:00.000Z';
+    const res = await patchTask(item.id, token, { scheduledAt });
+    expect(res.status).toBe(200);
+    expect((await res.json()).task.scheduledAt).toBe(scheduledAt);
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.remindAt?.toISOString()).toBe(scheduledAt);
+    expect(row.notifiedAt).toBeNull();
+    expect(await db.select().from(activity).where(eq(activity.targetId, item.id))).toHaveLength(0);
+  });
+
+  it('clears scheduledAt on a one-shot task', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, {
+      assignedTo: memberId,
+      remindAt: new Date('2026-12-01T09:00:00.000Z'),
+    });
+
+    const res = await patchTask(item.id, token, { scheduledAt: null });
+    expect(res.status).toBe(200);
+    expect((await res.json()).task.scheduledAt).toBeNull();
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.remindAt).toBeNull();
+  });
+
+  it('re-scheduling a recurring task re-anchors its rule (as in-app)', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const anchor = '2026-06-01T09:00:00.000Z';
+    const item = await addItem(listId, projectId, {
+      assignedTo: memberId,
+      remindAt: new Date(anchor),
+      repeat: { freq: 'daily', interval: 1, tz: 'Europe/Berlin', anchor },
+    });
+
+    const scheduledAt = '2026-12-01T10:00:00.000Z';
+    expect((await patchTask(item.id, token, { scheduledAt })).status).toBe(200);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.repeat?.anchor).toBe(scheduledAt);
+  });
+
+  it('rejects clearing scheduledAt on a recurring task and leaves it untouched', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const anchor = '2026-06-01T09:00:00.000Z';
+    const item = await addItem(listId, projectId, {
+      assignedTo: memberId,
+      remindAt: new Date(anchor),
+      repeat: { freq: 'daily', interval: 1, tz: 'Europe/Berlin', anchor },
+    });
+
+    const res = await patchTask(item.id, token, { scheduledAt: null, title: 'renamed' });
+    expect(res.status).toBe(422);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.remindAt?.toISOString()).toBe(anchor);
+    expect(row.repeat?.anchor).toBe(anchor);
+    expect(row.text).not.toBe('renamed');
+  });
+
+  it('applies done, title and scheduledAt together; reschedule skips the recurrence advance', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const pastToday = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const item = await addItem(listId, projectId, {
+      text: 'old',
+      assignedTo: memberId,
+      remindAt: pastToday,
+      repeat: { freq: 'daily', interval: 1, tz: 'Europe/Berlin', anchor: pastToday.toISOString() },
+    });
+
+    const scheduledAt = '2026-12-01T09:00:00.000Z';
+    const res = await patchTask(item.id, token, { done: true, title: 'new', scheduledAt });
+    expect(res.status).toBe(200);
+    expect((await res.json()).task).toMatchObject({ done: true, title: 'new', scheduledAt });
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row).toMatchObject({
+      checked: true,
+      checkedBy: memberId,
+      columnId: 'done',
+      text: 'new',
+    });
+    expect(row.remindAt?.toISOString()).toBe(scheduledAt);
+    const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entry).toMatchObject({ action: 'item.checked', meta: { text: 'old' } });
+  });
+
+  it.each([
+    ['empty body', {}],
+    ['only unknown fields', { foo: 'bar' }],
+    ['empty title', { title: '   ' }],
+    ['too-long title', { title: 'x'.repeat(501) }],
+    ['bad date', { scheduledAt: 'tomorrow' }],
+    ['date without offset', { scheduledAt: '2026-12-01T09:00:00' }],
+    ['non-boolean done', { done: 'yes' }],
+  ])('422s on %s without touching the task', async (_label, body) => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'old', assignedTo: memberId });
+
+    const res = await patchTask(item.id, token, body);
+    expect(res.status).toBe(422);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.text).toBe('old');
+  });
+
+  it('404s for a task not assigned to the caller', async () => {
+    const { projectId, listId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Other' });
+    const item = await addItem(listId, projectId, { text: 'theirs', assignedTo: other.id });
+
+    const res = await patchTask(item.id, token, { title: 'mine now' });
+    expect(res.status).toBe(404);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.text).toBe('theirs');
+  });
+});
+
 async function deleteTask(taskId: string, token: string): Promise<Response> {
   return app.request(`/api/integration/tasks/${taskId}`, {
     method: 'DELETE',
