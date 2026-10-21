@@ -793,20 +793,20 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
     broadcast.mockRestore();
   });
 
-  it('renames the task (trimmed) and records item.updated', async () => {
+  it('renames the task verbatim (no trim, like POST) and records item.updated', async () => {
     const { projectId, listId, memberId, token } = await setupSpace();
     const item = await addItem(listId, projectId, { text: 'old', assignedTo: memberId });
 
     const res = await patchTask(item.id, token, { title: '  new title  ' });
     expect(res.status).toBe(200);
-    expect((await res.json()).task).toMatchObject({ title: 'new title', done: false });
+    expect((await res.json()).task).toMatchObject({ title: '  new title  ', done: false });
 
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
-    expect(row.text).toBe('new title');
+    expect(row.text).toBe('  new title  ');
     const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
     expect(entry).toMatchObject({
       action: 'item.updated',
-      meta: { text: 'new title', source: 'sp' },
+      meta: { text: '  new title  ', source: 'sp' },
     });
   });
 
@@ -855,7 +855,7 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
     expect(row.repeat?.anchor).toBe(scheduledAt);
   });
 
-  it('rejects clearing scheduledAt on a recurring task and leaves it untouched', async () => {
+  it('409s clearing scheduledAt on a recurring task and leaves it untouched', async () => {
     const { projectId, listId, memberId, token } = await setupSpace();
     const anchor = '2026-06-01T09:00:00.000Z';
     const item = await addItem(listId, projectId, {
@@ -865,7 +865,8 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
     });
 
     const res = await patchTask(item.id, token, { scheduledAt: null, title: 'renamed' });
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'repeat_requires_remind_at' });
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
     expect(row.remindAt?.toISOString()).toBe(anchor);
     expect(row.repeat?.anchor).toBe(anchor);
@@ -902,7 +903,8 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
   it.each([
     ['empty body', {}],
     ['only unknown fields', { foo: 'bar' }],
-    ['empty title', { title: '   ' }],
+    ['empty title', { title: '' }],
+    ['blank title', { title: '   ' }],
     ['too-long title', { title: 'x'.repeat(501) }],
     ['bad date', { scheduledAt: 'tomorrow' }],
     ['date without offset', { scheduledAt: '2026-12-01T09:00:00' }],
@@ -915,6 +917,28 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
     expect(res.status).toBe(422);
     const [row] = await db.select().from(items).where(eq(items.id, item.id));
     expect(row.text).toBe('old');
+  });
+
+  it('echoes a scheduledAt with an offset normalized to UTC', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+
+    const res = await patchTask(item.id, token, { scheduledAt: '2026-12-01T10:00:00+01:00' });
+    expect(res.status).toBe(200);
+    expect((await res.json()).task.scheduledAt).toBe('2026-12-01T09:00:00.000Z');
+  });
+
+  it('404s for a soft-deleted task', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, {
+      text: 'gone',
+      assignedTo: memberId,
+      deletedAt: new Date(),
+    });
+
+    expect((await patchTask(item.id, token, { title: 'back' })).status).toBe(404);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.text).toBe('gone');
   });
 
   it('404s for a task not assigned to the caller', async () => {

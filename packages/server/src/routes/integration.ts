@@ -424,9 +424,11 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
   if (title !== undefined) updates.text = title;
   if (scheduledAt !== undefined) {
     // Unscheduling a recurring task would silently drop its rule for the whole
-    // Space; reject instead, so recurrence is only ever ended in-app.
+    // Space; reject instead, so recurrence is only ever ended in-app. 409, not
+    // 422: it's a state conflict (the task became recurring), and SP reads a
+    // 422 on a pushed field as "server too old" and stops pushing it.
     if (scheduledAt === null && item.repeat) {
-      return c.json({ error: 'A repeat rule requires a reminder time' }, 422);
+      return c.json({ error: 'repeat_requires_remind_at' }, 409);
     }
     updates.remindAt = scheduledAt ? new Date(scheduledAt) : null;
     // Re-scheduling re-arms the fire; a stale notified_at must not suppress it.

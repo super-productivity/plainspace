@@ -69,7 +69,14 @@ export const CreateTaskViaTokenSchema = z.object({
 export const UpdateTaskViaTokenSchema = z
   .object({
     done: z.boolean().optional(),
-    title: z.string().trim().min(1).max(MAX_ITEM_TEXT_LENGTH).optional(),
+    // Stored verbatim like POST's title (SP verifies the echo); only blank is
+    // rejected.
+    title: z
+      .string()
+      .min(1)
+      .max(MAX_ITEM_TEXT_LENGTH)
+      .refine((s) => s.trim() !== '', 'Title must not be blank')
+      .optional(),
     scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .refine((input) => Object.values(input).some((value) => value !== undefined), {
