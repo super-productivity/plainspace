@@ -1022,6 +1022,37 @@ describe('PATCH /api/integration/tasks/:taskId — assigneeId', () => {
     expect(row.assignedTo).toBe(other.id);
   });
 
+  it('done + assigneeId: activity is the check, the new assignee is still notified (as in-app)', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail());
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+
+    expect((await patchTask(item.id, token, { done: true, assigneeId: other.id })).status).toBe(
+      200,
+    );
+    const entries = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entries.map((e) => e.action)).toEqual(['item.checked']);
+    const notes = await db.select().from(assignmentNotifications);
+    expect(notes.map((n) => n.memberId)).toEqual([other.id]);
+  });
+
+  it('two concurrent handoffs: exactly one wins, the loser records and notifies nothing', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const b = await addScopedMember(projectId, uniqueEmail());
+    const c = await addScopedMember(projectId, uniqueEmail());
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+
+    const [r1, r2] = await Promise.all([
+      patchTask(item.id, token, { assigneeId: b.id }),
+      patchTask(item.id, token, { assigneeId: c.id }),
+    ]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 404]);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    const notes = await db.select().from(assignmentNotifications);
+    expect(notes.map((n) => n.memberId)).toEqual([row.assignedTo]);
+    expect(await db.select().from(activity).where(eq(activity.targetId, item.id))).toHaveLength(1);
+  });
+
   it('a non-uuid assigneeId: 422', async () => {
     const { projectId, listId, memberId, token } = await setupSpace();
     const item = await addItem(listId, projectId, { assignedTo: memberId });
