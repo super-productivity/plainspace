@@ -1061,18 +1061,22 @@ describe('PATCH /api/integration/tasks/:taskId — assigneeId', () => {
 });
 
 describe('GET /api/integration/spaces/:spaceId/members', () => {
-  it('lists id and display name of every member, in join order, nothing else', async () => {
-    const { projectId, memberId, token } = await setupSpace();
-    const other = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Other' });
+  it('lists id and display name of every other member, in join order, nothing else', async () => {
+    const { projectId, token } = await setupSpace();
+    const ann = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Ann' });
+    const bob = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Bob' });
+    const [{ slug }] = await db.select().from(projects).where(eq(projects.id, projectId));
 
-    const res = await authGet(`/api/integration/spaces/${projectId}/members`, token);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      members: [
-        { id: memberId, displayName: 'Tester' },
-        { id: other.id, displayName: 'Other' },
-      ],
-    });
+    for (const spaceId of [projectId, slug]) {
+      const res = await authGet(`/api/integration/spaces/${spaceId}/members`, token);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        members: [
+          { id: ann.id, displayName: 'Ann' },
+          { id: bob.id, displayName: 'Bob' },
+        ],
+      });
+    }
   });
 
   it('404s for a Space the token is not a member of, or a non-uuid id', async () => {

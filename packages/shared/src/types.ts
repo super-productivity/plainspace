@@ -386,7 +386,7 @@ export interface SPClaimTaskResponse {
 export type SPClaimableTasksResponse = SPTasksResponse;
 
 // Response of GET /api/integration/spaces/:spaceId/members: who a task can be
-// handed to (PATCH /tasks/:taskId with assigneeId).
+// handed to (PATCH /tasks/:taskId with assigneeId), i.e. everyone but the caller.
 export interface SPSpaceMembersResponse {
   members: Array<{ id: string; displayName: string }>;
 }

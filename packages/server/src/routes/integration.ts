@@ -4,7 +4,7 @@
 // them. This is intentional so a user can use one PAT across all their Spaces.
 // Revocation is per-token via DELETE /auth/api-tokens/:id.
 import { Hono } from 'hono';
-import { eq, and, isNull, inArray, gt, asc, desc, count, max } from 'drizzle-orm';
+import { eq, ne, and, isNull, inArray, gt, asc, desc, count, max } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/connection.js';
 import { assignmentNotifications, members, items, lists, projects } from '../db/schema.js';
@@ -585,15 +585,26 @@ integrationRoutes.delete('/tasks/:taskId', async (c) => {
 });
 
 // GET /api/integration/spaces/:spaceId/members - Who a task in this Space can be
-// handed to. Only for a Space the caller is a member of; anything else is 404.
+// handed to: every member but the caller. `spaceId` is the id OR slug (as in
+// POST /tasks); a Space the caller is not a member of is 404.
 integrationRoutes.get('/spaces/:spaceId/members', async (c) => {
   const scope = await loadIntegrationScope(c.get('apiTokenEmailLookup'));
   const spaceId = c.req.param('spaceId');
-  if (!scope.projectIds.includes(spaceId)) {
+  const project =
+    scope.projectIds.length > 0
+      ? (
+          await db.query.projects.findMany({
+            where: inArray(projects.id, scope.projectIds),
+            columns: { id: true, slug: true },
+          })
+        ).find((p) => p.id === spaceId || p.slug === spaceId)
+      : undefined;
+  const me = project && scope.memberByProjectId.get(project.id);
+  if (!project || !me) {
     return c.json({ error: 'Space not found' }, 404);
   }
   const rows = await db.query.members.findMany({
-    where: eq(members.projectId, spaceId),
+    where: and(eq(members.projectId, project.id), ne(members.id, me.id)),
     columns: { id: true, displayName: true },
     orderBy: asc(members.joinedAt),
   });
