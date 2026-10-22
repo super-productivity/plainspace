@@ -4,10 +4,10 @@
 // them. This is intentional so a user can use one PAT across all their Spaces.
 // Revocation is per-token via DELETE /auth/api-tokens/:id.
 import { Hono } from 'hono';
-import { eq, and, isNull, inArray, gt, desc, count, max } from 'drizzle-orm';
+import { eq, and, isNull, inArray, gt, asc, desc, count, max } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/connection.js';
-import { members, items, lists, projects } from '../db/schema.js';
+import { assignmentNotifications, members, items, lists, projects } from '../db/schema.js';
 import { apiTokenMiddleware, type ApiTokenContext } from '../middleware/api-token.js';
 import { isUuid } from '../middleware/uuid-param.js';
 import { sseManager } from '../services/sse-manager.js';
@@ -368,7 +368,8 @@ integrationRoutes.get('/tasks/:taskId', async (c) => {
   return c.json({ task: serializeSPTask(item, list, proj, appOrigin()) });
 });
 
-// PATCH /api/integration/tasks/:taskId - Update done / title / scheduledAt
+// PATCH /api/integration/tasks/:taskId - Update done / title / scheduledAt, or
+// hand the task to another member of its Space (assigneeId; null releases it).
 integrationRoutes.patch('/tasks/:taskId', async (c) => {
   const emailLookup = c.get('apiTokenEmailLookup');
   const taskId = c.req.param('taskId');
@@ -384,7 +385,7 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
   }
-  const { done, title, scheduledAt } = parsed.data;
+  const { done, title, scheduledAt, assigneeId } = parsed.data;
 
   const scope = await loadIntegrationScope(emailLookup);
   if (scope.memberRows.length === 0) {
@@ -419,9 +420,21 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
     return c.json({ error: 'Task not found' }, 404);
   }
 
+  // The new assignee must be a member of the task's Space (as in-app).
+  if (assigneeId) {
+    const assignee = await db.query.members.findFirst({
+      where: and(eq(members.id, assigneeId), eq(members.projectId, item.projectId)),
+      columns: { id: true },
+    });
+    if (!assignee) {
+      return c.json({ error: 'Member not found' }, 404);
+    }
+  }
+
   // Field handling mirrors the in-app PATCH (routes/items.ts).
   const updates: Partial<typeof items.$inferInsert> = {};
   if (title !== undefined) updates.text = title;
+  if (assigneeId !== undefined) updates.assignedTo = assigneeId;
   if (scheduledAt !== undefined) {
     // Unscheduling a recurring task would silently drop its rule for the whole
     // Space; reject instead, so recurrence is only ever ended in-app. 409, not
@@ -466,19 +479,41 @@ integrationRoutes.patch('/tasks/:taskId', async (c) => {
       return null;
     }
 
-    // Same actions as the in-app PATCH: a completion flip wins, else a rename
-    // is 'item.updated'; a reschedule alone records nothing (as in-app).
-    const activityEntry =
-      done !== undefined || title !== undefined
-        ? await recordActivity(tx, {
-            projectId: item.projectId,
-            memberId: member.id,
-            action: done === undefined ? 'item.updated' : done ? 'item.checked' : 'item.unchecked',
-            targetType: 'item',
-            targetId: taskId,
-            meta: { text: done === undefined ? title! : item.text, source: 'sp' },
-          })
-        : null;
+    // Same actions as the in-app PATCH: a completion flip wins, then a
+    // reassignment, else a rename is 'item.updated'; a reschedule alone
+    // records nothing (as in-app).
+    const entry =
+      done !== undefined
+        ? {
+            action: done ? ('item.checked' as const) : ('item.unchecked' as const),
+            meta: { text: item.text },
+          }
+        : assigneeId !== undefined
+          ? { action: 'item.assigned' as const, meta: { text: item.text, assignedTo: assigneeId } }
+          : title !== undefined
+            ? { action: 'item.updated' as const, meta: { text: title } }
+            : null;
+    const activityEntry = entry
+      ? await recordActivity(tx, {
+          projectId: item.projectId,
+          memberId: member.id,
+          action: entry.action,
+          targetType: 'item',
+          targetId: taskId,
+          meta: { ...entry.meta, source: 'sp' },
+        })
+      : null;
+
+    // Queue the "assigned to you" push for the new assignee, as in-app.
+    if (assigneeId && assigneeId !== member.id) {
+      await tx
+        .insert(assignmentNotifications)
+        .values({ memberId: assigneeId, itemId: taskId })
+        .onConflictDoUpdate({
+          target: [assignmentNotifications.memberId, assignmentNotifications.itemId],
+          set: { assignedAt: new Date() },
+        });
+    }
     return { updated, activityEntry };
   });
   if (!result) {
@@ -547,6 +582,22 @@ integrationRoutes.delete('/tasks/:taskId', async (c) => {
   });
   void sseManager.broadcast(item.projectId, 'activity', { entry: activityEntry });
   return c.body(null, 204);
+});
+
+// GET /api/integration/spaces/:spaceId/members - Who a task in this Space can be
+// handed to. Only for a Space the caller is a member of; anything else is 404.
+integrationRoutes.get('/spaces/:spaceId/members', async (c) => {
+  const scope = await loadIntegrationScope(c.get('apiTokenEmailLookup'));
+  const spaceId = c.req.param('spaceId');
+  if (!scope.projectIds.includes(spaceId)) {
+    return c.json({ error: 'Space not found' }, 404);
+  }
+  const rows = await db.query.members.findMany({
+    where: eq(members.projectId, spaceId),
+    columns: { id: true, displayName: true },
+    orderBy: asc(members.joinedAt),
+  });
+  return c.json({ members: rows });
 });
 
 // GET /api/integration/claimable-tasks - The claim pool: unassigned, not-done,

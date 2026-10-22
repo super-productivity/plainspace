@@ -78,9 +78,11 @@ export const UpdateTaskViaTokenSchema = z
       .refine((s) => s.trim() !== '', 'Title must not be blank')
       .optional(),
     scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
+    // Hand the task to another member of its Space, or null to release it.
+    assigneeId: z.string().uuid().nullable().optional(),
   })
   .refine((input) => Object.values(input).some((value) => value !== undefined), {
-    message: 'At least one of done, title, scheduledAt must be provided',
+    message: 'At least one of done, title, scheduledAt, assigneeId must be provided',
   });
 
 export const RequestCreationCodeSchema = z.object({

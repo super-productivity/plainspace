@@ -385,6 +385,12 @@ export interface SPClaimTaskResponse {
 // Response of GET /api/integration/claimable-tasks (same shape as /tasks).
 export type SPClaimableTasksResponse = SPTasksResponse;
 
+// Response of GET /api/integration/spaces/:spaceId/members: who a task can be
+// handed to (PATCH /tasks/:taskId with assigneeId).
+export interface SPSpaceMembersResponse {
+  members: Array<{ id: string; displayName: string }>;
+}
+
 // Response of POST /api/integration/spaces. `url` is the Space's web link
 // ({origin}/{slug}); `memberId` is the creator member the PAT now owns. The PAT
 // itself can immediately act in the new Space — no returned session token needed.

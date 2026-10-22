@@ -953,6 +953,109 @@ describe('PATCH /api/integration/tasks/:taskId — title & scheduledAt', () => {
   });
 });
 
+describe('PATCH /api/integration/tasks/:taskId — assigneeId', () => {
+  it('hands the task to a member like in-app: activity, notification, SSE; no longer mine', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Other' });
+    const item = await addItem(listId, projectId, { text: 'hand off', assignedTo: memberId });
+    const broadcast = vi.spyOn(sseManager, 'broadcast');
+
+    const res = await patchTask(item.id, token, { assigneeId: other.id });
+    expect(res.status).toBe(200);
+    expect(broadcast.mock.calls.map((call) => call[1])).toEqual(['item.updated', 'activity']);
+    broadcast.mockRestore();
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.assignedTo).toBe(other.id);
+    const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entry).toMatchObject({
+      action: 'item.assigned',
+      meta: { text: 'hand off', assignedTo: other.id, source: 'sp' },
+    });
+    const notes = await db
+      .select()
+      .from(assignmentNotifications)
+      .where(eq(assignmentNotifications.itemId, item.id));
+    expect(notes.map((n) => n.memberId)).toEqual([other.id]);
+
+    expect((await (await authGet('/api/integration/tasks', token)).json()).tasks).toEqual([]);
+    expect((await authGet(`/api/integration/tasks/${item.id}`, token)).status).toBe(404);
+  });
+
+  it('null releases the task to the Space: unassigned, claimable, no notification', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { text: 'release', assignedTo: memberId });
+
+    const res = await patchTask(item.id, token, { assigneeId: null });
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.assignedTo).toBeNull();
+    const [entry] = await db.select().from(activity).where(eq(activity.targetId, item.id));
+    expect(entry).toMatchObject({ action: 'item.assigned', meta: { assignedTo: null } });
+    expect(await db.select().from(assignmentNotifications)).toHaveLength(0);
+    const claimable = await (await authGet('/api/integration/claimable-tasks', token)).json();
+    expect(claimable.tasks.map((t: { id: string }) => t.id)).toEqual([item.id]);
+  });
+
+  it('404s for an assignee from another Space, and leaves the task mine', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const { project: otherSpace } = await createProject();
+    const stranger = await addScopedMember(otherSpace.id, uniqueEmail());
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+
+    const res = await patchTask(item.id, token, { assigneeId: stranger.id });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Member not found' });
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.assignedTo).toBe(memberId);
+  });
+
+  it('404s for a task not assigned to the caller, and leaves it untouched', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Other' });
+    const item = await addItem(listId, projectId, { assignedTo: other.id });
+
+    expect((await patchTask(item.id, token, { assigneeId: memberId })).status).toBe(404);
+    expect((await patchTask(item.id, token, { assigneeId: null })).status).toBe(404);
+    const [row] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(row.assignedTo).toBe(other.id);
+  });
+
+  it('a non-uuid assigneeId: 422', async () => {
+    const { projectId, listId, memberId, token } = await setupSpace();
+    const item = await addItem(listId, projectId, { assignedTo: memberId });
+    expect((await patchTask(item.id, token, { assigneeId: 'bob' })).status).toBe(422);
+  });
+});
+
+describe('GET /api/integration/spaces/:spaceId/members', () => {
+  it('lists id and display name of every member, in join order, nothing else', async () => {
+    const { projectId, memberId, token } = await setupSpace();
+    const other = await addScopedMember(projectId, uniqueEmail(), { displayName: 'Other' });
+
+    const res = await authGet(`/api/integration/spaces/${projectId}/members`, token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      members: [
+        { id: memberId, displayName: 'Tester' },
+        { id: other.id, displayName: 'Other' },
+      ],
+    });
+  });
+
+  it('404s for a Space the token is not a member of, or a non-uuid id', async () => {
+    const { token } = await setupSpace();
+    const { project: foreign } = await createProject();
+    await addScopedMember(foreign.id, uniqueEmail());
+
+    expect((await authGet(`/api/integration/spaces/${foreign.id}/members`, token)).status).toBe(
+      404,
+    );
+    expect((await authGet('/api/integration/spaces/nope/members', token)).status).toBe(404);
+  });
+});
+
 async function deleteTask(taskId: string, token: string): Promise<Response> {
   return app.request(`/api/integration/tasks/${taskId}`, {
     method: 'DELETE',
