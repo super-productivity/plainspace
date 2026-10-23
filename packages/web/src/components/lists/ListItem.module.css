@@ -209,17 +209,21 @@
 .editInput {
   flex: 1;
   min-width: 0;
-  height: 46px;
+  /* Same slot and padding as .text so the wrapped title doesn't jump when
+     editing starts; field-sizing grows the textarea with its content. */
+  min-height: 46px;
   margin-top: -13px;
   margin-bottom: -9px;
-  padding: 11px 0;
+  padding: 13px 0 9px;
   box-sizing: border-box;
   font-size: var(--text-base);
   font-family: inherit;
   line-height: var(--leading-snug);
   border: none;
   outline: none;
+  resize: none;
   background: transparent;
+  field-sizing: content;
   box-shadow: 0 1px 0 var(--color-accent);
 }
 

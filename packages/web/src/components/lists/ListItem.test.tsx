@@ -293,7 +293,7 @@ describe('ListItem inline edit', () => {
   it('saves a changed title on Enter', async () => {
     renderItem({ text: 'Buy milk' });
     fireEvent.click(screen.getByTestId('item-text'));
-    const input = screen.getByTestId('item-edit-input') as HTMLInputElement;
+    const input = screen.getByTestId('item-edit-input') as HTMLTextAreaElement;
     expect(input.value).toBe('Buy milk');
 
     fireEvent.input(input, { target: { value: 'Buy oat milk' } });
@@ -307,7 +307,7 @@ describe('ListItem inline edit', () => {
   it('does not call the API when the title is unchanged', async () => {
     renderItem({ text: 'Buy milk' });
     fireEvent.click(screen.getByTestId('item-text'));
-    const input = screen.getByTestId('item-edit-input') as HTMLInputElement;
+    const input = screen.getByTestId('item-edit-input') as HTMLTextAreaElement;
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(screen.getByTestId('item-text')).toBeTruthy());
@@ -317,7 +317,7 @@ describe('ListItem inline edit', () => {
   it('discards the edit on Escape without saving', async () => {
     renderItem({ text: 'Buy milk' });
     fireEvent.click(screen.getByTestId('item-text'));
-    const input = screen.getByTestId('item-edit-input') as HTMLInputElement;
+    const input = screen.getByTestId('item-edit-input') as HTMLTextAreaElement;
     fireEvent.input(input, { target: { value: 'changed' } });
     fireEvent.keyDown(input, { key: 'Escape' });
 

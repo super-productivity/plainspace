@@ -157,7 +157,7 @@ export default function ListItem(props: ListItemProps) {
   );
   onCleanup(resetLeaveAnimation);
 
-  let inputRef: HTMLInputElement | undefined;
+  let inputRef: HTMLTextAreaElement | undefined;
   let assignButtonRef: HTMLButtonElement | undefined;
   let reminderButtonRef: HTMLButtonElement | undefined;
 
@@ -304,7 +304,10 @@ export default function ListItem(props: ListItemProps) {
   }
 
   async function commitEdit() {
-    const trimmed = editText().trim();
+    // Items are single-line: fold pasted line breaks into spaces.
+    const trimmed = editText()
+      .replace(/\s*\n\s*/g, ' ')
+      .trim();
     if (trimmed && trimmed !== props.item.text) {
       const result = await api
         .updateItem(props.slug, props.item.id, { text: trimmed })
@@ -316,6 +319,7 @@ export default function ListItem(props: ListItemProps) {
 
   function handleEditKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
+      e.preventDefault();
       commitEdit();
     } else if (e.key === 'Escape') {
       setEditing(false);
@@ -388,9 +392,10 @@ export default function ListItem(props: ListItemProps) {
           </button>
         }
       >
-        <input
+        <textarea
           ref={inputRef}
           class={styles.editInput}
+          rows={1}
           value={editText()}
           onInput={(e) => setEditText(e.currentTarget.value)}
           onKeyDown={handleEditKeyDown}
