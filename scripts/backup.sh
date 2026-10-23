@@ -60,14 +60,17 @@ docker compose exec -T db pg_dump --format=custom -U "$DB_USER" "$DB_NAME" \
 # attachments come back on S3-compatible storage, bucket versioning + object
 # lock is the planned backup mechanism for that data class.
 
-echo "==> Self-test: decrypt + pg_restore --list $PG_OUT"
+echo "==> Self-test: decrypt + pg_restore $PG_OUT"
 # Round-trips the encrypted blob: catches corrupted dumps, wrong-passphrase
 # regressions, and pg_restore-incompatible format drift. Runs pg_restore
 # inside the db container so the host doesn't need postgresql-client.
+# Full restore to /dev/null, not --list: --list stops after the TOC, so once
+# the dump outgrows the pipe buffer gpg dies with "Broken pipe" and pipefail
+# fails every backup (and thus every deploy).
 gpg --batch --quiet --pinentry-mode loopback \
     --passphrase-file "$PASSPHRASE_FILE" \
     --decrypt "$PG_OUT" \
-  | docker compose exec -T db pg_restore --list >/dev/null
+  | docker compose exec -T db pg_restore -f /dev/null
 
 echo "==> Verifying backup size"
 ls -lh "$PG_OUT"
