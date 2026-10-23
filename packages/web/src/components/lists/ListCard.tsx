@@ -292,7 +292,7 @@ export default function ListCard(props: ListCardProps) {
       // text selection in the edit input must not drag; resting recurring rows
       // are pinned to the bottom by sort, so dragging them would only snap back
       // (and fire a wasted reorder) — exclude them from the lift.
-      filter: 'input, [data-resting]',
+      filter: 'input, textarea, [data-resting]',
       preventOnFilter: false,
       draggable: '[data-item-id]',
       ghostClass: styles.ghost,

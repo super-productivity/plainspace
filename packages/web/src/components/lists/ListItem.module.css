@@ -234,6 +234,14 @@
   }
 }
 
+/* Reserve the edit hint's width (13px + 6px gap) so the title wraps at the
+   same point in both modes. */
+@media (hover: hover) {
+  .editInput {
+    padding-right: 19px;
+  }
+}
+
 /* Same 46 px-tall slot pattern as .text: stretch to the row's full vertical
    extent via negative margins that cancel the row's padding, then center
    content. Keeps icon buttons aligned with the first line of text regardless
