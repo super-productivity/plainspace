@@ -303,6 +303,7 @@ integrationRoutes.post('/tasks', async (c) => {
         listId: list.id,
         projectId: project.id,
         text: parsed.data.title,
+        remindAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
         position,
         assignedTo: member.id,
         createdBy: member.id,

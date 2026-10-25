@@ -372,6 +372,50 @@ describe('POST /api/integration/tasks', () => {
     expect(rows).toHaveLength(0);
   });
 
+  it('creates a task with scheduledAt: saves it as remindAt', async () => {
+    const { projectId, token } = await setupSpace();
+    const scheduledAt = '2026-10-15T12:00:00.000Z';
+
+    const res = await authPost('/api/integration/tasks', token, {
+      spaceId: projectId,
+      title: 'With reminder',
+      scheduledAt,
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.task.scheduledAt).toBe(scheduledAt);
+
+    const [row] = await db.select().from(items).where(eq(items.id, body.task.id));
+    expect(row.remindAt?.toISOString()).toBe(scheduledAt);
+  });
+
+  it('creates a task with scheduledAt explicitly null', async () => {
+    const { projectId, token } = await setupSpace();
+
+    const res = await authPost('/api/integration/tasks', token, {
+      spaceId: projectId,
+      title: 'Without reminder',
+      scheduledAt: null,
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.task.scheduledAt).toBeNull();
+
+    const [row] = await db.select().from(items).where(eq(items.id, body.task.id));
+    expect(row.remindAt).toBeNull();
+  });
+
+  it('invalid scheduledAt: 422', async () => {
+    const { projectId, token } = await setupSpace();
+
+    const res = await authPost('/api/integration/tasks', token, {
+      spaceId: projectId,
+      title: 'Bad date',
+      scheduledAt: 'not-a-date',
+    });
+    expect(res.status).toBe(422);
+  });
+
   it('PAT with no membership: 404', async () => {
     const token = await mintPat(uniqueEmail());
     const res = await authPost('/api/integration/tasks', token, {

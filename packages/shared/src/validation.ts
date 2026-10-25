@@ -57,10 +57,12 @@ export const CreateSpaceViaTokenSchema = z.object({
 // Create a task in a bound Space from an integration PAT
 // (POST /api/integration/tasks). `spaceId` is the Space id OR slug (SP stores
 // either as `cfg.spaceId`); the server intersects it with the caller's
-// membership. `title` becomes the item text on the Space's primary (hero) list.
+// membership. `title` becomes the item text on the Space's primary (hero) list;
+// optional `scheduledAt` → remindAt (same naming as the PATCH below).
 export const CreateTaskViaTokenSchema = z.object({
   spaceId: z.string().min(1).max(255),
   title: z.string().min(1).max(MAX_ITEM_TEXT_LENGTH),
+  scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 // Update a task assigned to the caller (PATCH /api/integration/tasks/:taskId).

@@ -56,7 +56,9 @@ jobs:
         run: npm test --workspace @plainspace/server
 
   e2e:
-    runs-on: ubuntu-latest
+    # shortcut: pinned because Playwright 1.56.1 cannot install Chromium on
+    # ubuntu-latest (26.04) — return to ubuntu-latest once Playwright supports it
+    runs-on: ubuntu-24.04
     services:
       db:
         image: postgres:16-alpine
