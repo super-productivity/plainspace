@@ -197,8 +197,11 @@ server {
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
         # CSP: the app loads only /assets/*.js from self, no third-party
         # CDN. Inline styles are needed (Vite emits some; the SPA sets CSS
-        # custom properties); inline scripts are not.
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        # custom properties); inline scripts are not. frame-ancestors lets
+        # browser extensions (e.g. custom new-tab pages) embed a Space while
+        # still blocking ordinary websites from framing it (clickjacking);
+        # modern browsers ignore X-Frame-Options once it is present.
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self' chrome-extension: moz-extension:; base-uri 'self'; form-action 'self'" always;
     }
 }
 ```
@@ -220,7 +223,7 @@ plainspace.example.com {
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
-        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self' chrome-extension: moz-extension:; base-uri 'self'; form-action 'self'"
     }
 }
 ```
