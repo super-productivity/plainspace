@@ -18,7 +18,7 @@
     "@hono/node-server": "^2.0.11",
     "@plainspace/shared": "*",
     "dotenv": "^16.5.0",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.12.25",
     "nanoid": "^5.1.5",
     "nodemailer": "^10.1.0",
