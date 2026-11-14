@@ -20,7 +20,7 @@
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.12.25",
-    "nanoid": "^5.1.5",
+    "nanoid": "^6.0.2",
     "nodemailer": "^10.1.0",
     "postgres": "^3.4.7",
     "tsx": "^4.23.0",
