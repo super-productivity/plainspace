@@ -58,6 +58,7 @@ function member(id: string, over: Partial<Member> = {}): Member {
     avatarIndex: 0,
     email: null,
     emailVerified: false,
+    emailNotifications: null,
     isCreator: false,
     role: 'member',
     tosVersion: null,

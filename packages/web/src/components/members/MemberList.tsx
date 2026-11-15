@@ -143,6 +143,13 @@ export default function MemberList(props: MemberListProps) {
       );
   }
 
+  function handleEmailNotifications(emailNotifications: boolean) {
+    api
+      .updateMember(props.slug, { emailNotifications })
+      .then((res) => updateMember(res.member))
+      .catch(() => void addToast('Could not update email notifications. Please try again.'));
+  }
+
   async function handleExport() {
     try {
       const blob = await api.exportSelf(props.slug);
@@ -403,6 +410,18 @@ export default function MemberList(props: MemberListProps) {
                     </Button>
                   </div>
                 )}
+              </Show>
+
+              <Show when={member().emailVerified}>
+                <label class={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={member().emailNotifications ?? true}
+                    onChange={(e) => handleEmailNotifications(e.currentTarget.checked)}
+                    data-testid="email-notifications-toggle"
+                  />
+                  <span>Email me reminders when push notifications aren't available</span>
+                </label>
               </Show>
 
               <Show when={!member().emailVerified}>

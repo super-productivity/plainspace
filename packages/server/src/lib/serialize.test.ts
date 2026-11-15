@@ -39,6 +39,7 @@ function memberRow(): MemberRow {
     avatarIndex: 0,
     ...encryptedEmailFields('alice@example.com'),
     emailVerified: true,
+    emailNotifications: true,
     isCreator: false,
     role: 'member',
     tosVersion: '2026-01',

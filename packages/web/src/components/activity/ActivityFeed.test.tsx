@@ -23,6 +23,7 @@ function member(id: string, displayName: string): Member {
     avatarIndex: 0,
     email: null,
     emailVerified: false,
+    emailNotifications: null,
     isCreator: false,
     role: 'member',
     tosVersion: null,

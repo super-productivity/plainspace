@@ -33,7 +33,7 @@ process.env.VAPID_SUBJECT = 'mailto:test@example.com';
 import webpush from 'web-push';
 import type { RepeatRule } from '@plainspace/shared';
 import { db } from '../db/connection.js';
-import { items, pushSubscriptions } from '../db/schema.js';
+import { items, members, pushSubscriptions } from '../db/schema.js';
 import { sendReminderEmail } from './email.js';
 import { configureWebPush, runReminderSweep } from './reminder-sweep.js';
 import { addItem, addMember, createProject } from '../../test/helpers.js';
@@ -377,6 +377,20 @@ describe('runReminderSweep', () => {
     await runReminderSweep();
 
     expect(sendNotification).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('skips email fallback for members who turned email notifications off', async () => {
+    const { project, listId } = await createProject();
+    const member = await addMember(project.id, { email: 'alice@example.com' });
+    await db.update(members).set({ emailNotifications: false }).where(eq(members.id, member.id));
+    await addItem(listId, project.id, {
+      remindAt: new Date(Date.now() - 60_000),
+      assignedTo: member.id,
+    });
+
+    await runReminderSweep();
+
     expect(sendEmail).not.toHaveBeenCalled();
   });
 

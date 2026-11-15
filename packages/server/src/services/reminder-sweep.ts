@@ -406,7 +406,8 @@ async function sendEmailFallback(
   project: { slug: string; name: string },
 ): Promise<DeliveryResult> {
   const email = decryptStoredEmail(member);
-  if (!email) return { delivered: false, transientFailure: false }; // display-name-only members have no email
+  // Display-name-only members have no email; others may have opted out.
+  if (!email || !member.emailNotifications) return { delivered: false, transientFailure: false };
   const origin = process.env.APP_URL ?? 'https://plainspace.org';
   try {
     await sendReminderEmail({

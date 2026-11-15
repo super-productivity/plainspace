@@ -158,7 +158,7 @@ memberRoutes.get('/me/export', authMiddleware, async (c) => {
   return c.body(JSON.stringify(data, null, 2));
 });
 
-// PATCH /api/projects/:slug/members/me - Update own display name
+// PATCH /api/projects/:slug/members/me - Update own display name / email prefs
 memberRoutes.patch('/me', authMiddleware, async (c) => {
   const member = c.get('member');
   const project = c.get('project');
@@ -171,22 +171,27 @@ memberRoutes.patch('/me', authMiddleware, async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 422);
   }
+  const { displayName, emailNotifications } = parsed.data;
 
   const { updated, activityEntry } = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(members)
-      .set({ displayName: parsed.data.displayName })
+      .set({ displayName, emailNotifications })
       .where(and(eq(members.id, member.id), eq(members.projectId, project.id)))
       .returning();
 
-    const activityEntry = await recordActivity(tx, {
-      projectId: project.id,
-      memberId: member.id,
-      action: 'member.updated',
-      targetType: 'member',
-      targetId: member.id,
-      meta: { displayName: parsed.data.displayName, oldDisplayName: member.displayName },
-    });
+    // Email prefs are private; only a rename is Space-visible activity.
+    const activityEntry =
+      displayName === undefined
+        ? null
+        : await recordActivity(tx, {
+            projectId: project.id,
+            memberId: member.id,
+            action: 'member.updated',
+            targetType: 'member',
+            targetId: member.id,
+            meta: { displayName, oldDisplayName: member.displayName },
+          });
     return { updated, activityEntry };
   });
 
@@ -194,6 +199,6 @@ memberRoutes.patch('/me', authMiddleware, async (c) => {
   void sseManager.broadcast(project.id, 'member.updated', {
     member: serializeMember(updated),
   });
-  void sseManager.broadcast(project.id, 'activity', { entry: activityEntry });
+  if (activityEntry) void sseManager.broadcast(project.id, 'activity', { entry: activityEntry });
   return c.json({ member: serialized });
 });

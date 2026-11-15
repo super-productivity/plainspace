@@ -75,6 +75,7 @@ export function serializeMember(row: MemberRow, currentMemberId?: string): Membe
     avatarIndex: row.avatarIndex,
     email: plaintext && isCurrent ? plaintext : plaintext ? maskEmail(plaintext) : null,
     emailVerified: row.emailVerified,
+    emailNotifications: isCurrent ? row.emailNotifications : null,
     isCreator: row.isCreator,
     role: row.role as 'admin' | 'member',
     tosVersion: isCurrent ? row.tosVersion : null,
