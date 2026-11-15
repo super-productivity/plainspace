@@ -143,11 +143,17 @@ export default function MemberList(props: MemberListProps) {
       );
   }
 
-  function handleEmailNotifications(emailNotifications: boolean) {
+  const [savingEmailPref, setSavingEmailPref] = createSignal(false);
+  function handleEmailNotifications(input: HTMLInputElement) {
+    setSavingEmailPref(true);
     api
-      .updateMember(props.slug, { emailNotifications })
+      .updateMember(props.slug, { emailNotifications: input.checked })
       .then((res) => updateMember(res.member))
-      .catch(() => void addToast('Could not update email notifications. Please try again.'));
+      .catch(() => {
+        input.checked = !input.checked; // store never changed, so Solid won't revert it
+        addToast('Could not update email notifications. Please try again.');
+      })
+      .finally(() => setSavingEmailPref(false));
   }
 
   async function handleExport() {
@@ -417,7 +423,8 @@ export default function MemberList(props: MemberListProps) {
                   <input
                     type="checkbox"
                     checked={member().emailNotifications ?? true}
-                    onChange={(e) => handleEmailNotifications(e.currentTarget.checked)}
+                    disabled={savingEmailPref()}
+                    onChange={(e) => handleEmailNotifications(e.currentTarget)}
                     data-testid="email-notifications-toggle"
                   />
                   <span>Email me reminders when push notifications aren't available</span>

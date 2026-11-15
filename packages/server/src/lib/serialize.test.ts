@@ -56,11 +56,13 @@ describe('serializeMember', () => {
     expect(current.email).toBe('alice@example.com');
     expect(current.tosVersion).toBe('2026-01');
     expect(current.tosAcceptedAt).toBe('2026-01-02T03:04:05.000Z');
+    expect(current.emailNotifications).toBe(true);
 
     const publicMember = serializeMember(row);
     expect(publicMember.email).toBe('a***e@example.com');
     expect(publicMember.tosVersion).toBeNull();
     expect(publicMember.tosAcceptedAt).toBeNull();
+    expect(publicMember.emailNotifications).toBeNull();
 
     expect(serializeMember(row, '33333333-3333-3333-3333-333333333333')).toEqual(publicMember);
   });

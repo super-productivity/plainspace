@@ -104,4 +104,23 @@ describe('PATCH /api/projects/:slug/members/me — email notifications', () => {
 
     expect(res.status).toBe(422);
   });
+
+  it('a rename leaves the preference alone and still records activity', async () => {
+    const { project } = await createProject();
+    const { member, token } = await authedMember(project.id, { email: 'a@example.com' });
+    await db.update(members).set({ emailNotifications: false }).where(eq(members.id, member.id));
+
+    const res = await app.request(`/api/projects/${project.slug}/members/me`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Renamed' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()) as unknown).toMatchObject({
+      member: { displayName: 'Renamed', emailNotifications: false },
+    });
+    const rows = await db.select().from(activity).where(eq(activity.projectId, project.id));
+    expect(rows.map((r) => r.action)).toEqual(['member.updated']);
+  });
 });

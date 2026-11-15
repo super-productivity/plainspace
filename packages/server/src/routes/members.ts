@@ -196,9 +196,10 @@ memberRoutes.patch('/me', authMiddleware, async (c) => {
   });
 
   const serialized = serializeMember(updated, updated.id);
-  void sseManager.broadcast(project.id, 'member.updated', {
-    member: serializeMember(updated),
-  });
-  if (activityEntry) void sseManager.broadcast(project.id, 'activity', { entry: activityEntry });
+  // A prefs-only change is invisible to others, so there's nothing to broadcast.
+  if (activityEntry) {
+    void sseManager.broadcast(project.id, 'member.updated', { member: serializeMember(updated) });
+    void sseManager.broadcast(project.id, 'activity', { entry: activityEntry });
+  }
   return c.json({ member: serialized });
 });

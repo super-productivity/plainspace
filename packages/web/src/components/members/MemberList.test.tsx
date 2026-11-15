@@ -197,4 +197,18 @@ describe('MemberList progressive disclosure', () => {
     expect(api.updateMember).toHaveBeenCalledWith('weekend', { emailNotifications: false });
     await waitFor(() => expect(updateMember).toHaveBeenCalledWith(updated));
   });
+
+  it('reverts the email notifications checkbox when saving fails', async () => {
+    api.updateMember.mockRejectedValue(new Error('offline'));
+    renderPanel(false, { ...member, emailVerified: true });
+
+    fireEvent.click(screen.getByTestId('account-toggle-button'));
+    const toggle = screen.getByTestId('email-notifications-toggle') as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    expect(toggle.checked).toBe(false);
+    await waitFor(() => expect(toggle.checked).toBe(true));
+    expect(toggle.disabled).toBe(false);
+    expect(updateMember).not.toHaveBeenCalled();
+  });
 });
