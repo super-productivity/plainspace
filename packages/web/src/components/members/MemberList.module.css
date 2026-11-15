@@ -161,6 +161,14 @@
   background: var(--color-soft);
 }
 
+.checkboxRow {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  margin-top: var(--space-sm);
+  font-size: var(--text-sm);
+}
+
 .localEmailRow {
   display: flex;
   align-items: center;

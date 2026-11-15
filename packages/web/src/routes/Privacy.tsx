@@ -114,6 +114,12 @@ export default function Privacy() {
         decrypted payload contains the task text (truncated) so the notification can show what the
         reminder is about. You can revoke push permission in your browser at any time.
       </p>
+      <p>
+        If push is unavailable for you (no subscription, or every push delivery failed) and you have
+        a verified email in that Space, the reminder is emailed instead, including the task text,
+        through the same mail server as other transactional email. You can turn these reminder
+        emails off per Space under "Your account".
+      </p>
 
       <h2>6. International transfers</h2>
       <p>

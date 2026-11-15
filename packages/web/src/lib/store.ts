@@ -163,7 +163,12 @@ export function updateMember(member: Member) {
   setState(
     produce((s) => {
       const idx = s.members.findIndex((m) => m.id === member.id);
-      if (idx !== -1) s.members[idx] = member;
+      if (idx === -1) return;
+      // Broadcasts carry emailNotifications: null (it's private); keep our own value.
+      s.members[idx] = {
+        ...member,
+        emailNotifications: member.emailNotifications ?? s.members[idx].emailNotifications,
+      };
     }),
   );
 }

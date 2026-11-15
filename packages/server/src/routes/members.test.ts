@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { MAX_MEMBERS_PER_PROJECT, MEMBER_COLORS } from '@plainspace/shared';
 import { createApp } from '../app.js';
 import { db } from '../db/connection.js';
-import { members } from '../db/schema.js';
-import { createProject } from '../../test/helpers.js';
+import { activity, members } from '../db/schema.js';
+import { authedMember, createProject } from '../../test/helpers.js';
+import { eq } from 'drizzle-orm';
 
 const app = createApp();
 const connEnv = {
@@ -66,5 +67,60 @@ describe('POST /api/projects/:slug/members/join — project size bound', () => {
       where: (member, { eq }) => eq(member.projectId, project.id),
     });
     expect(persisted).toHaveLength(MAX_MEMBERS_PER_PROJECT);
+  });
+});
+
+describe('PATCH /api/projects/:slug/members/me — email notifications', () => {
+  it('toggles the preference without logging activity', async () => {
+    const { project } = await createProject();
+    const { member, token } = await authedMember(project.id, { email: 'a@example.com' });
+
+    const res = await app.request(`/api/projects/${project.slug}/members/me`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailNotifications: false }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      member: { emailNotifications: boolean; displayName: string };
+    };
+    expect(body.member).toMatchObject({
+      emailNotifications: false,
+      displayName: member.displayName,
+    });
+    expect(await db.select().from(activity).where(eq(activity.projectId, project.id))).toEqual([]);
+  });
+
+  it('rejects an empty update', async () => {
+    const { project } = await createProject();
+    const { token } = await authedMember(project.id);
+
+    const res = await app.request(`/api/projects/${project.slug}/members/me`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('a rename leaves the preference alone and still records activity', async () => {
+    const { project } = await createProject();
+    const { member, token } = await authedMember(project.id, { email: 'a@example.com' });
+    await db.update(members).set({ emailNotifications: false }).where(eq(members.id, member.id));
+
+    const res = await app.request(`/api/projects/${project.slug}/members/me`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Renamed' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()) as unknown).toMatchObject({
+      member: { displayName: 'Renamed', emailNotifications: false },
+    });
+    const rows = await db.select().from(activity).where(eq(activity.projectId, project.id));
+    expect(rows.map((r) => r.action)).toEqual(['member.updated']);
   });
 });

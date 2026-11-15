@@ -166,6 +166,7 @@ function projectData(items: Item[] = []): ProjectLoadResponse {
         avatarIndex: 0,
         email: 'maya@example.com',
         emailVerified: true,
+        emailNotifications: null,
         role: 'admin',
         isCreator: true,
         tosVersion: '2026-01-01',

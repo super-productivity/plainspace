@@ -206,7 +206,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  updateMember: (slug: string, data: { displayName: string }) =>
+  updateMember: (slug: string, data: { displayName?: string; emailNotifications?: boolean }) =>
     request<MemberResponse>(
       `/projects/${slug}/members/me`,
       { method: 'PATCH', body: JSON.stringify(data) },

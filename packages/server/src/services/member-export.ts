@@ -62,6 +62,7 @@ export async function buildMemberExport(project: ProjectRow, member: MemberRow) 
       displayName: member.displayName,
       email: decryptStoredEmail(member),
       emailVerified: member.emailVerified,
+      emailNotifications: member.emailNotifications,
       role: member.role,
       isCreator: member.isCreator,
       color: member.color,

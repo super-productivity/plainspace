@@ -58,6 +58,7 @@ function member(id: string, over: Partial<Member> = {}): Member {
     avatarIndex: 0,
     email: null,
     emailVerified: false,
+    emailNotifications: null,
     isCreator: false,
     role: 'member',
     tosVersion: null,
@@ -166,6 +167,12 @@ describe('member mutations', () => {
 
     updateMember(member('m1', { displayName: 'Annette' }));
     expect(state.members[0].displayName).toBe('Annette');
+  });
+
+  it('updateMember keeps the private emailNotifications pref when a broadcast nulls it', () => {
+    addMember(member('m1', { emailNotifications: false }));
+    updateMember(member('m1', { displayName: 'Ann', emailNotifications: null }));
+    expect(state.members[0]).toMatchObject({ displayName: 'Ann', emailNotifications: false });
   });
 
   it('removeMember drops the matching member', () => {

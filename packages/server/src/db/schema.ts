@@ -56,6 +56,9 @@ export const members = pgTable(
     emailIv: bytea('email_iv'),
     emailLookup: bytea('email_lookup'),
     emailVerified: boolean('email_verified').notNull().default(false),
+    // Opt-out for non-essential email (the reminder fallback). Transactional
+    // mail — verification codes, Space lists, DSA notices — ignores it.
+    emailNotifications: boolean('email_notifications').notNull().default(true),
     isCreator: boolean('is_creator').notNull().default(false),
     role: varchar('role', { length: 10 }).notNull().default('member'), // 'admin' | 'member'
     tosVersion: varchar('tos_version', { length: 20 }),

@@ -16,6 +16,7 @@ export interface Member {
   avatarIndex: number;
   email: string | null;
   emailVerified: boolean;
+  emailNotifications: boolean | null; // null unless it's the current member
   isCreator: boolean;
   role: 'admin' | 'member';
   tosVersion: string | null;

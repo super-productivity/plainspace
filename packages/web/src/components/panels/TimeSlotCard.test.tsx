@@ -24,6 +24,7 @@ function member(id: string): Member {
     avatarIndex: 0,
     email: null,
     emailVerified: false,
+    emailNotifications: null,
     isCreator: false,
     role: 'member',
     tosVersion: null,

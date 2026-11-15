@@ -12,6 +12,7 @@ const { api } = vi.hoisted(() => ({
     logoutSession: vi.fn(),
     deleteSelf: vi.fn(),
     deleteSpace: vi.fn(),
+    updateMember: vi.fn(),
   },
 }));
 
@@ -50,6 +51,7 @@ vi.mock('./SpaceDetailsControl', () => ({
 }));
 
 import MemberList from './MemberList';
+import { updateMember } from '../../lib/store';
 
 const project = {
   id: 'project-1',
@@ -69,6 +71,7 @@ const member = {
   avatarIndex: 0,
   email: null,
   emailVerified: false,
+  emailNotifications: true,
   isCreator: true,
   role: 'admin',
   tosVersion: null,
@@ -181,5 +184,31 @@ describe('MemberList progressive disclosure', () => {
     setCurrentMember({ ...member, emailVerified: true });
 
     await waitFor(() => expect(api.mySpaces).toHaveBeenCalledOnce());
+  });
+
+  it('turns off email notifications from the account section', async () => {
+    const updated = { ...member, emailVerified: true, emailNotifications: false };
+    api.updateMember.mockResolvedValue({ member: updated });
+    renderPanel(false, { ...member, emailVerified: true });
+
+    fireEvent.click(screen.getByTestId('account-toggle-button'));
+    fireEvent.click(screen.getByTestId('email-notifications-toggle'));
+
+    expect(api.updateMember).toHaveBeenCalledWith('weekend', { emailNotifications: false });
+    await waitFor(() => expect(updateMember).toHaveBeenCalledWith(updated));
+  });
+
+  it('reverts the email notifications checkbox when saving fails', async () => {
+    api.updateMember.mockRejectedValue(new Error('offline'));
+    renderPanel(false, { ...member, emailVerified: true });
+
+    fireEvent.click(screen.getByTestId('account-toggle-button'));
+    const toggle = screen.getByTestId('email-notifications-toggle') as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    expect(toggle.checked).toBe(false);
+    await waitFor(() => expect(toggle.checked).toBe(true));
+    expect(toggle.disabled).toBe(false);
+    expect(updateMember).not.toHaveBeenCalled();
   });
 });

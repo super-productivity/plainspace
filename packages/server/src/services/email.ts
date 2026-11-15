@@ -130,13 +130,15 @@ export async function sendReminderEmail(input: {
   const safeUrl = escapeHtml(input.itemUrl);
   const truncated = input.itemText.length > 60 ? input.itemText.slice(0, 57) + '…' : input.itemText;
   const subject = `Reminder: ${truncated}`;
-  const text = `Reminder for "${input.itemText}" in ${input.projectName}.\n\nOpen: ${input.itemUrl}`;
+  const optOut = 'To stop reminder emails, open the Space and turn them off under "Your account".';
+  const text = `Reminder for "${input.itemText}" in ${input.projectName}.\n\nOpen: ${input.itemUrl}\n\n${optOut}`;
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto;">
       <h2 style="color: #1a1a1a;">Reminder</h2>
       <p>${safeText}</p>
       <p style="color: #666; font-size: 14px;">in <strong>${safeProject}</strong></p>
       <a href="${safeUrl}" style="display: inline-block; background: #6c63ff; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin: 16px 0;">Open task</a>
+      <p style="color: #999; font-size: 12px;">${optOut}</p>
     </div>
   `;
 

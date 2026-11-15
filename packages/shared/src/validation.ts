@@ -265,9 +265,14 @@ export const PushSubscriptionSchema = z.object({
 
 export type PushSubscriptionInput = z.infer<typeof PushSubscriptionSchema>;
 
-export const UpdateMemberSchema = z.object({
-  displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH),
-});
+export const UpdateMemberSchema = z
+  .object({
+    displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
+    emailNotifications: z.boolean().optional(),
+  })
+  .refine((d) => d.displayName !== undefined || d.emailNotifications !== undefined, {
+    message: 'Nothing to update',
+  });
 
 export const MAX_SCRATCHPAD_CONTENT_LENGTH = 50000;
 
