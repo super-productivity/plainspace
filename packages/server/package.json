@@ -23,7 +23,7 @@
     "nanoid": "^6.0.2",
     "nodemailer": "^10.1.0",
     "postgres": "^3.4.7",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.15",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
